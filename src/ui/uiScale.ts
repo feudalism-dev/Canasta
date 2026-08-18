@@ -1,4 +1,4 @@
-/** HUD / laptop / 4K: persist a CEF-friendly zoom on the game surface. */
+/** HUD / laptop / 4K: persist card and panel size. The felt stays full-window. */
 
 export const UI_SCALE_KEY = 'cn_ui_scale'
 export const UI_SCALE_MIN = 0.7
