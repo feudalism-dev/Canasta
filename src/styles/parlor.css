@@ -738,7 +738,7 @@ select {
 }
 
 .proposed-cap {
-  margin: 0 0 calc(0.15 * var(--rem));
+  margin: 0 0 calc(0.2 * var(--rem));
   font-size: calc(0.62 * var(--rem));
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -747,8 +747,8 @@ select {
 
 .proposed-row {
   display: flex;
-  gap: calc(0.35 * var(--rem));
-  overflow-x: auto;
+  gap: calc(0.4 * var(--rem));
+  padding: calc(2px * var(--ui-scale)) 0;
 }
 
 .proposed-set {
@@ -759,8 +759,8 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: calc(0.1 * var(--rem));
-  padding: calc(0.15 * var(--rem));
+  gap: calc(0.15 * var(--rem));
+  padding: calc(0.28 * var(--rem)) calc(0.3 * var(--rem)) calc(0.2 * var(--rem));
   font-size: calc(0.62 * var(--rem));
 }
 
@@ -770,6 +770,18 @@ select {
 
 .proposed-set.is-short {
   border-color: rgba(194, 59, 59, 0.7);
+}
+
+.proposed-spread {
+  display: flex;
+}
+
+.proposed-spread .cn-card {
+  margin-right: calc(-22px * var(--ui-scale));
+}
+
+.proposed-spread .cn-card:last-child {
+  margin-right: 0;
 }
 
 .meter {

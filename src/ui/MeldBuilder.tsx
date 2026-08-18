@@ -49,6 +49,7 @@ export function MeldBuilder({
       : []
   const one = selected.length === 1 && groups.length === 1
   const canDiscard = one && state.phase === 'awaitingPlay' && state.currentPlayer === localIndex
+  const showStaging = !team.hasInitialMeld && selected.length >= 2
   const meldLabel = !inspected.length
     ? 'Meld'
     : inspected.length === 1 && inspected[0]!.rank
@@ -67,9 +68,9 @@ export function MeldBuilder({
         </strong>
         {team.hasInitialMeld ? <em>Met</em> : null}
       </div>
-      {inspected.length > 0 ? (
+      {showStaging ? (
         <div className="proposed">
-          <p className="proposed-cap">{team.hasInitialMeld ? 'Ready to lay' : 'Private — others cannot see this'}</p>
+          <p className="proposed-cap">Private — others cannot see this</p>
           <div className="proposed-row">
             {inspected.map((g, i) => (
               <button
@@ -79,9 +80,9 @@ export function MeldBuilder({
                 onClick={() => onDropGroup(i)}
                 title="Remove this set"
               >
-                <div className="open-spread">
+                <div className="proposed-spread">
                   {g.cards.slice(0, 4).map((c) => (
-                    <CardView key={c.id} card={c} size="sm" selected />
+                    <CardView key={c.id} card={c} size="sm" />
                   ))}
                 </div>
                 <span>
@@ -108,7 +109,7 @@ export function MeldBuilder({
           Clear
         </button>
       </div>
-      {!team.hasInitialMeld && selected.length > 0 && !canMeld ? (
+      {!team.hasInitialMeld && showStaging && !canMeld ? (
         <p className="hint">
           {allComplete
             ? `Need ${need}; these sets are ${pts}. Add another set, or Clear — nothing is on the table yet.`
