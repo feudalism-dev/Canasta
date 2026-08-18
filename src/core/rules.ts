@@ -16,6 +16,7 @@ import {
   canastaKind,
   closeIfNeeded,
   inferMeldRank,
+  meldAcceptsAdds,
   meldIsCanasta,
   partitionMeldCards,
   planOpeningMeldGroups,
@@ -53,7 +54,7 @@ export function pileFrozenFor(state: MatchState, playerIndex: number): boolean {
 }
 
 function existingOpenMeld(team: TeamState, rank: MeldRank, config: MatchState['config']): Meld | undefined {
-  return team.melds.find((m) => m.rank === rank && !(config.booksCloseAtSeven && m.closed))
+  return team.melds.find((m) => m.rank === rank && meldAcceptsAdds(m, config))
 }
 
 export function claimCardsForPile(state: MatchState, playerIndex: number): string[] | null {
@@ -476,7 +477,7 @@ function packsFromMeldMove(
 }
 
 function openMeldOf(melds: Meld[], rank: MeldRank, config: MatchState['config']): Meld | undefined {
-  return melds.find((m) => m.rank === rank && !(config.booksCloseAtSeven && m.closed))
+  return melds.find((m) => m.rank === rank && meldAcceptsAdds(m, config))
 }
 
 function previewMeldsAfterPacks(

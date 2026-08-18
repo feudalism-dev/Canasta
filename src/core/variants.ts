@@ -42,7 +42,7 @@ export function variantConfig(
     playTo: null,
     rounds: 4,
     canastaSize: 7,
-    canastaMayExceed: false,
+    canastaMayExceed: house.addToClosedBooks,
     maxWildsPerMeld: 7,
     minNaturalsToStart: 2,
     minNaturalsForDirtyBook: 4,
@@ -53,7 +53,7 @@ export function variantConfig(
     requireDiscardToGoOut: true,
     goingOutNeedsCanasta: false,
     concealedBonus: false,
-    house: { ...house },
+    house: { ...DEFAULT_HOUSE, ...house },
   }
 }
 

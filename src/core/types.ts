@@ -7,6 +7,8 @@ export type HouseRules = {
   goingOutDirty: number
   wildBooksAllowed: boolean
   partnerConsent: boolean
+  /** Hand and Foot: keep adding matching cards after a book hits seven. */
+  addToClosedBooks: boolean
 }
 
 export const DEFAULT_HOUSE: HouseRules = {
@@ -14,6 +16,7 @@ export const DEFAULT_HOUSE: HouseRules = {
   goingOutDirty: 1,
   wildBooksAllowed: true,
   partnerConsent: true,
+  addToClosedBooks: false,
 }
 
 export type VariantConfig = {

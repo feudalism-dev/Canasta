@@ -3,6 +3,7 @@ import './styles/parlor.css'
 import { AppChrome } from './ui/AppChrome'
 import { GameBoard } from './ui/GameBoard'
 import { HowToPlay } from './ui/HowToPlay'
+import { HandAndFootHouseFields } from './ui/HouseFields'
 import { ParkedHud } from './ui/ParkedHud'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { ToastManager, useToasts } from './ui/ToastManager'
@@ -210,8 +211,11 @@ function AppInner() {
           setLocal(null)
           slMatchKind.current = 'mp'
         }}
+        house={house}
+        onHouse={setHouse}
         onHostStartMp={() => {
           peer?.setVariant(variant)
+          peer?.setHouse(house)
           peer?.startMatch()
           setTick((t) => t + 1)
         }}
@@ -287,32 +291,7 @@ function AppInner() {
               <option value="sharp">Sharp</option>
             </select>
           </label>
-          {variant === 'handAndFoot' ? (
-            <>
-              <label>
-                Books to go out
-                <select
-                  value={`${house.goingOutClean}-${house.goingOutDirty}`}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    if (v === '2-2') setHouse({ ...house, goingOutClean: 2, goingOutDirty: 2 })
-                    else setHouse({ ...house, goingOutClean: 1, goingOutDirty: 1 })
-                  }}
-                >
-                  <option value="1-1">1 clean + 1 dirty</option>
-                  <option value="2-2">2 clean + 2 dirty</option>
-                </select>
-              </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={house.wildBooksAllowed}
-                  onChange={(e) => setHouse({ ...house, wildBooksAllowed: e.target.checked })}
-                />
-                Allow wild books (+1500)
-              </label>
-            </>
-          ) : null}
+          {variant === 'handAndFoot' ? <HandAndFootHouseFields house={house} onChange={setHouse} /> : null}
           <button type="button" className="btn primary" onClick={() => void startLocal()}>
             Deal
           </button>

@@ -72,7 +72,7 @@ export function validateMeldCards(cards: Card[], rank: MeldRank, config: Variant
   if (rank === 'WILD') {
     if (!config.house.wildBooksAllowed) return 'Wild books are not allowed'
     if (!cards.every((c) => isWild(c))) return 'A wild book is only 2s and jokers'
-    if (config.booksCloseAtSeven && cards.length > config.canastaSize) return 'A book cannot exceed seven'
+    if (bookIsCappedAtSeven(config) && cards.length > config.canastaSize) return 'A book cannot exceed seven'
     return null
   }
   if (rank === '3') {
@@ -89,7 +89,7 @@ export function validateMeldCards(cards: Card[], rank: MeldRank, config: Variant
   }
   if (naturals.length < 2) return 'A meld needs at least two natural cards'
   if (wilds.length > config.maxWildsPerMeld) return `At most ${config.maxWildsPerMeld} wilds in a meld`
-  if (config.booksCloseAtSeven && cards.length > config.canastaSize) return 'A book cannot exceed seven'
+  if (bookIsCappedAtSeven(config) && cards.length > config.canastaSize) return 'A book cannot exceed seven'
   return null
 }
 
@@ -208,6 +208,15 @@ export function planOpeningMeldGroups(hand: Card[], config: VariantConfig, need:
   return groups
 }
 
+export function bookIsCappedAtSeven(config: VariantConfig): boolean {
+  return config.booksCloseAtSeven && !config.house.addToClosedBooks
+}
+
+export function meldAcceptsAdds(meld: Meld, config: VariantConfig): boolean {
+  if (!config.booksCloseAtSeven || !meld.closed) return true
+  return config.house.addToClosedBooks
+}
+
 export function wouldClose(meld: Meld, adding: number, config: VariantConfig): boolean {
   const n = meld.cards.length + adding
   if (!config.booksCloseAtSeven) return n >= config.canastaSize && meld.closed
@@ -216,9 +225,9 @@ export function wouldClose(meld: Meld, adding: number, config: VariantConfig): b
 
 export function canAddCards(meld: Meld, cards: Card[], config: VariantConfig): string | null {
   if (cards.length === 0) return 'Select cards to add'
-  if (config.booksCloseAtSeven && meld.closed) return 'That book is already closed'
+  if (!meldAcceptsAdds(meld, config)) return 'That book is already closed'
   const combined = [...meld.cards, ...cards]
-  if (config.booksCloseAtSeven && combined.length > config.canastaSize) return 'A book cannot exceed seven'
+  if (bookIsCappedAtSeven(config) && combined.length > config.canastaSize) return 'A book cannot exceed seven'
   if (meld.rank === 'WILD') {
     if (!cards.every((c) => isWild(c))) return 'Only wilds can join a wild book'
     return validateMeldCards(combined, 'WILD', config)
@@ -232,7 +241,7 @@ export function canAddCards(meld: Meld, cards: Card[], config: VariantConfig): s
   if (wilds > config.maxWildsPerMeld) return `At most ${config.maxWildsPerMeld} wilds in a meld`
   const naturals = combined.filter((c) => !isWild(c)).length
   if (naturals < 2) return 'A meld needs at least two natural cards'
-  if (config.booksCloseAtSeven && combined.length === config.canastaSize) {
+  if (config.booksCloseAtSeven && combined.length >= config.canastaSize) {
     const dirtyNaturals = combined.filter((c) => !isWild(c)).length
     if (wilds > 0 && dirtyNaturals < config.minNaturalsForDirtyBook) {
       return 'A dirty book needs at least four natural cards'

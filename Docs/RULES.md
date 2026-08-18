@@ -69,7 +69,7 @@ Four rounds, then highest total wins. Round initial-meld minimums: **50 / 90 / 1
 
 **Black threes:** Stop discards. Not melded. Worth 5 (against you if left in hand).
 
-**Books:** Close at exactly seven. Clean / red (no wilds) +500. Dirty / black (wilds, at least four naturals) +300. You may not add to a closed book.
+**Books:** Close at exactly seven. Clean / red (no wilds) +500. Dirty / black (wilds, at least four naturals) +300. You may not add to a closed book unless the house toggle is on.
 
 **Wild books:** Seven wilds, **allowed by default**, +1500. House toggle can forbid them.
 
@@ -86,5 +86,6 @@ House toggle: require **two clean and two dirty** instead of 1+1.
 - Books to go out: 1 clean + 1 dirty (default) or 2 + 2
 - Wild books allowed (default on)
 - Partner must consent to go out (default on; ignored in 1v1)
+- Add to closed books (default off). When on, leftover matching cards may join a finished seven-card book. The book still scores as one clean or dirty canasta; extra cards count as card points.
 
 Classic Canasta v1 has no house toggles. Modern American Canasta is deferred.

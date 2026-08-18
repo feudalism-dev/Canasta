@@ -367,6 +367,44 @@ describe('Hand and Foot', () => {
     expect(s.config.house.goingOutClean).toBe(2)
     expect(s.config.house.goingOutDirty).toBe(2)
   })
+
+  it('does not add to a closed book by default', () => {
+    const s = createMatch({ variant: 'handAndFoot', names: ['A', 'B'], humans: [true, true], seed: 4 })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [{ rank: 'K', cards: kings(7), closed: true }]
+    forceHands(
+      s,
+      [kings(1, 20).concat(fillLow(12, 80)), fillLow(13, 200)],
+      [makeCard(99, 'H', '9', 0)],
+      fillLow(40, 300),
+    )
+    s.phase = 'awaitingPlay'
+    const id = s.players[0]!.hand.find((c) => c.rank === 'K')!.id
+    const res = tryApply(s, { kind: 'addToMeld', meldIndex: 0, cardIds: [id] }, 0)
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/closed|exceed/)
+  })
+
+  it('adds leftover cards to a closed book when the house rule is on', () => {
+    const s = createMatch({
+      variant: 'handAndFoot',
+      names: ['A', 'B'],
+      humans: [true, true],
+      seed: 4,
+      house: { ...DEFAULT_HOUSE, addToClosedBooks: true },
+    })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [{ rank: 'K', cards: kings(7), closed: true }]
+    const extra = kings(2, 20)
+    forceHands(s, [extra.concat(fillLow(11, 80)), fillLow(13, 200)], [makeCard(99, 'H', '9', 0)], fillLow(40, 300))
+    s.phase = 'awaitingPlay'
+    const ids = s.players[0]!.hand.filter((c) => c.rank === 'K').map((c) => c.id)
+    const res = tryApply(s, { kind: 'addToMeld', meldIndex: 0, cardIds: ids }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.teams[0]!.melds[0]!.cards).toHaveLength(9)
+    expect(s.teams[0]!.melds[0]!.closed).toBe(true)
+    expect(teamCanastaCounts(s.teams[0]!.melds, 7).clean).toBe(1)
+  })
 })
 
 describe('going out and scoring', () => {

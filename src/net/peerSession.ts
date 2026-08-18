@@ -55,6 +55,7 @@ export type PeerSession = {
   onChange: (cb: () => void) => () => void
   setReady: (ready: boolean) => void
   setVariant: (v: Variant) => void
+  setHouse: (house: HouseRules) => void
   startMatch: () => void
   submit: (move: GameMove) => void
   destroy: () => void
@@ -109,7 +110,7 @@ function buildSession(
       ? new Set(opts.allowedAvatarUids.map((u) => u.toLowerCase()))
       : null
   let variant: Variant = opts && 'variant' in opts && opts.variant ? opts.variant : 'canasta'
-  const house: HouseRules = opts && 'house' in opts && opts.house ? opts.house : DEFAULT_HOUSE
+  let house: HouseRules = opts && 'house' in opts && opts.house ? { ...DEFAULT_HOUSE, ...opts.house } : { ...DEFAULT_HOUSE }
   let seats: LobbySeat[] = [
     {
       id: localId,
@@ -286,6 +287,10 @@ function buildSession(
       variant = v
       broadcast({ t: 'variant', variant })
       syncLobby()
+    },
+    setHouse(next) {
+      if (!isHost) return
+      house = { ...DEFAULT_HOUSE, ...next }
     },
     startMatch() {
       if (!isHost) {

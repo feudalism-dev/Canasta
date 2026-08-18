@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Variant } from '../core/types'
+import type { HouseRules, Variant } from '../core/types'
+import { HandAndFootHouseFields } from './HouseFields'
 import type { SlBootstrap } from '../sl/bootstrap'
 import {
   tableCreate,
@@ -22,6 +23,8 @@ type Props = {
   onVariant: (v: Variant) => void
   partnership: boolean
   onPartnership: (v: boolean) => void
+  house: HouseRules
+  onHouse: (house: HouseRules) => void
   onStartSolo: () => void | Promise<void>
   onCreatedMp: (roomCode: string, tableStatus: TableStatus) => void | Promise<void>
   onJoinedMp: (roomCode: string, tableStatus: TableStatus) => void | Promise<void>
@@ -46,6 +49,8 @@ export function SlTableScreens({
   onVariant,
   partnership,
   onPartnership,
+  house,
+  onHouse,
   onStartSolo,
   onCreatedMp,
   onJoinedMp,
@@ -165,6 +170,7 @@ export function SlTableScreens({
           <input type="checkbox" checked={partnership} onChange={(e) => onPartnership(e.target.checked)} />
           Solo with AI partner (4 hands)
         </label>
+        {variant === 'handAndFoot' ? <HandAndFootHouseFields house={house} onChange={onHouse} /> : null}
         <button
           type="button"
           className="btn primary"
