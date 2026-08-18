@@ -55,7 +55,7 @@ export function GameBoard({
   const partner = state.players.find((p, i) => p.team === myTeam && i !== localIndex)
 
   return (
-    <div className="table-root">
+    <div className={`table-root ${myTurn ? 'is-my-turn' : ''}`}>
       <div className="table-felt" />
       <div className="table-brass" />
 
@@ -83,19 +83,30 @@ export function GameBoard({
         </button>
       </header>
 
-      <p className="coach">{aiThinking ? 'The table is thinking…' : coach}</p>
+      <p className={`turn-banner ${myTurn ? 'is-you' : 'is-other'}`}>
+        {aiThinking
+          ? `${state.players[state.currentPlayer]!.displayName}'s turn`
+          : myTurn && state.phase === 'awaitingDraw'
+            ? 'Your turn to draw'
+            : myTurn && state.phase === 'awaitingPlay'
+              ? 'Your turn — meld or discard'
+              : `${state.players[state.currentPlayer]!.displayName}'s turn`}
+      </p>
+      <p className="coach">{aiThinking ? `${state.players[state.currentPlayer]!.displayName} is thinking…` : coach}</p>
 
-      <div className="opponents">
-        {state.players.map((p, i) =>
-          i === localIndex ? null : (
-            <div key={p.seat} className={`opp ${state.currentPlayer === i ? 'is-turn' : ''} ${p.team === myTeam ? 'is-partner' : ''}`}>
-              <strong>{p.displayName}</strong>
-              <span>{p.hand.length} in hand</span>
-              {state.config.footSize > 0 ? <span>{p.footPickedUp ? 'Foot open' : 'Foot sealed'}</span> : null}
-              {p.team === myTeam ? <em>Partner</em> : <em>Opp</em>}
-            </div>
-          ),
-        )}
+      <div className="seats">
+        {state.players.map((p, i) => (
+          <div
+            key={p.seat}
+            className={`seat ${state.currentPlayer === i ? 'is-turn' : ''} ${p.team === myTeam ? 'is-partner' : ''} ${i === localIndex ? 'is-you' : ''}`}
+          >
+            <strong>{i === localIndex ? 'You' : p.displayName}</strong>
+            {state.currentPlayer === i ? <span className="turn-pill">Turn</span> : null}
+            <span>{p.hand.length} in hand</span>
+            {state.config.footSize > 0 ? <span>{p.footPickedUp ? 'Foot open' : 'Foot sealed'}</span> : null}
+            {i === localIndex ? <em>You</em> : p.team === myTeam ? <em>Partner</em> : <em>Opp</em>}
+          </div>
+        ))}
       </div>
 
       <MeldTray
@@ -105,7 +116,7 @@ export function GameBoard({
         redThrees={state.teams[otherTeam]!.redThrees.length}
       />
 
-      <Piles state={state} localIndex={localIndex} onDraw={onDraw} onTakePile={onTakePile} />
+      <Piles state={state} localIndex={localIndex} selectedIds={selectedIds} onDraw={onDraw} onTakePile={onTakePile} />
 
       <MeldTray
         title={partner ? `Our books · with ${partner.displayName}` : 'Our books'}

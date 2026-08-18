@@ -2,7 +2,7 @@ import { pickAiMove } from '../ai/heuristic'
 import type { AiDifficulty } from '../ai/heuristic'
 import { createMatch } from '../core/state'
 import { forcePass, getLegalMoves, tryApply } from '../core/rules'
-import type { GameMove, HouseRules, MatchState, Variant } from '../core/types'
+import type { ApplyResult, GameMove, HouseRules, MatchState, Variant } from '../core/types'
 import { DEFAULT_HOUSE } from '../core/types'
 
 export type LocalControllers = {
@@ -10,7 +10,7 @@ export type LocalControllers = {
   localIndex: number
   log: string[]
   aiThinking: boolean
-  submit: (move: GameMove) => void
+  submit: (move: GameMove) => ApplyResult
   onChange: (cb: () => void) => () => void
   destroy: () => void
 }
@@ -126,11 +126,12 @@ export function startSolo(
       if (!res.ok) {
         pushLog(res.error)
         notify()
-        return
+        return res
       }
       pushLog(state.lastMessage)
       notify()
       void pumpAi()
+      return { ok: true as const }
     },
     onChange(cb) {
       listeners.add(cb)

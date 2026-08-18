@@ -5,6 +5,7 @@ import {
   isRedThree,
   isWild,
   meldCountPoints,
+  rankLabel,
   sortHand,
   takeCards,
   type Card,
@@ -73,23 +74,66 @@ export function claimCardsForPile(state: MatchState, playerIndex: number): strin
   return null
 }
 
-export function takePileLegal(state: MatchState, playerIndex: number, cardIds: string[]): ApplyResult {
+type PileTakeParts = {
+  claimFromHand: Card[]
+  extraMelds: Card[][]
+  rest: Card[]
+}
+
+function groupExtraMelds(cards: Card[], config: MatchState['config']): { groups: Card[][]; error: string | null } {
+  const wilds = cards.filter(isWild)
+  const byRank = new Map<string, Card[]>()
+  for (const c of cards) {
+    if (isWild(c) || isRedThree(c)) continue
+    const list = byRank.get(c.rank) ?? []
+    list.push(c)
+    byRank.set(c.rank, list)
+  }
+  const groups: Card[][] = []
+  let wildLeft = [...wilds]
+  for (const [, naturals] of byRank) {
+    if (naturals.length >= 3) {
+      groups.push([...naturals])
+    } else if (naturals.length === 2 && wildLeft.length >= 1) {
+      groups.push([...naturals, wildLeft.shift()!])
+    } else if (naturals.length === 2) {
+      return { groups: [], error: 'Need a third card or a wild for that extra meld.' }
+    } else if (naturals.length === 1) {
+      return { groups: [], error: 'Extra cards must be complete melds (at least three).' }
+    }
+  }
+  if (wildLeft.length >= 3 && config.house.wildBooksAllowed) {
+    groups.push(wildLeft)
+    wildLeft = []
+  }
+  if (wildLeft.length) return { groups: [], error: 'Those extra wilds do not make a meld.' }
+  for (const g of groups) {
+    const rank = inferMeldRank(g)
+    if (!rank) return { groups: [], error: 'Those extra cards are not a meld.' }
+    const err = validateMeldCards(g, rank, config)
+    if (err) return { groups: [], error: err }
+  }
+  return { groups, error: null }
+}
+
+function inspectPileTake(state: MatchState, playerIndex: number, cardIds: string[]): ApplyResult & { parts?: PileTakeParts } {
   if (state.phase !== 'awaitingDraw') return { ok: false, error: 'It is not time to draw.' }
   if (playerIndex !== state.currentPlayer) return { ok: false, error: 'Not your turn.' }
   if (pileIsStopped(state)) return { ok: false, error: 'The discard pile cannot be taken.' }
   const top = peekDiscard(state)!
   const player = state.players[playerIndex]!
   const team = state.teams[player.team]!
-  const { taken, missing } = takeCards(player.hand, cardIds)
+  const { taken, rest, missing } = takeCards(player.hand, cardIds)
   if (missing.length) return { ok: false, error: 'Those cards are not in your hand.' }
   const naturals = taken.filter((c) => c.rank === top.rank && !isWild(c))
   const wilds = taken.filter((c) => isWild(c))
-  const extras = taken.filter((c) => !naturals.includes(c) && !wilds.includes(c))
-  if (extras.length) return { ok: false, error: 'Only cards that claim the top discard may be used to take the pile.' }
+  const others = taken.filter((c) => !naturals.includes(c) && !wilds.includes(c))
   const frozen = pileFrozenFor(state, playerIndex)
   const existing = existingOpenMeld(team, top.rank as MeldRank)
   if (frozen || state.config.takePileNeedsTwoNaturalsAlways) {
-    if (naturals.length < 2) return { ok: false, error: `Need two ${top.rank}s to take the pile.` }
+    if (naturals.length < 2) {
+      return { ok: false, error: `Need two ${rankLabel(top.rank)}s to take the pile.` }
+    }
   } else if (naturals.length === 1 && existing) {
     /* ok — add top to existing */
   } else if (naturals.length === 1 && wilds.length >= 1) {
@@ -97,26 +141,132 @@ export function takePileLegal(state: MatchState, playerIndex: number, cardIds: s
   } else if (naturals.length >= 2) {
     /* ok */
   } else {
-    return { ok: false, error: 'Cannot take the pile with those cards.' }
+    return { ok: false, error: `Need ${rankLabel(top.rank)}s to take the pile.` }
   }
-  const claiming = [...naturals, ...wilds, top]
+  let claimWilds = [...wilds]
+  let extraCards = [...others]
+  let handRest = [...rest]
+  if (team.hasInitialMeld) {
+    extraCards = []
+    claimWilds = naturals.length === 1 && !existing ? wilds.slice(0, 1) : []
+    const unusedWilds = wilds.filter((c) => !claimWilds.includes(c))
+    handRest.push(...others, ...unusedWilds)
+  }
+  const claimFromHand = [...naturals, ...claimWilds]
+  const claiming = existing ? [...naturals, ...claimWilds, top] : [...claimFromHand, top]
   if (!existing) {
     const rank = inferMeldRank(claiming)
     if (!rank) return { ok: false, error: 'Those cards do not form a meld with the top card.' }
     const err = validateMeldCards(claiming, rank, state.config)
     if (err) return { ok: false, error: err }
   } else {
-    const err = canAddCards(existing, [...naturals, ...wilds, top], state.config)
+    const err = canAddCards(existing, [...naturals, ...claimWilds, top], state.config)
     if (err) return { ok: false, error: err }
   }
+  const leftoverWilds = team.hasInitialMeld ? [] : wilds.filter((c) => !claimWilds.includes(c))
+  const extraPack = [...extraCards, ...leftoverWilds]
+  const grouped = extraPack.length ? groupExtraMelds(extraPack, state.config) : { groups: [] as Card[][], error: null }
+  if (grouped.error) return { ok: false, error: grouped.error }
   if (!team.hasInitialMeld) {
-    const count = claiming.reduce((n, c) => n + meldCountPoints(c), 0)
+    const laid = [...claiming, ...grouped.groups.flat()]
+    const count = laid.reduce((n, c) => n + meldCountPoints(c), 0)
     const need = initialMeldMinimum(state.config, team.score, state.round)
     if (count < need) {
-      return { ok: false, error: `Initial meld needs ${need}; this play is ${count}.` }
+      return {
+        ok: false,
+        error: `Initial meld needs ${need}; ${rankLabel(top.rank)}s plus these cards are ${count}. Select more cards to put down, then click the pile.`,
+      }
     }
   }
-  return { ok: true }
+  return { ok: true, parts: { claimFromHand, extraMelds: grouped.groups, rest: handRest } }
+}
+
+function autoFillPileExtras(state: MatchState, playerIndex: number, claimIds: string[]): string[] | null {
+  if (inspectPileTake(state, playerIndex, claimIds).ok) return claimIds
+  const player = state.players[playerIndex]!
+  const top = peekDiscard(state)
+  if (!top) return null
+  const used = new Set(claimIds)
+  const ids = [...claimIds]
+  const remaining = () => player.hand.filter((c) => !used.has(c.id))
+  const keepIfProgress = (card: Card): boolean => {
+    used.add(card.id)
+    ids.push(card.id)
+    const r = inspectPileTake(state, playerIndex, ids)
+    if (r.ok) return true
+    if (r.error.includes('Initial meld needs')) return false
+    used.delete(card.id)
+    ids.pop()
+    return false
+  }
+  for (const c of remaining()) {
+    if (c.rank === top.rank && !isWild(c) && keepIfProgress(c)) return ids
+  }
+  for (const c of remaining()) {
+    if (isWild(c) && keepIfProgress(c)) return ids
+  }
+  const byRank = new Map<string, Card[]>()
+  for (const c of remaining()) {
+    if (isWild(c) || isRedThree(c) || c.rank === top.rank) continue
+    const list = byRank.get(c.rank) ?? []
+    list.push(c)
+    byRank.set(c.rank, list)
+  }
+  const groups = [...byRank.values()]
+    .filter((g) => g.length >= 3)
+    .sort((a, b) => b.reduce((n, c) => n + meldCountPoints(c), 0) - a.reduce((n, c) => n + meldCountPoints(c), 0))
+  for (const g of groups) {
+    for (const c of g.slice(0, 3)) {
+      used.add(c.id)
+      ids.push(c.id)
+    }
+    if (inspectPileTake(state, playerIndex, ids).ok) return ids
+    for (const c of g.slice(3)) {
+      if (keepIfProgress(c)) return ids
+    }
+  }
+  const pairs = [...byRank.values()].filter((g) => g.length === 2)
+  const spareWilds = remaining().filter(isWild)
+  for (const g of pairs) {
+    if (!spareWilds.length) break
+    const w = spareWilds.shift()!
+    used.add(g[0]!.id)
+    used.add(g[1]!.id)
+    used.add(w.id)
+    ids.push(g[0]!.id, g[1]!.id, w.id)
+    if (inspectPileTake(state, playerIndex, ids).ok) return ids
+  }
+  return inspectPileTake(state, playerIndex, ids).ok ? ids : null
+}
+
+/** Hand cards to lay with the top discard. Adds extra melds from hand when the first meld is short. */
+export function planPileTake(state: MatchState, playerIndex: number, preferIds: string[] = []): ApplyResult & { cardIds?: string[] } {
+  const claim = claimCardsForPile(state, playerIndex)
+  const top = peekDiscard(state)
+  if (!claim) {
+    if (!top) return { ok: false, error: 'The discard pile is empty.' }
+    if (pileIsStopped(state)) return { ok: false, error: 'The discard pile cannot be taken.' }
+    if (pileFrozenFor(state, playerIndex)) {
+      return { ok: false, error: `Need two ${rankLabel(top.rank)}s to take the frozen pile.` }
+    }
+    return { ok: false, error: `Need ${rankLabel(top.rank)}s to take the pile.` }
+  }
+  const preferred = preferIds.filter((id) => !claim.includes(id))
+  if (preferred.length) {
+    const withSel = [...claim, ...preferred]
+    const sel = inspectPileTake(state, playerIndex, withSel)
+    if (sel.ok) return { ok: true, cardIds: withSel }
+  }
+  const filled = autoFillPileExtras(state, playerIndex, claim)
+  if (filled) return { ok: true, cardIds: filled }
+  const fail = inspectPileTake(state, playerIndex, preferred.length ? [...claim, ...preferred] : claim)
+  if (fail.ok) return { ok: true, cardIds: claim }
+  return { ok: false, error: fail.error }
+}
+
+export function takePileLegal(state: MatchState, playerIndex: number, cardIds: string[]): ApplyResult {
+  const check = inspectPileTake(state, playerIndex, cardIds)
+  return check.ok ? { ok: true } : { ok: false, error: check.error }
 }
 
 function layClaim(state: MatchState, playerIndex: number, fromHand: Card[], top: Card): void {
@@ -259,18 +409,24 @@ function applyDrawStock(state: MatchState, playerIndex: number): ApplyResult {
 }
 
 function applyTakePile(state: MatchState, playerIndex: number, cardIds: string[]): ApplyResult {
-  const check = takePileLegal(state, playerIndex, cardIds)
-  if (!check.ok) return check
+  const check = inspectPileTake(state, playerIndex, cardIds)
+  if (!check.ok || !check.parts) return check
   const player = state.players[playerIndex]!
   player.concealedEligible = !player.meldedThisHand
   const top = peekDiscard(state)!
-  const { taken, rest } = takeCards(player.hand, cardIds)
+  const { claimFromHand, extraMelds, rest } = check.parts
   player.hand = rest
   const pile = state.discard
   const pileSize = pile.length
   state.discard = []
   state.discardFrozen = false
-  layClaim(state, playerIndex, taken, top)
+  layClaim(state, playerIndex, claimFromHand, top)
+  for (const cards of extraMelds) {
+    const rank = inferMeldRank(cards)
+    if (!rank) continue
+    const meld: Meld = closeIfNeeded({ rank, cards, closed: false }, state.config)
+    state.teams[player.team]!.melds.push(meld)
+  }
   const buried = pile.filter((c) => c.id !== top.id)
   player.hand.push(...buried)
   flushRedThrees(state, playerIndex, false)
@@ -515,8 +671,8 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
   if (playerIndex !== state.currentPlayer) return moves
   if (state.phase === 'awaitingDraw') {
     moves.push({ kind: 'drawStock' })
-    const claim = claimCardsForPile(state, playerIndex)
-    if (claim) moves.push({ kind: 'takePile', cardIds: claim })
+    const plan = planPileTake(state, playerIndex)
+    if (plan.ok && plan.cardIds) moves.push({ kind: 'takePile', cardIds: plan.cardIds })
     return moves
   }
   if (state.phase !== 'awaitingPlay') return moves
@@ -583,10 +739,10 @@ export function legalHandIndexes(state: MatchState, playerIndex: number): Set<nu
   const set = new Set<number>()
   if (!player) return set
   if (state.phase === 'awaitingDraw' && playerIndex === state.currentPlayer) {
-    const claim = claimCardsForPile(state, playerIndex)
-    if (claim) {
+    const plan = planPileTake(state, playerIndex)
+    if (plan.ok && plan.cardIds) {
       player.hand.forEach((c, i) => {
-        if (claim.includes(c.id)) set.add(i)
+        if (plan.cardIds!.includes(c.id)) set.add(i)
       })
     }
     return set

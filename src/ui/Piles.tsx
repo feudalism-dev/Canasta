@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { isWild, rankLabel } from '../core/cards'
-import { claimCardsForPile, peekDiscard, pileIsStopped } from '../core/rules'
+import { peekDiscard, pileIsStopped, planPileTake } from '../core/rules'
 import type { MatchState } from '../core/types'
 import { CardView } from './CardView'
 import { assets } from './assets'
@@ -8,30 +8,33 @@ import { assets } from './assets'
 type Props = {
   state: MatchState
   localIndex: number
+  selectedIds: Set<string>
   onDraw: () => void
   onTakePile: () => void
 }
 
-export function Piles({ state, localIndex, onDraw, onTakePile }: Props) {
+export function Piles({ state, localIndex, selectedIds, onDraw, onTakePile }: Props) {
   const top = peekDiscard(state)
   const stopped = pileIsStopped(state)
-  const claim = claimCardsForPile(state, localIndex)
   const myDraw = state.phase === 'awaitingDraw' && state.currentPlayer === localIndex
   const me = state.players[localIndex]!
   const freeze = state.discardFrozen
   const sideways = Boolean(top && (isWild(top) || freeze))
+  const plan = myDraw ? planPileTake(state, localIndex, [...selectedIds]) : { ok: false as const, error: '' }
+  const canTake = Boolean(plan.ok)
 
   return (
     <div className="piles">
       <button type="button" className="pile-slot" onClick={onDraw} disabled={!myDraw}>
         <span className="pile-label">Stock · {state.stock.length}</span>
         <CardView facedown size="lg" />
+        {myDraw ? <span className="preview">Draw</span> : null}
       </button>
       <button
         type="button"
-        className={`pile-slot discard ${claim && myDraw ? 'can-take' : ''} ${freeze ? 'is-frozen' : ''}`}
+        className={`pile-slot discard ${canTake ? 'can-take' : ''} ${freeze ? 'is-frozen' : ''}`}
         onClick={onTakePile}
-        disabled={!myDraw || !claim}
+        disabled={!myDraw || stopped}
       >
         <span className="pile-label">
           Discard · {state.discard.length}
@@ -50,8 +53,14 @@ export function Piles({ state, localIndex, onDraw, onTakePile }: Props) {
         ) : (
           <div className="pile-empty">Empty</div>
         )}
-        {claim && myDraw && top ? (
-          <span className="preview">Take {state.discard.length} · need {rankLabel(top.rank)}s</span>
+        {myDraw && top && !stopped ? (
+          <span className="preview">
+            {canTake
+              ? `Take ${state.discard.length} · ${rankLabel(top.rank)}s`
+              : freeze
+                ? `Frozen ${rankLabel(top.rank)} — click for why`
+                : `Click to take if legal`}
+          </span>
         ) : null}
       </button>
       {state.config.footSize > 0 ? (

@@ -43,19 +43,21 @@ export function CardView({
     .filter(Boolean)
     .join(' ')
 
+  const Tag = onClick ? 'button' : 'div'
+  const clickProps = onClick ? { type: 'button' as const, onClick } : {}
+
   if (facedown || !card) {
     return (
-      <button type="button" className={cls} onClick={onClick} aria-label="Facedown card">
+      <Tag className={cls} {...clickProps} aria-label="Facedown card">
         <span className="cn-card-back" style={{ backgroundImage: `url(${assets.cardBack})` }} />
-      </button>
+      </Tag>
     )
   }
 
   return (
-    <button
-      type="button"
+    <Tag
       className={cls}
-      onClick={onClick}
+      {...clickProps}
       aria-label={`${rankLabel(card.rank)} of ${card.suit}`}
     >
       <span className="cn-card-corner tl">
@@ -68,6 +70,6 @@ export function CardView({
         <i>{pip}</i>
       </span>
       {stamp ? <span className="cn-stamp">{stamp === 'clean' ? 'CLEAN' : stamp === 'dirty' ? 'DIRTY' : 'WILD'}</span> : null}
-    </button>
+    </Tag>
   )
 }

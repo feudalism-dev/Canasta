@@ -25,6 +25,10 @@ const PAGES: Page[] = [
         <ul>
           <li>Canasta draws <strong>one</strong>. Hand and Foot draws <strong>two</strong>.</li>
           <li>A frozen pile (or any Hand and Foot pile) needs <strong>two natural cards</strong> of the top rank.</li>
+          <li>
+            Those cards plus the top discard must also meet the <strong>initial meld</strong> (usually 50).
+            Clicking the pile lays extra sets from your hand if needed.
+          </li>
           <li>Red threes fly to the bonus tray automatically.</li>
         </ul>
       </>

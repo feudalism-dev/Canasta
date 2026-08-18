@@ -150,6 +150,47 @@ describe('discard pile', () => {
     expect(s.discardFrozen).toBe(false)
   })
 
+  it('blocks a frozen queen pile when two queens are short of the initial meld', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    const q = [
+      makeCard(1, 'H', 'Q', 0),
+      makeCard(1, 'D', 'Q', 0),
+    ]
+    forceHands(
+      s,
+      [q.concat(fillLow(13, 400)), fillLow(15, 500)],
+      [makeCard(2, 'S', 'Q', 0)],
+      fillLow(20, 80),
+    )
+    s.discardFrozen = true
+    s.discard = [makeCard(9, 'H', '2', 0), makeCard(2, 'S', 'Q', 0)]
+    expect(claimCardsForPile(s, 0)).toHaveLength(2)
+    const onlyQueens = tryApply(s, { kind: 'takePile', cardIds: claimCardsForPile(s, 0)! }, 0)
+    expect(onlyQueens.ok).toBe(false)
+    if (!onlyQueens.ok) expect(onlyQueens.error).toMatch(/Initial meld needs 50/)
+  })
+
+  it('takes a frozen queen pile when extra aces finish the initial meld', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    const q = [makeCard(1, 'H', 'Q', 0), makeCard(1, 'D', 'Q', 0)]
+    forceHands(
+      s,
+      [q.concat(aces(3)).concat(fillLow(10, 400)), fillLow(15, 500)],
+      [makeCard(2, 'S', 'Q', 0)],
+      fillLow(20, 80),
+    )
+    s.discardFrozen = true
+    s.discard = [makeCard(9, 'H', '2', 0), makeCard(2, 'S', 'Q', 0)]
+    const moves = getLegalMoves(s, 0)
+    const take = moves.find((m) => m.kind === 'takePile')
+    expect(take).toBeTruthy()
+    const res = tryApply(s, take!, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.teams[0]!.hasInitialMeld).toBe(true)
+    expect(s.teams[0]!.melds.some((m) => m.rank === 'Q')).toBe(true)
+    expect(s.teams[0]!.melds.some((m) => m.rank === 'A')).toBe(true)
+  })
+
   it('freezes when a wild is discarded', () => {
     const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
     const w = wilds(1)

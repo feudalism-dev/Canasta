@@ -8,7 +8,7 @@ import { SlTableScreens } from './ui/SlTableScreens'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { startSolo, type LocalControllers } from './ui/localSession'
 import type { AiDifficulty } from './ai/heuristic'
-import { claimCardsForPile } from './core/rules'
+import { planPileTake } from './core/rules'
 import { cloneState } from './core/state'
 import type { HouseRules, MatchState, Variant } from './core/types'
 import { DEFAULT_HOUSE } from './core/types'
@@ -110,7 +110,14 @@ function AppInner() {
 
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
-    local?.submit(move)
+    if (local) {
+      const res = local.submit(move)
+      if (!res.ok) {
+        push(res.error)
+        setTick((t) => t + 1)
+        return
+      }
+    }
     peer?.submit(move)
     setSelectedIds(new Set())
     setTick((t) => t + 1)
@@ -347,9 +354,9 @@ function AppInner() {
       onToggleRank={toggleRank}
       onDraw={() => submit({ kind: 'drawStock' })}
       onTakePile={() => {
-        const claim = claimCardsForPile(state, localIndex)
-        if (claim) submit({ kind: 'takePile', cardIds: claim })
-        else push('Select two matching naturals, or the pile is stopped.')
+        const plan = planPileTake(state, localIndex, [...selectedIds])
+        if (plan.ok && plan.cardIds) submit({ kind: 'takePile', cardIds: plan.cardIds })
+        else push(!plan.ok ? plan.error : 'Select two matching naturals, or the pile is stopped.')
       }}
       onMeld={() => submit({ kind: 'meld', cardIds: [...selectedIds] })}
       onAdd={(meldIndex) => submit({ kind: 'addToMeld', meldIndex, cardIds: [...selectedIds] })}

@@ -1,6 +1,6 @@
 import { rankLabel } from './cards'
 import { teamCanastaCounts } from './melds'
-import { claimCardsForPile, initialMeldMinimum, isMyDraw, peekDiscard, pileIsStopped } from './rules'
+import { claimCardsForPile, initialMeldMinimum, isMyDraw, peekDiscard, pileFrozenFor, pileIsStopped, planPileTake } from './rules'
 import type { MatchState } from './types'
 
 export function whatShouldIDo(state: MatchState, playerIndex: number): string {
@@ -16,33 +16,41 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
     return 'Waiting for your partner to answer.'
   }
   if (state.currentPlayer !== playerIndex) {
-    return `${state.players[state.currentPlayer]!.displayName} is playing.`
+    return `${state.players[state.currentPlayer]!.displayName}'s turn.`
   }
   const team = state.teams[me.team]!
   const need = initialMeldMinimum(state.config, team.score, state.round)
   if (isMyDraw(state, playerIndex)) {
     const top = peekDiscard(state)
-    if (!pileIsStopped(state) && claimCardsForPile(state, playerIndex)) {
+    const plan = planPileTake(state, playerIndex)
+    if (plan.ok) {
       const n = state.discard.length
       const label = top ? rankLabel(top.rank) : 'card'
-      return `You can take the pile (${n} cards) with ${label}s.`
+      return `Your turn. You can take the pile (${n} cards) with ${label}s, or draw from the stock.`
+    }
+    if (!plan.ok) {
+      if (claimCardsForPile(state, playerIndex)) return `Your turn. ${plan.error}`
     }
     const n = state.config.stockDraw
-    return n === 1 ? 'Draw from the stock, or take the pile if it is legal.' : 'Draw two from the stock, or take the pile with two matching naturals.'
+    const frozen = top && pileFrozenFor(state, playerIndex) && !pileIsStopped(state)
+    const freezeNote = frozen ? ' The pile is frozen — two matching naturals, and enough points to meld.' : ''
+    return n === 1
+      ? `Your turn. Draw from the stock, or take the pile if it is legal.${freezeNote}`
+      : `Your turn. Draw two from the stock, or take the pile with two matching naturals.${freezeNote}`
   }
   if (!team.hasInitialMeld) {
-    return `Need ${need} to meld. Select a rank group — the meter counts for you.`
+    return `Your turn. Need ${need} to meld. Select a rank group — the meter counts for you.`
   }
   const books = teamCanastaCounts(team.melds, state.config.canastaSize)
   if (state.config.variant === 'handAndFoot') {
-    if (!me.footPickedUp) return 'Meld or discard. Empty your Hand to pick up the Foot.'
+    if (!me.footPickedUp) return 'Your turn. Meld or discard. Empty your Hand to pick up the Foot.'
     const needC = state.config.house.goingOutClean
     const needD = state.config.house.goingOutDirty
     if (books.clean < needC || books.dirty < needD) {
-      return `Books: ${books.clean} clean, ${books.dirty} dirty. Need ${needC} clean and ${needD} dirty to go out.`
+      return `Your turn. Books: ${books.clean} clean, ${books.dirty} dirty. Need ${needC} clean and ${needD} dirty to go out.`
     }
-    return 'You have the books. Discard your last card to go out (ask partner first).'
+    return 'Your turn. You have the books. Discard your last card to go out (ask partner first).'
   }
-  if (books.clean + books.dirty === 0) return 'Build a canasta of seven before you can go out.'
-  return 'Add to melds, then discard. Last card can go out if you have a canasta.'
+  if (books.clean + books.dirty === 0) return 'Your turn. Build a canasta of seven before you can go out.'
+  return 'Your turn. Add to melds, then discard. Last card can go out if you have a canasta.'
 }
