@@ -545,8 +545,13 @@ select {
   letter-spacing: 0.04em;
 }
 
+.rank-hand:not(.is-turn) {
+  opacity: 0.72;
+}
+
 .rank-cards {
   display: flex;
+  isolation: isolate;
 }
 
 .rank-cards .cn-card {
@@ -610,7 +615,7 @@ select {
 }
 
 .cn-card.is-dim {
-  opacity: 0.55;
+  filter: brightness(0.72) saturate(0.8);
 }
 
 .cn-card.is-side {
