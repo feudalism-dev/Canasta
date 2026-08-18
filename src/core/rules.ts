@@ -23,7 +23,7 @@ import {
   teamCanastaCounts,
   validateMeldCards,
 } from './melds'
-import { partnerOf, scoreTeamHand } from './score'
+import { partnerIndex, partnerOf, scoreTeamHand } from './score'
 import { flushRedThrees, maybePickupFoot, resetHandKeepScores } from './state'
 import type { ApplyResult, GameMove, MatchState, Meld, TeamState } from './types'
 import { initialMeldMinimum } from './variants'
@@ -346,8 +346,9 @@ function needsConsent(state: MatchState, playerIndex: number): boolean {
   const cfg = state.config
   if (!cfg.house.partnerConsent) return false
   if (cfg.variant !== 'handAndFoot') return false
-  const partner = partnerOf(state, playerIndex)
-  return Boolean(partner)
+  const mate = partnerIndex(state, playerIndex)
+  if (mate < 0) return false
+  return state.players[mate]!.isHuman
 }
 
 function finishRound(state: MatchState, wentOutPlayer: number): void {
@@ -663,15 +664,16 @@ function applyConsent(state: MatchState, playerIndex: number, accept: boolean): 
     return { ok: false, error: 'No one asked to go out.' }
   }
   const pending = state.pendingGoOut
-  const partner = partnerOf(state, pending.playerIndex)
-  if (!partner || state.players.indexOf(partner) !== playerIndex) {
+  const mate = partnerIndex(state, pending.playerIndex)
+  if (mate !== playerIndex) {
     return { ok: false, error: 'Only the partner can answer.' }
   }
+  const partner = state.players[mate]!
   if (!accept) {
     state.pendingGoOut = null
-    state.phase = 'awaitingPlay'
-    state.currentPlayer = pending.playerIndex
-    state.lastMessage = `${partner.displayName} says not yet.`
+    const whoSaidNo = partner.displayName
+    endTurn(state)
+    state.lastMessage = `${whoSaidNo} says not yet. ${state.players[state.currentPlayer]!.displayName}'s turn.`
     return { ok: true }
   }
   const discardId = pending.discardId
@@ -743,8 +745,8 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
     return moves
   }
   if (state.phase === 'awaitingGoOutConsent') {
-    const partner = state.pendingGoOut ? partnerOf(state, state.pendingGoOut.playerIndex) : null
-    if (partner && state.players.indexOf(partner) === playerIndex) {
+    const mate = state.pendingGoOut ? partnerIndex(state, state.pendingGoOut.playerIndex) : -1
+    if (mate === playerIndex) {
       moves.push({ kind: 'consentGoOut', accept: true })
       moves.push({ kind: 'consentGoOut', accept: false })
     }

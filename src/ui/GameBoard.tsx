@@ -1,5 +1,6 @@
 import { whatShouldIDo } from '../core/coach'
 import { legalHandIndexes } from '../core/rules'
+import { partnerIndex } from '../core/score'
 import type { MatchState } from '../core/types'
 import { initialMeldMinimum } from '../core/variants'
 import { MeldBuilder } from './MeldBuilder'
@@ -58,6 +59,11 @@ export function GameBoard({
   const need = initialMeldMinimum(state.config, state.teams[myTeam]!.score, state.round)
   const variant = state.config.variant === 'canasta' ? 'Canasta' : 'Hand & Foot'
   const partner = state.players.find((p, i) => p.team === myTeam && i !== localIndex)
+  const pendingOut = state.pendingGoOut
+  const iAnswerGoOut = Boolean(
+    pendingOut && state.phase === 'awaitingGoOutConsent' && partnerIndex(state, pendingOut.playerIndex) === localIndex,
+  )
+  const asker = pendingOut ? state.players[pendingOut.playerIndex] : null
 
   return (
     <div className={`table-root ${myTurn ? 'is-my-turn' : ''}`}>
@@ -153,26 +159,20 @@ export function GameBoard({
         onDropGroup={onDropGroup}
       />
 
-      {state.phase === 'awaitingGoOutConsent' && state.pendingGoOut ? (
+      {iAnswerGoOut && asker ? (
         <div className="banner-overlay">
           <div className="banner-card">
             <h2>May I go out?</h2>
             <p>
-              {state.players[state.pendingGoOut.playerIndex]!.displayName} is ready to go out.
-              {partner && state.players.indexOf(partner) === localIndex
-                ? ' You are the partner.'
-                : ' Waiting on partner.'}
+              {asker.displayName} is your partner and is ready to go out. Say yes only if you have picked up your
+              Foot and you are ready for the hand to end.
             </p>
-            {partner && state.players.indexOf(partner) === localIndex ? (
-              <>
-                <button type="button" className="btn primary" onClick={() => onConsent(true)}>
-                  Yes — go out
-                </button>
-                <button type="button" className="btn ghost" onClick={() => onConsent(false)}>
-                  Not yet
-                </button>
-              </>
-            ) : null}
+            <button type="button" className="btn primary" onClick={() => onConsent(true)}>
+              Yes — go out
+            </button>
+            <button type="button" className="btn ghost" onClick={() => onConsent(false)}>
+              Not yet
+            </button>
           </div>
         </div>
       ) : null}

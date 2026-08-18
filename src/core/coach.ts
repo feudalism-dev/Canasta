@@ -1,6 +1,7 @@
 import { rankLabel } from './cards'
 import { teamCanastaCounts } from './melds'
 import { claimCardsForPile, initialMeldMinimum, isMyDraw, peekDiscard, pileFrozenFor, pileIsStopped, planPileTake } from './rules'
+import { partnerOf } from './score'
 import type { MatchState } from './types'
 
 export function whatShouldIDo(state: MatchState, playerIndex: number): string {
@@ -10,10 +11,15 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
   if (state.phase === 'roundEnd') return 'Hand scored. Continue when you are ready.'
   if (state.phase === 'awaitingGoOutConsent') {
     const pending = state.pendingGoOut
-    if (pending && state.players[pending.playerIndex]?.team === me.team && pending.playerIndex !== playerIndex) {
-      return 'Your partner wants to go out. Approve only if you are ready.'
+    if (pending && pending.playerIndex !== playerIndex) {
+      const asker = state.players[pending.playerIndex]
+      if (asker && asker.team === me.team) {
+        return `${asker.displayName} wants to go out. Approve only if you are ready.`
+      }
+      return `${asker?.displayName ?? 'A player'} asked their partner for permission to go out.`
     }
-    return 'Waiting for your partner to answer.'
+    const mate = pending ? partnerOf(state, pending.playerIndex) : null
+    return `Waiting for ${mate?.displayName ?? 'your partner'} to answer.`
   }
   if (state.currentPlayer !== playerIndex) {
     return `${state.players[state.currentPlayer]!.displayName}'s turn.`

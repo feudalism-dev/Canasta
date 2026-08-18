@@ -73,7 +73,11 @@ const PAGES: Page[] = [
     title: 'Hand and Foot',
     body: (
       <>
-        <p>Play your 13-card Hand first. When it is empty, pick up the Foot. To go out you need your Foot, the required books (default one clean and one dirty), a last discard, and your partner&apos;s OK.</p>
+        <p>
+          Play your 13-card Hand first. When it is empty, pick up the Foot. To go out you need your Foot, the
+          required books (default one clean and one dirty), a last discard, and your partner&apos;s OK. Only your
+          partner is asked — not the other team. A computer partner always allows it.
+        </p>
       </>
     ),
   },

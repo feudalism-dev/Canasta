@@ -405,6 +405,69 @@ describe('Hand and Foot', () => {
     expect(s.teams[0]!.melds[0]!.closed).toBe(true)
     expect(teamCanastaCounts(s.teams[0]!.melds, 7).clean).toBe(1)
   })
+
+  it('does not pause for a computer partner when going out', () => {
+    const s = createMatch({
+      variant: 'handAndFoot',
+      names: ['You', 'Brass', 'Velvet', 'Lamp'],
+      humans: [true, false, false, false],
+      seed: 4,
+    })
+    s.teams[1]!.hasInitialMeld = true
+    s.teams[1]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      { rank: 'A', cards: aces(4).concat(wilds(3)), closed: true },
+    ]
+    forceHands(
+      s,
+      [fillLow(8, 80), [makeCard(500, 'H', '4', 0)], fillLow(8, 160), fillLow(8, 240)],
+      [makeCard(99, 'H', '9', 0)],
+      fillLow(20, 400),
+    )
+    for (const p of s.players) p.footPickedUp = true
+    s.phase = 'awaitingPlay'
+    s.currentPlayer = 1
+    const res = tryApply(s, { kind: 'discard', cardId: s.players[1]!.hand[0]!.id }, 1)
+    expect(res).toEqual({ ok: true })
+    expect(s.phase).toBe('roundEnd')
+    expect(s.wentOutPlayer).toBe(1)
+    expect(s.pendingGoOut).toBeNull()
+  })
+
+  it('asks only the human partner, never the other team', () => {
+    const s = createMatch({
+      variant: 'handAndFoot',
+      names: ['You', 'Brass', 'Velvet', 'Lamp'],
+      humans: [true, false, true, false],
+      seed: 4,
+    })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      { rank: 'A', cards: aces(4).concat(wilds(3)), closed: true },
+    ]
+    forceHands(
+      s,
+      [[makeCard(500, 'H', '4', 0)], fillLow(8, 80), fillLow(8, 160), fillLow(8, 240)],
+      [makeCard(99, 'H', '9', 0)],
+      fillLow(20, 400),
+    )
+    for (const p of s.players) p.footPickedUp = true
+    s.phase = 'awaitingPlay'
+    const last = s.players[0]!.hand[0]!.id
+    const res = tryApply(s, { kind: 'discard', cardId: last }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.phase).toBe('awaitingGoOutConsent')
+    expect(s.pendingGoOut).toEqual({ playerIndex: 0, discardId: last })
+    expect(getLegalMoves(s, 1).some((m) => m.kind === 'consentGoOut')).toBe(false)
+    expect(getLegalMoves(s, 3).some((m) => m.kind === 'consentGoOut')).toBe(false)
+    expect(getLegalMoves(s, 2).some((m) => m.kind === 'consentGoOut')).toBe(true)
+    expect(tryApply(s, { kind: 'consentGoOut', accept: true }, 1).ok).toBe(false)
+    expect(tryApply(s, { kind: 'consentGoOut', accept: false }, 2)).toEqual({ ok: true })
+    expect(s.phase).toBe('awaitingDraw')
+    expect(s.currentPlayer).toBe(1)
+    expect(s.players[0]!.hand).toHaveLength(1)
+  })
 })
 
 describe('going out and scoring', () => {

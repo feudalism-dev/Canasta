@@ -63,9 +63,13 @@ export function scoreTeamHand(
   return { cardPoints: cardPts, canastaBonus, redThreeScore: red, goingOut, handPenalty, total }
 }
 
-export function partnerOf(state: MatchState, playerIndex: number): PlayerState | null {
+export function partnerIndex(state: MatchState, playerIndex: number): number {
   const me = state.players[playerIndex]
-  if (!me) return null
-  const mates = state.players.filter((p, i) => p.team === me.team && i !== playerIndex)
-  return mates[0] ?? null
+  if (!me) return -1
+  return state.players.findIndex((p, i) => p.team === me.team && i !== playerIndex)
+}
+
+export function partnerOf(state: MatchState, playerIndex: number): PlayerState | null {
+  const i = partnerIndex(state, playerIndex)
+  return i >= 0 ? state.players[i]! : null
 }

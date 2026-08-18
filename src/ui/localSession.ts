@@ -58,6 +58,16 @@ export function startSolo(
   const stepAi = (): boolean => {
     const who = aiIndex()
     if (who == null) return false
+    if (state.phase === 'awaitingGoOutConsent') {
+      const move =
+        pickAiMove(state, who, difficulty) ??
+        getLegalMoves(state, who).find((m) => m.kind === 'consentGoOut') ??
+        null
+      if (!move) return false
+      const res = tryApply(state, move, who)
+      if (res.ok) pushLog(state.lastMessage)
+      return res.ok
+    }
     const move =
       pickAiMove(state, who, difficulty) ??
       getLegalMoves(state, who).find((m) => m.kind === 'discard') ??

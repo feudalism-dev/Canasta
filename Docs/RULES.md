@@ -75,7 +75,7 @@ Four rounds, then highest total wins. Round initial-meld minimums: **50 / 90 / 1
 
 **Foot:** The moment the Hand is empty, pick up the Foot. If that happened by **discarding** the last Hand card, the turn ends. If it happened by **melding**, continue the same turn (still discard unless going out).
 
-**Going out (default):** Foot picked up, team has **at least one clean and one dirty** book, partner has picked up their Foot, **partner consents**, and you discard your last card. +100 for going out.
+**Going out (default):** Foot picked up, team has **at least one clean and one dirty** book, partner has picked up their Foot, **partner consents**, and you discard your last card. +100 for going out. Consent is asked only of your partner, never the other team. Computer partners allow going out automatically.
 
 House toggle: require **two clean and two dirty** instead of 1+1.
 
@@ -85,7 +85,7 @@ House toggle: require **two clean and two dirty** instead of 1+1.
 
 - Books to go out: 1 clean + 1 dirty (default) or 2 + 2
 - Wild books allowed (default on)
-- Partner must consent to go out (default on; ignored in 1v1)
+- Partner must consent to go out (default on; ignored in 1v1 and when the partner is a computer)
 - Add to closed books (default off). When on, leftover matching cards may join a finished seven-card book. The book still scores as one clean or dirty canasta; extra cards count as card points.
 
 Classic Canasta v1 has no house toggles. Modern American Canasta is deferred.
