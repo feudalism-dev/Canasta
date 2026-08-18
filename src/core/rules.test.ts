@@ -432,6 +432,22 @@ describe('going out and scoring', () => {
     expect(s.phase).toBe('roundEnd')
     expect(s.wentOutPlayer).toBe(0)
   })
+
+  it('adds two matching cards to a meld in one play', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [{ rank: 'K', cards: kings(4), closed: false }]
+    const extra = kings(2, 20)
+    forceHands(s, [extra.concat(fillLow(10, 80)), fillLow(15, 200)], [makeCard(99, 'H', '4', 0)], fillLow(20, 300))
+    s.phase = 'awaitingPlay'
+    const ids = s.players[0]!.hand.filter((c) => c.rank === 'K').map((c) => c.id)
+    expect(ids).toHaveLength(2)
+    const add = getLegalMoves(s, 0).find((m) => m.kind === 'addToMeld')
+    expect(add).toEqual({ kind: 'addToMeld', meldIndex: 0, cardIds: ids })
+    const res = tryApply(s, { kind: 'addToMeld', meldIndex: 0, cardIds: ids }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.teams[0]!.melds[0]!.cards).toHaveLength(6)
+  })
 })
 
 describe('legal moves', () => {

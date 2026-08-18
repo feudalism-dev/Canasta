@@ -798,13 +798,18 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
       if (m.rank !== rank && m.rank !== 'WILD') return
       const addable = m.rank === 'WILD' ? wilds : [...cards.filter((c) => c.rank === m.rank), ...wilds]
       if (!addable.length) return
-      const add = [addable[0]!]
-      if (canAddCards(m, add, state.config)) return
-      const nextMelds = team.melds.map((mm, i) =>
-        i === meldIndex ? { ...mm, cards: [...mm.cards, ...add] } : mm,
-      )
-      if (player.hand.length - 1 < minCardsToKeep(state, playerIndex, nextMelds)) return
-      moves.push({ kind: 'addToMeld', meldIndex, cardIds: [add[0]!.id] })
+      const add: Card[] = []
+      for (const c of addable) {
+        const trial = [...add, c]
+        if (canAddCards(m, trial, state.config)) break
+        const nextMelds = team.melds.map((mm, i) =>
+          i === meldIndex ? { ...mm, cards: [...mm.cards, ...trial] } : mm,
+        )
+        if (player.hand.length - trial.length < minCardsToKeep(state, playerIndex, nextMelds)) break
+        add.push(c)
+      }
+      if (!add.length) return
+      moves.push({ kind: 'addToMeld', meldIndex, cardIds: add.map((c) => c.id) })
     })
   }
   if (wilds.length >= 3 && state.config.house.wildBooksAllowed) {
