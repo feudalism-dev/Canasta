@@ -63,7 +63,7 @@ Four rounds, then highest total wins. Round initial-meld minimums: **50 / 90 / 1
 
 **Deal:** 13 Hand + 13 Foot each. Foot stays face-down until picked up.
 
-**Turn:** Draw **two** from stock, or take the **entire** discard pile with **two naturals** of the top rank (always — the pile is treated as frozen for pickup). Then meld, then discard one. Going out requires that final discard.
+**Turn:** Draw **two** from stock, or take the **entire** discard pile with **two naturals** of the top rank (always — the pile is treated as frozen for pickup). Then meld, then discard one. Going out requires that final discard unless the house toggle is off.
 
 **Red threes:** Auto-laid whenever they enter Hand or Foot. No replacement draw. +100 if laid; **−100** if still in Hand or Foot when the round ends.
 
@@ -87,5 +87,6 @@ House toggle: require **two clean and two dirty** instead of 1+1.
 - Wild books allowed (default on)
 - Partner must consent to go out (default on; ignored in 1v1 and when the partner is a computer)
 - Add to closed books (default off). When on, leftover matching cards may join a finished seven-card book. The book still scores as one clean or dirty canasta; extra cards count as card points.
+- Require a discard to go out (default on). When off, you may meld your last cards with no leftover discard, as in Classic Canasta.
 
 Classic Canasta v1 has no house toggles. Modern American Canasta is deferred.

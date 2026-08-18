@@ -9,6 +9,8 @@ export type HouseRules = {
   partnerConsent: boolean
   /** Hand and Foot: keep adding matching cards after a book hits seven. */
   addToClosedBooks: boolean
+  /** Hand and Foot: must discard the last card to go out. */
+  requireDiscardToGoOut: boolean
 }
 
 export const DEFAULT_HOUSE: HouseRules = {
@@ -17,6 +19,7 @@ export const DEFAULT_HOUSE: HouseRules = {
   wildBooksAllowed: true,
   partnerConsent: true,
   addToClosedBooks: false,
+  requireDiscardToGoOut: true,
 }
 
 export type VariantConfig = {

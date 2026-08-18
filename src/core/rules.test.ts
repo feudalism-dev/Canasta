@@ -468,6 +468,53 @@ describe('Hand and Foot', () => {
     expect(s.currentPlayer).toBe(1)
     expect(s.players[0]!.hand).toHaveLength(1)
   })
+
+  it('requires a leftover discard to go out by default', () => {
+    const s = createMatch({ variant: 'handAndFoot', names: ['A', 'B'], humans: [true, true], seed: 4 })
+    expect(s.config.requireDiscardToGoOut).toBe(true)
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      {
+        rank: 'Q',
+        cards: [0, 1, 2, 3].map((i) => makeCard(30 + i, 'H', 'Q', 0)).concat(wilds(3)),
+        closed: true,
+      },
+    ]
+    forceHands(s, [aces(3, 50), fillLow(13, 200)], [makeCard(99, 'H', '9', 0)], fillLow(20, 400))
+    s.players[0]!.footPickedUp = true
+    s.players[1]!.footPickedUp = true
+    s.phase = 'awaitingPlay'
+    const ids = s.players[0]!.hand.map((c) => c.id)
+    const res = tryApply(s, { kind: 'meld', cardIds: ids }, 0)
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/discard/)
+  })
+
+  it('lets Hand and Foot meld the last cards when the discard house rule is off', () => {
+    const s = createMatch({
+      variant: 'handAndFoot',
+      names: ['A', 'B'],
+      humans: [true, true],
+      seed: 4,
+      house: { ...DEFAULT_HOUSE, requireDiscardToGoOut: false },
+    })
+    expect(s.config.requireDiscardToGoOut).toBe(false)
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      { rank: 'A', cards: aces(4).concat(wilds(3)), closed: true },
+    ]
+    forceHands(s, [aces(3, 50), fillLow(13, 200)], [makeCard(99, 'H', '9', 0)], fillLow(20, 400))
+    s.players[0]!.footPickedUp = true
+    s.players[1]!.footPickedUp = true
+    s.phase = 'awaitingPlay'
+    const ids = s.players[0]!.hand.map((c) => c.id)
+    const res = tryApply(s, { kind: 'meld', cardIds: ids }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.phase).toBe('roundEnd')
+    expect(s.wentOutPlayer).toBe(0)
+  })
 })
 
 describe('going out and scoring', () => {

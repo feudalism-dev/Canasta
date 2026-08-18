@@ -33,6 +33,7 @@ export function variantConfig(
       house: { ...DEFAULT_HOUSE, partnerConsent: false, goingOutClean: 0, goingOutDirty: 0, wildBooksAllowed: false },
     }
   }
+  const houseRules = { ...DEFAULT_HOUSE, ...house }
   return {
     variant,
     deckCount: n === 2 ? 3 : 5,
@@ -42,7 +43,7 @@ export function variantConfig(
     playTo: null,
     rounds: 4,
     canastaSize: 7,
-    canastaMayExceed: house.addToClosedBooks,
+    canastaMayExceed: houseRules.addToClosedBooks,
     maxWildsPerMeld: 7,
     minNaturalsToStart: 2,
     minNaturalsForDirtyBook: 4,
@@ -50,10 +51,10 @@ export function variantConfig(
     takePileNeedsTwoNaturalsAlways: true,
     redThreeReplacement: false,
     booksCloseAtSeven: true,
-    requireDiscardToGoOut: true,
+    requireDiscardToGoOut: houseRules.requireDiscardToGoOut,
     goingOutNeedsCanasta: false,
     concealedBonus: false,
-    house: { ...DEFAULT_HOUSE, ...house },
+    house: houseRules,
   }
 }
 

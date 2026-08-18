@@ -38,6 +38,14 @@ export function HandAndFootHouseFields({ house, onChange }: Props) {
         />
         Allow adding to closed books
       </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={house.requireDiscardToGoOut}
+          onChange={(e) => onChange({ ...house, requireDiscardToGoOut: e.target.checked })}
+        />
+        Require a discard to go out
+      </label>
     </>
   )
 }

@@ -63,7 +63,7 @@ const PAGES: Page[] = [
         </p>
         <p>
           In Classic Canasta you may go out by melding your last cards — you do not have to save a discard.
-          Hand and Foot still needs that final discard.
+          Hand and Foot requires that final discard unless you turn that house rule off.
         </p>
       </>
     ),
