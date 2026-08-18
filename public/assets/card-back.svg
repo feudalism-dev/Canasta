@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b3a2e"/>
+      <stop offset="1" stop-color="#0a1a14"/>
+    </linearGradient>
+    <pattern id="weave" width="12" height="12" patternUnits="userSpaceOnUse">
+      <path d="M0 6h12M6 0v12" stroke="#c9a227" stroke-width="0.6" opacity="0.35"/>
+    </pattern>
+  </defs>
+  <rect width="200" height="280" rx="14" fill="url(#g)"/>
+  <rect x="10" y="10" width="180" height="260" rx="10" fill="none" stroke="#c9a227" stroke-width="3"/>
+  <rect x="22" y="22" width="156" height="236" rx="8" fill="url(#weave)"/>
+  <ellipse cx="100" cy="168" rx="48" ry="28" fill="none" stroke="#c9a227" stroke-width="3"/>
+  <path d="M52 168c12-48 28-78 48-78s36 30 48 78" fill="none" stroke="#c9a227" stroke-width="3"/>
+  <circle cx="100" cy="88" r="8" fill="#c23b3b"/>
+  <text x="100" y="230" text-anchor="middle" fill="#c9a227" font-family="serif" font-size="14" letter-spacing="4">CANASTA</text>
+</svg>
