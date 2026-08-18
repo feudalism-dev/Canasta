@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildDeck, isRedThree, isWild, makeCard, type Card } from './cards'
 import { createMatch } from './state'
 import { claimCardsForPile, getLegalMoves, initialMeldMinimum, peekDiscard, tryApply, type MatchState } from './rules'
-import { teamCanastaCounts } from './melds'
+import { sortMeldsForDisplay, teamCanastaCounts } from './melds'
 import { eventsForMove } from './displayEvents'
 import { DEFAULT_HOUSE } from './types'
 
@@ -369,6 +369,53 @@ describe('display events', () => {
     tryApply(next, { kind: 'drawStock' }, 0)
     const ev = eventsForMove(prev, next, { kind: 'drawStock' }, 0)
     expect(ev.some((e) => e.startsWith('DRAW|'))).toBe(true)
+  })
+})
+
+describe('book display order', () => {
+  it('puts canastas first, then larger melds, then rank 4 through Ace', () => {
+    const fours = {
+      rank: '4' as const,
+      cards: [makeCard(0, 'H', '4', 0), makeCard(0, 'D', '4', 0), makeCard(0, 'S', '4', 0), makeCard(0, 'C', '4', 0)],
+      closed: false,
+    }
+    const tens = {
+      rank: '10' as const,
+      cards: [makeCard(1, 'H', '10', 0), makeCard(1, 'D', '10', 0), makeCard(1, 'S', '10', 0), makeCard(1, 'C', '10', 0)],
+      closed: false,
+    }
+    const sixes = {
+      rank: '6' as const,
+      cards: [makeCard(2, 'H', '6', 0), makeCard(2, 'D', '6', 0), makeCard(2, 'S', '6', 0), makeCard(2, 'C', '6', 0)],
+      closed: false,
+    }
+    const kings = {
+      rank: 'K' as const,
+      cards: [
+        makeCard(3, 'H', 'K', 0),
+        makeCard(3, 'D', 'K', 0),
+        makeCard(3, 'S', 'K', 0),
+        makeCard(3, 'C', 'K', 0),
+        makeCard(4, 'H', 'K', 0),
+        makeCard(4, 'D', 'K', 0),
+        makeCard(4, 'S', 'K', 0),
+      ],
+      closed: false,
+    }
+    const queens = {
+      rank: 'Q' as const,
+      cards: [makeCard(5, 'H', 'Q', 0), makeCard(5, 'D', 'Q', 0), makeCard(5, 'S', 'Q', 0)],
+      closed: false,
+    }
+    const ordered = sortMeldsForDisplay([tens, kings, fours, queens, sixes], 7)
+    expect(ordered.map((x) => `${x.meld.rank}-${x.meld.cards.length}`)).toEqual([
+      'K-7',
+      '4-4',
+      '6-4',
+      '10-4',
+      'Q-3',
+    ])
+    expect(ordered.map((x) => x.index)).toEqual([1, 2, 4, 0, 3])
   })
 })
 

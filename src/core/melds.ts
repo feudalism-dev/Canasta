@@ -17,6 +17,39 @@ export function meldIsCanasta(meld: Meld, size: number): boolean {
   return meld.cards.length >= size
 }
 
+function meldRankSortValue(rank: MeldRank): number {
+  const order: Record<string, number> = {
+    '4': 1,
+    '5': 2,
+    '6': 3,
+    '7': 4,
+    '8': 5,
+    '9': 6,
+    '10': 7,
+    J: 8,
+    Q: 9,
+    K: 10,
+    A: 11,
+    '3': 12,
+    WILD: 13,
+  }
+  return order[rank] ?? 99
+}
+
+/** Display order: completed canastas, then larger melds, then 4 through Ace. */
+export function sortMeldsForDisplay(melds: Meld[], canastaSize: number): { meld: Meld; index: number }[] {
+  return melds
+    .map((meld, index) => ({ meld, index }))
+    .sort((a, b) => {
+      const aDone = meldIsCanasta(a.meld, canastaSize) ? 0 : 1
+      const bDone = meldIsCanasta(b.meld, canastaSize) ? 0 : 1
+      if (aDone !== bDone) return aDone - bDone
+      const byCount = b.meld.cards.length - a.meld.cards.length
+      if (byCount !== 0) return byCount
+      return meldRankSortValue(a.meld.rank) - meldRankSortValue(b.meld.rank)
+    })
+}
+
 export function meldIsWildBook(meld: Meld): boolean {
   return meld.rank === 'WILD' || (meld.cards.length > 0 && meld.cards.every((c) => isWild(c)))
 }

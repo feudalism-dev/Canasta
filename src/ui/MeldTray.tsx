@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { canastaKind } from '../core/melds'
+import { canastaKind, sortMeldsForDisplay } from '../core/melds'
 import type { Meld, VariantConfig } from '../core/types'
 import { CardView } from './CardView'
 
@@ -13,6 +13,7 @@ type Props = {
 }
 
 export function MeldTray({ title, melds, config, redThrees, highlight, onMeldClick }: Props) {
+  const ordered = sortMeldsForDisplay(melds, config.canastaSize)
   return (
     <section className={`meld-tray ${highlight ? 'is-ours' : ''}`}>
       <header>
@@ -21,7 +22,7 @@ export function MeldTray({ title, melds, config, redThrees, highlight, onMeldCli
       </header>
       <div className="meld-row">
         {melds.length === 0 ? <p className="muted tiny">No melds yet</p> : null}
-        {melds.map((m, i) => {
+        {ordered.map(({ meld: m, index: i }) => {
           const kind = canastaKind(m, config.canastaSize)
           const stamp = kind === 'natural' ? 'clean' : kind === 'mixed' ? 'dirty' : kind === 'wild' ? 'wild' : undefined
           const top = m.cards[m.cards.length - 1]
