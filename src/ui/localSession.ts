@@ -1,7 +1,7 @@
 import { pickAiMove } from '../ai/heuristic'
 import type { AiDifficulty } from '../ai/heuristic'
 import { createMatch } from '../core/state'
-import { tryApply } from '../core/rules'
+import { forcePass, getLegalMoves, tryApply } from '../core/rules'
 import type { GameMove, HouseRules, MatchState, Variant } from '../core/types'
 import { DEFAULT_HOUSE } from '../core/types'
 
@@ -15,7 +15,8 @@ export type LocalControllers = {
   destroy: () => void
 }
 
-const AI_DELAY_MS = 900
+/** Pause once when a new computer player starts, then finish their turn quickly. */
+const AI_THINK_MS = 380
 const AI_NAMES = ['Brass', 'Velvet', 'Lamp Light'] as const
 
 export function startSolo(
@@ -57,9 +58,24 @@ export function startSolo(
   const stepAi = (): boolean => {
     const who = aiIndex()
     if (who == null) return false
-    const move = pickAiMove(state, who, difficulty)
-    if (!move) return false
-    tryApply(state, move, who)
+    const move =
+      pickAiMove(state, who, difficulty) ??
+      getLegalMoves(state, who).find((m) => m.kind === 'discard') ??
+      null
+    if (move) {
+      const res = tryApply(state, move, who)
+      if (res.ok) {
+        pushLog(state.lastMessage)
+        return true
+      }
+    }
+    const discard = getLegalMoves(state, who).find((m) => m.kind === 'discard')
+    if (discard) {
+      tryApply(state, discard, who)
+      pushLog(state.lastMessage)
+      return true
+    }
+    forcePass(state)
     pushLog(state.lastMessage)
     return true
   }
@@ -69,15 +85,20 @@ export function startSolo(
     running = true
     try {
       let guard = 0
+      let lastWho = -1
       while (!cancelled && guard++ < 80) {
-        if (aiIndex() == null) {
+        const who = aiIndex()
+        if (who == null) {
           aiThinking = false
           notify()
           return
         }
-        aiThinking = true
-        notify()
-        await new Promise<void>((r) => setTimeout(r, AI_DELAY_MS))
+        if (who !== lastWho) {
+          aiThinking = true
+          notify()
+          await new Promise<void>((r) => setTimeout(r, AI_THINK_MS))
+          lastWho = who
+        }
         if (cancelled) return
         if (!stepAi()) break
         notify()

@@ -20,7 +20,7 @@ import {
   validateMeldCards,
 } from './melds'
 import { partnerOf, scoreTeamHand } from './score'
-import { cloneState, flushRedThrees, maybePickupFoot, resetHandKeepScores } from './state'
+import { flushRedThrees, maybePickupFoot, resetHandKeepScores } from './state'
 import type { ApplyResult, GameMove, MatchState, Meld, TeamState } from './types'
 import { initialMeldMinimum } from './variants'
 
@@ -144,13 +144,29 @@ function endTurn(state: MatchState): void {
   state.lastMessage = `${state.players[state.currentPlayer]!.displayName}'s turn.`
 }
 
-function teamHasGoingOutBooks(state: MatchState, teamIndex: 0 | 1): boolean {
+function booksAllowGoingOut(state: MatchState, melds: Meld[]): boolean {
   const cfg = state.config
-  const counts = teamCanastaCounts(state.teams[teamIndex]!.melds, cfg.canastaSize)
+  const counts = teamCanastaCounts(melds, cfg.canastaSize)
   if (cfg.variant === 'canasta') return counts.clean + counts.dirty + counts.wild >= 1
-  const needC = cfg.house.goingOutClean
-  const needD = cfg.house.goingOutDirty
-  return counts.clean >= needC && counts.dirty + counts.wild >= needD
+  return counts.clean >= cfg.house.goingOutClean && counts.dirty + counts.wild >= cfg.house.goingOutDirty
+}
+
+function teamHasGoingOutBooks(state: MatchState, teamIndex: 0 | 1): boolean {
+  return booksAllowGoingOut(state, state.teams[teamIndex]!.melds)
+}
+
+/** Cards that must stay in hand after a meld so the player can still discard (or go out). */
+function minCardsToKeep(state: MatchState, playerIndex: number, meldsAfter: Meld[]): number {
+  const player = state.players[playerIndex]!
+  if (state.config.footSize > 0 && !player.footPickedUp) return 0
+  const partner = partnerOf(state, playerIndex)
+  const partnerFootOk = !(partner && state.config.footSize > 0 && !partner.footPickedUp)
+  const canOut = booksAllowGoingOut(state, meldsAfter) && partnerFootOk
+  if (canOut) {
+    if (state.config.requireDiscardToGoOut) return 1
+    return 0
+  }
+  return 2
 }
 
 function canPlayerGoOut(state: MatchState, playerIndex: number): ApplyResult {
@@ -295,8 +311,13 @@ function applyMeld(state: MatchState, playerIndex: number, cardIds: string[]): A
       return { ok: false, error: 'A dirty book needs at least four natural cards.' }
     }
   }
+  const nextMeld: Meld = closeIfNeeded({ rank, cards: taken, closed: false }, state.config)
+  const keep = minCardsToKeep(state, playerIndex, [...team.melds, nextMeld])
+  if (rest.length < keep) {
+    return { ok: false, error: 'Keep enough cards to discard — you cannot go out yet.' }
+  }
   player.hand = rest
-  const meld: Meld = closeIfNeeded({ rank, cards: taken, closed: false }, state.config)
+  const meld = nextMeld
   team.melds.push(meld)
   team.hasInitialMeld = true
   player.meldedThisHand = true
@@ -320,6 +341,13 @@ function applyAdd(state: MatchState, playerIndex: number, meldIndex: number, car
   if (missing.length) return { ok: false, error: 'Those cards are not in your hand.' }
   const err = canAddCards(meld, taken, state.config)
   if (err) return { ok: false, error: err }
+  const nextMelds = team.melds.map((m, i) =>
+    i === meldIndex ? { ...m, cards: [...m.cards, ...taken] } : m,
+  )
+  const keep = minCardsToKeep(state, playerIndex, nextMelds)
+  if (rest.length < keep) {
+    return { ok: false, error: 'Keep enough cards to discard — you cannot go out yet.' }
+  }
   player.hand = rest
   meld.cards.push(...taken)
   const closed = closeIfNeeded(meld, state.config)
@@ -448,6 +476,28 @@ export function tryApply(state: MatchState, move: GameMove, playerIndex?: number
   }
 }
 
+export function forcePass(state: MatchState): ApplyResult {
+  if (state.phase === 'awaitingDraw') {
+    return applyDrawStock(state, state.currentPlayer)
+  }
+  if (state.phase !== 'awaitingPlay') return { ok: false, error: 'Cannot pass now.' }
+  const who = state.currentPlayer
+  const name = state.players[who]!.displayName
+  endTurn(state)
+  state.lastMessage = `${name} has no legal play and passes.`
+  return { ok: true }
+}
+
+export function discardIsLegal(state: MatchState, playerIndex: number, cardId: string): boolean {
+  if (state.phase !== 'awaitingPlay' || playerIndex !== state.currentPlayer) return false
+  const player = state.players[playerIndex]!
+  const card = findCard(player.hand, cardId)
+  if (!card || isRedThree(card)) return false
+  if (player.hand.length > 1) return true
+  if (state.config.footSize > 0 && !player.footPickedUp) return true
+  return canPlayerGoOut(state, playerIndex).ok
+}
+
 export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[] {
   const moves: GameMove[] = []
   if (state.phase === 'roundEnd') {
@@ -482,34 +532,48 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
   }
   for (const [rank, cards] of byRank) {
     if (rank === '3') continue
-    for (let w = 0; w <= Math.min(wilds.length, state.config.maxWildsPerMeld); w++) {
+    const maxW = Math.min(wilds.length, state.config.maxWildsPerMeld)
+    for (let w = 0; w <= maxW; w++) {
       const set = [...cards, ...wilds.slice(0, w)]
       if (set.length < 3) continue
-      const probe = { ...cloneState(state) }
-      const res = tryApply(probe, { kind: 'meld', cardIds: set.map((c) => c.id) }, playerIndex)
-      if (res.ok) moves.push({ kind: 'meld', cardIds: set.map((c) => c.id) })
+      const inferred = inferMeldRank(set)
+      if (!inferred) continue
+      if (validateMeldCards(set, inferred, state.config)) continue
+      if (!team.hasInitialMeld) {
+        const count = set.reduce((n, c) => n + meldCountPoints(c), 0)
+        if (count < initialMeldMinimum(state.config, team.score, state.round)) continue
+      }
+      const nextMeld: Meld = { rank: inferred, cards: set, closed: false }
+      const restLen = player.hand.length - set.length
+      if (restLen < minCardsToKeep(state, playerIndex, [...team.melds, nextMeld])) continue
+      moves.push({ kind: 'meld', cardIds: set.map((c) => c.id) })
     }
     team.melds.forEach((m, meldIndex) => {
       if (m.rank !== rank && m.rank !== 'WILD') return
       const addable = m.rank === 'WILD' ? wilds : [...cards.filter((c) => c.rank === m.rank), ...wilds]
       if (!addable.length) return
-      const probe = cloneState(state)
-      const res = tryApply(probe, { kind: 'addToMeld', meldIndex, cardIds: [addable[0]!.id] }, playerIndex)
-      if (res.ok) moves.push({ kind: 'addToMeld', meldIndex, cardIds: [addable[0]!.id] })
+      const add = [addable[0]!]
+      if (canAddCards(m, add, state.config)) return
+      const nextMelds = team.melds.map((mm, i) =>
+        i === meldIndex ? { ...mm, cards: [...mm.cards, ...add] } : mm,
+      )
+      if (player.hand.length - 1 < minCardsToKeep(state, playerIndex, nextMelds)) return
+      moves.push({ kind: 'addToMeld', meldIndex, cardIds: [add[0]!.id] })
     })
   }
   if (wilds.length >= 3 && state.config.house.wildBooksAllowed) {
-    const probe = cloneState(state)
     const ids = wilds.slice(0, Math.min(7, wilds.length)).map((c) => c.id)
-    if (tryApply(probe, { kind: 'meld', cardIds: ids }, playerIndex).ok) {
-      moves.push({ kind: 'meld', cardIds: ids })
+    const set = wilds.slice(0, Math.min(7, wilds.length))
+    if (!validateMeldCards(set, 'WILD', state.config)) {
+      const restLen = player.hand.length - set.length
+      const nextMeld: Meld = { rank: 'WILD', cards: set, closed: false }
+      if (restLen >= minCardsToKeep(state, playerIndex, [...team.melds, nextMeld])) {
+        moves.push({ kind: 'meld', cardIds: ids })
+      }
     }
   }
   for (const c of player.hand) {
-    const probe = cloneState(state)
-    if (tryApply(probe, { kind: 'discard', cardId: c.id }, playerIndex).ok) {
-      moves.push({ kind: 'discard', cardId: c.id })
-    }
+    if (discardIsLegal(state, playerIndex, c.id)) moves.push({ kind: 'discard', cardId: c.id })
   }
   return moves
 }

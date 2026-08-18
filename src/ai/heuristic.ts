@@ -1,8 +1,6 @@
 import { isBlackThree, isWild, type Card } from '../core/cards'
-import { claimCardsForPile, getLegalMoves, peekDiscard, tryApply } from '../core/rules'
-import { cloneState } from '../core/state'
+import { claimCardsForPile, getLegalMoves, peekDiscard } from '../core/rules'
 import type { GameMove, MatchState } from '../core/types'
-import { initialMeldMinimum } from '../core/variants'
 
 export type AiDifficulty = 'easy' | 'normal' | 'sharp'
 
@@ -49,14 +47,8 @@ export function pickAiMove(state: MatchState, playerIndex: number, difficulty: A
   const melds = moves.filter((m) => m.kind === 'meld')
   const adds = moves.filter((m) => m.kind === 'addToMeld')
   const team = state.teams[state.players[playerIndex]!.team]!
-  const need = initialMeldMinimum(state.config, team.score, state.round)
   if (!team.hasInitialMeld) {
-    const good = melds.find((m) => {
-      if (m.kind !== 'meld') return false
-      const probe = cloneState(state)
-      return tryApply(probe, m, playerIndex).ok
-    })
-    if (good) return good
+    if (melds[0]) return melds[0]
   } else {
     const closing = adds.find((m) => {
       if (m.kind !== 'addToMeld') return false
@@ -66,7 +58,8 @@ export function pickAiMove(state: MatchState, playerIndex: number, difficulty: A
     })
     if (closing) return closing
     if (adds[0]) return adds[0]
-    if (melds[0] && (sharp || need <= 90)) return melds[0]
+    if (melds[0] && sharp) return melds[0]
+    if (melds[0] && Math.random() < 0.45) return melds[0]
   }
   const discards = moves.filter((m) => m.kind === 'discard')
   let best: GameMove | null = null
@@ -82,21 +75,4 @@ export function pickAiMove(state: MatchState, playerIndex: number, difficulty: A
     }
   }
   return best ?? discards[0] ?? moves[0]!
-}
-
-export function shouldAiAct(state: MatchState): number | null {
-  if (state.phase === 'matchEnd') return null
-  if (state.phase === 'roundEnd') {
-    const human = state.players.findIndex((p) => p.isHuman)
-    return human >= 0 ? human : 0
-  }
-  if (state.phase === 'awaitingGoOutConsent' && state.pendingGoOut) {
-    const pending = state.pendingGoOut.playerIndex
-    const partner = state.players.findIndex((p, i) => p.team === state.players[pending]!.team && i !== pending)
-    if (partner >= 0 && !state.players[partner]!.isHuman) return partner
-    return null
-  }
-  const cur = state.players[state.currentPlayer]
-  if (cur && !cur.isHuman) return state.currentPlayer
-  return null
 }

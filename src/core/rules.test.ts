@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildDeck, isRedThree, isWild, makeCard, type Card } from './cards'
 import { createMatch } from './state'
-import { claimCardsForPile, initialMeldMinimum, peekDiscard, tryApply, type MatchState } from './rules'
+import { claimCardsForPile, getLegalMoves, initialMeldMinimum, peekDiscard, tryApply, type MatchState } from './rules'
 import { teamCanastaCounts } from './melds'
 import { eventsForMove } from './displayEvents'
 import { DEFAULT_HOUSE } from './types'
@@ -218,14 +218,22 @@ describe('Hand and Foot', () => {
 })
 
 describe('going out and scoring', () => {
-  it('cannot go out in Canasta without a canasta', () => {
+  it('cannot meld down to one card without a canasta', () => {
     const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
     forceHands(s, [aces(3).concat(fillLow(1, 50)), fillLow(15)], [makeCard(99, 'H', '4', 0)], fillLow(20, 200))
     s.teams[0]!.hasInitialMeld = true
     s.phase = 'awaitingPlay'
-    const last = s.players[0]!.hand.find((c) => c.rank !== 'A')!
-    tryApply(s, { kind: 'meld', cardIds: s.players[0]!.hand.filter((c) => c.rank === 'A').map((c) => c.id) }, 0)
-    const res = tryApply(s, { kind: 'discard', cardId: last.id }, 0)
+    const res = tryApply(s, { kind: 'meld', cardIds: s.players[0]!.hand.filter((c) => c.rank === 'A').map((c) => c.id) }, 0)
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/Keep enough cards/)
+  })
+
+  it('cannot discard the last card without a canasta', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    forceHands(s, [[makeCard(1, 'H', '4', 0)], fillLow(15)], [makeCard(99, 'H', '9', 0)], fillLow(20, 200))
+    s.teams[0]!.hasInitialMeld = true
+    s.phase = 'awaitingPlay'
+    const res = tryApply(s, { kind: 'discard', cardId: s.players[0]!.hand[0]!.id }, 0)
     expect(res.ok).toBe(false)
   })
 
@@ -240,6 +248,16 @@ describe('going out and scoring', () => {
     tryApply(s, { kind: 'discard', cardId: s.players[0]!.hand[0]!.id }, 0)
     expect(s.phase).toBe('matchEnd')
     expect(s.winnerTeam).toBe(0)
+  })
+})
+
+describe('legal moves', () => {
+  it('always offers a discard after drawing a normal hand', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    forceHands(s, [aces(3).concat(fillLow(12)), fillLow(15)], [makeCard(99, 'H', '4', 0)], fillLow(20, 200))
+    tryApply(s, { kind: 'drawStock' }, 0)
+    const moves = getLegalMoves(s, 0)
+    expect(moves.some((m) => m.kind === 'discard')).toBe(true)
   })
 })
 

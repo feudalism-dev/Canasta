@@ -447,15 +447,20 @@ select {
   display: flex;
   gap: 0.35rem;
   overflow-x: auto;
-  padding: 0.3rem 0;
-  flex: 1;
-  min-height: 110px;
+  overflow-y: hidden;
+  padding: 0.35rem 0 0.15rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: flex-end;
 }
 
 .rank-group {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  height: fit-content;
   background: rgba(0, 0, 0, 0.18);
   border: 1px solid transparent;
-  padding: 0.2rem;
+  padding: 0.2rem 0.25rem 0.25rem;
   border-radius: 6px;
 }
 
@@ -481,6 +486,10 @@ select {
 
 .rank-cards .cn-card {
   margin-right: -32px;
+}
+
+.rank-cards .cn-card:last-child {
+  margin-right: 0;
 }
 
 .cn-card {
