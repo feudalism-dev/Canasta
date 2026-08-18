@@ -1,5 +1,6 @@
-import { isRedSuit, rankLabel, suitGlyph, type Card } from '../core/cards'
+import { isRedSuit, rankLabel, type Card } from '../core/cards'
 import { assets } from './assets'
+import { CardFace } from './CardFace'
 
 type Size = 'sm' | 'md' | 'lg'
 
@@ -15,6 +16,11 @@ type Props = {
   onClick?: () => void
 }
 
+function cardToneClass(card: Card): string {
+  if (card.rank === 'JOKER') return card.id.endsWith('-1') ? 'is-red' : 'is-black'
+  return isRedSuit(card.suit) ? 'is-red' : 'is-black'
+}
+
 export function CardView({
   card,
   facedown,
@@ -26,9 +32,6 @@ export function CardView({
   stamp,
   onClick,
 }: Props) {
-  const red = card ? isRedSuit(card.suit) : false
-  const label = card ? (card.rank === 'JOKER' ? '★' : card.rank) : ''
-  const pip = card ? (card.rank === 'JOKER' ? '★' : suitGlyph(card.suit)) : ''
   const cls = [
     'cn-card',
     `is-${size}`,
@@ -37,7 +40,7 @@ export function CardView({
     selected ? 'is-selected' : '',
     dimmed ? 'is-dim' : '',
     sideways ? 'is-side' : '',
-    red ? 'is-red' : 'is-black',
+    card && !facedown ? cardToneClass(card) : '',
     stamp ? `is-stamp-${stamp}` : '',
   ]
     .filter(Boolean)
@@ -60,15 +63,7 @@ export function CardView({
       {...clickProps}
       aria-label={`${rankLabel(card.rank)} of ${card.suit}`}
     >
-      <span className="cn-card-corner tl">
-        <em>{label}</em>
-        <i>{pip}</i>
-      </span>
-      <span className="cn-card-pip">{pip}</span>
-      <span className="cn-card-corner br">
-        <em>{label}</em>
-        <i>{pip}</i>
-      </span>
+      <CardFace card={card} />
       {stamp ? <span className="cn-stamp">{stamp === 'clean' ? 'CLEAN' : stamp === 'dirty' ? 'DIRTY' : 'WILD'}</span> : null}
     </Tag>
   )

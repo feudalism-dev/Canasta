@@ -355,7 +355,7 @@ function AppInner() {
       onDraw={() => submit({ kind: 'drawStock' })}
       onTakePile={() => {
         const plan = planPileTake(state, localIndex, [...selectedIds])
-        if (plan.ok && plan.cardIds) submit({ kind: 'takePile', cardIds: plan.cardIds })
+        if (plan.ok && plan.cardIds !== undefined) submit({ kind: 'takePile', cardIds: plan.cardIds })
         else push(!plan.ok ? plan.error : 'Select two matching naturals, or the pile is stopped.')
       }}
       onMeld={() => submit({ kind: 'meld', cardIds: [...selectedIds] })}

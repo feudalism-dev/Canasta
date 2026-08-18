@@ -32,7 +32,7 @@ Play to **5,000**. Multiple hands. Dealer rotates conceptually (v1: player 0 dea
 
 **Freeze:** The pile is frozen if a wild or red three was turned as an upcard or a wild was discarded. A frozen pile (and a pile “frozen against” a team that has not made its initial meld) can be taken only with **two natural cards** of the top rank from hand, melded immediately with the top card.
 
-**Unfrozen pile:** Take with two cards that form a valid meld with the top card (two naturals, or one natural + one wild), or with **one** natural if the team already has a meld of that rank. Cannot take if the top card is a wild or a black three.
+**Unfrozen pile:** Take with two cards that form a valid meld with the top card (two naturals, or one natural + one wild), or by adding the top card to an existing meld of that rank — no extra matching card from hand is required. Cannot take if the top card is a wild or a black three.
 
 **Initial meld** (team score at the start of the hand):
 

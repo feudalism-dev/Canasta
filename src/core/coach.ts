@@ -26,10 +26,10 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
     if (plan.ok) {
       const n = state.discard.length
       const label = top ? rankLabel(top.rank) : 'card'
-      return `Your turn. You can take the pile (${n} cards) with ${label}s, or draw from the stock.`
+      return `Your turn. You can take the pile (${n} cards) and meld the ${label}, or draw from the stock.`
     }
     if (!plan.ok) {
-      if (claimCardsForPile(state, playerIndex)) return `Your turn. ${plan.error}`
+      if (claimCardsForPile(state, playerIndex) !== null) return `Your turn. ${plan.error}`
     }
     const n = state.config.stockDraw
     const frozen = top && pileFrozenFor(state, playerIndex) && !pileIsStopped(state)

@@ -50,8 +50,8 @@ export function pileFrozenFor(state: MatchState, playerIndex: number): boolean {
   return !team.hasInitialMeld
 }
 
-function existingOpenMeld(team: TeamState, rank: MeldRank): Meld | undefined {
-  return team.melds.find((m) => m.rank === rank && !m.closed)
+function existingOpenMeld(team: TeamState, rank: MeldRank, config: MatchState['config']): Meld | undefined {
+  return team.melds.find((m) => m.rank === rank && !(config.booksCloseAtSeven && m.closed))
 }
 
 export function claimCardsForPile(state: MatchState, playerIndex: number): string[] | null {
@@ -63,13 +63,16 @@ export function claimCardsForPile(state: MatchState, playerIndex: number): strin
   const naturals = player.hand.filter((c) => c.rank === top.rank && !isWild(c))
   const wilds = player.hand.filter((c) => isWild(c))
   const frozen = pileFrozenFor(state, playerIndex)
-  const existing = existingOpenMeld(team, top.rank as MeldRank)
+  const existing = existingOpenMeld(team, top.rank as MeldRank, state.config)
   if (frozen) {
     if (naturals.length < 2) return null
     return [naturals[0]!.id, naturals[1]!.id]
   }
+  if (existing) {
+    if (naturals.length >= 1) return [naturals[0]!.id]
+    return []
+  }
   if (naturals.length >= 2) return [naturals[0]!.id, naturals[1]!.id]
-  if (naturals.length === 1 && existing) return [naturals[0]!.id]
   if (naturals.length === 1 && wilds.length >= 1) return [naturals[0]!.id, wilds[0]!.id]
   return null
 }
@@ -129,13 +132,13 @@ function inspectPileTake(state: MatchState, playerIndex: number, cardIds: string
   const wilds = taken.filter((c) => isWild(c))
   const others = taken.filter((c) => !naturals.includes(c) && !wilds.includes(c))
   const frozen = pileFrozenFor(state, playerIndex)
-  const existing = existingOpenMeld(team, top.rank as MeldRank)
+  const existing = existingOpenMeld(team, top.rank as MeldRank, state.config)
   if (frozen || state.config.takePileNeedsTwoNaturalsAlways) {
     if (naturals.length < 2) {
       return { ok: false, error: `Need two ${rankLabel(top.rank)}s to take the pile.` }
     }
-  } else if (naturals.length === 1 && existing) {
-    /* ok — add top to existing */
+  } else if (existing) {
+    /* ok — add the top card to the existing unfrozen meld; matching cards from hand are optional */
   } else if (naturals.length === 1 && wilds.length >= 1) {
     /* ok — new mixed meld */
   } else if (naturals.length >= 2) {
@@ -243,7 +246,7 @@ function autoFillPileExtras(state: MatchState, playerIndex: number, claimIds: st
 export function planPileTake(state: MatchState, playerIndex: number, preferIds: string[] = []): ApplyResult & { cardIds?: string[] } {
   const claim = claimCardsForPile(state, playerIndex)
   const top = peekDiscard(state)
-  if (!claim) {
+  if (claim === null) {
     if (!top) return { ok: false, error: 'The discard pile is empty.' }
     if (pileIsStopped(state)) return { ok: false, error: 'The discard pile cannot be taken.' }
     if (pileFrozenFor(state, playerIndex)) {
@@ -273,7 +276,7 @@ function layClaim(state: MatchState, playerIndex: number, fromHand: Card[], top:
   const player = state.players[playerIndex]!
   const team = state.teams[player.team]!
   const rank = (top.rank === '2' || top.rank === 'JOKER' || top.rank === '3' ? inferMeldRank([...fromHand, top]) : top.rank) as MeldRank
-  const existing = existingOpenMeld(team, rank)
+  const existing = existingOpenMeld(team, rank, state.config)
   const cards = [...fromHand, top]
   if (existing) {
     existing.cards.push(...cards)
@@ -672,7 +675,7 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
   if (state.phase === 'awaitingDraw') {
     moves.push({ kind: 'drawStock' })
     const plan = planPileTake(state, playerIndex)
-    if (plan.ok && plan.cardIds) moves.push({ kind: 'takePile', cardIds: plan.cardIds })
+    if (plan.ok && plan.cardIds !== undefined) moves.push({ kind: 'takePile', cardIds: plan.cardIds })
     return moves
   }
   if (state.phase !== 'awaitingPlay') return moves
@@ -740,7 +743,7 @@ export function legalHandIndexes(state: MatchState, playerIndex: number): Set<nu
   if (!player) return set
   if (state.phase === 'awaitingDraw' && playerIndex === state.currentPlayer) {
     const plan = planPileTake(state, playerIndex)
-    if (plan.ok && plan.cardIds) {
+    if (plan.ok && plan.cardIds !== undefined) {
       player.hand.forEach((c, i) => {
         if (plan.cardIds!.includes(c.id)) set.add(i)
       })

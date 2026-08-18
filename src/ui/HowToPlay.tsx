@@ -26,6 +26,10 @@ const PAGES: Page[] = [
           <li>Canasta draws <strong>one</strong>. Hand and Foot draws <strong>two</strong>.</li>
           <li>A frozen pile (or any Hand and Foot pile) needs <strong>two natural cards</strong> of the top rank.</li>
           <li>
+            An unfrozen Canasta pile can also be taken by adding the top card to a meld you already have of that
+            rank — you do not need another matching card in hand.
+          </li>
+          <li>
             Those cards plus the top discard must also meet the <strong>initial meld</strong> (usually 50).
             Clicking the pile lays extra sets from your hand if needed.
           </li>

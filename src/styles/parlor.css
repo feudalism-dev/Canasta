@@ -576,16 +576,20 @@ select {
   flex: 0 0 auto;
   font: inherit;
   display: block;
+  overflow: hidden;
+  font-size: calc(13px * var(--ui-scale));
 }
 
 .cn-card.is-sm {
   width: var(--card-w-sm);
   height: var(--card-h-sm);
+  font-size: calc(9px * var(--ui-scale));
 }
 
 .cn-card.is-lg {
   width: var(--card-w-lg);
   height: var(--card-h-lg);
+  font-size: calc(16px * var(--ui-scale));
 }
 
 .cn-card.is-red {
@@ -622,33 +626,88 @@ select {
   transform: rotate(-12deg);
 }
 
+.cn-card-face {
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(18, 12, 8, 0.12);
+  border-radius: 3px;
+}
+
 .cn-card-corner {
   position: absolute;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   font-family: var(--font-card);
-  font-size: calc(0.72 * var(--rem));
-  line-height: 1;
+  font-size: 0.85em;
+  line-height: 0.95;
+  font-weight: 700;
+}
+
+.cn-card-corner em {
+  font-style: normal;
+}
+
+.cn-card-corner i {
+  font-style: normal;
+  font-size: 0.78em;
 }
 
 .cn-card-corner.tl {
-  top: calc(3px * var(--ui-scale));
-  left: calc(4px * var(--ui-scale));
+  top: 2px;
+  left: 3px;
 }
 
 .cn-card-corner.br {
-  bottom: calc(3px * var(--ui-scale));
-  right: calc(4px * var(--ui-scale));
+  bottom: 2px;
+  right: 3px;
   transform: rotate(180deg);
 }
 
-.cn-card-pip {
+.cn-pips {
   position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: calc(1.35 * var(--rem));
+  inset: 12% 18%;
+}
+
+.cn-pips i {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-style: normal;
+  font-size: 1.05em;
+  line-height: 1;
+}
+
+.cn-pips i.is-flip {
+  transform: translate(-50%, -50%) rotate(180deg);
+}
+
+.cn-pips.is-ace i {
+  font-size: 2.15em;
+}
+
+.cn-court {
+  position: absolute;
+  inset: 16% 20% 16% 20%;
+  color: inherit;
+}
+
+.cn-court-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.cn-card.is-sm .cn-pips i {
+  font-size: 0.92em;
+}
+
+.cn-card.is-lg .cn-pips i {
+  font-size: 1.2em;
+}
+
+.cn-card.is-lg .cn-pips.is-ace i {
+  font-size: 2.4em;
 }
 
 .cn-stamp {
