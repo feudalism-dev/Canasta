@@ -1,13 +1,8 @@
-// Canasta — Display stub (Furware / prim books / spectator MOAP later)
-// Drop on the SAME root prim as Canasta_Table.lsl (or a child in the linkset).
-// Compile: Mono. See Docs/TABLE_DISPLAY.md
-//
-// Table → Display:
-//   91001 EVENT  pipe  EVENT|player|team|rank|value|extra
-//   91002 START  solo|n|seat|uids…  or  match|uids…
-//   91003 RESET
-// Display → Table:
-//   91004 RESET_DONE
+// Canasta — In-world display (Furware per-seat lines)
+// Drop on the display child prim (same linkset as Table). Compile: Mono.
+// Furware sets: text0..text3 = sitters 0..3 (player 1..4).
+// Prim names like: FURWARE text mesh:text0:0:0
+// One Furware text script in the linkset. See Docs/TABLE_DISPLAY.md
 
 integer DISPLAY_CMD_EVENT = 91001;
 integer DISPLAY_CMD_START = 91002;
@@ -15,6 +10,14 @@ integer DISPLAY_CMD_RESET = 91003;
 integer DISPLAY_RSP_RESET_DONE = 91004;
 
 integer DEBUG = FALSE;
+integer MAX_SEATS = 4;
+
+list gName = [];
+integer gPlayers = 4;
+integer gLive = FALSE;
+integer gTurnSeat = -1;
+integer gScoreA = 0;
+integer gScoreB = 0;
 
 integer debug(string m)
 {
@@ -22,24 +25,175 @@ integer debug(string m)
     return TRUE;
 }
 
-idleAttract()
+string boxOf(integer seat)
 {
-    // Later: Furware "Canasta & Hand and Foot" + brass attract.
-    debug("attract / idle");
+    return "text" + (string)seat;
 }
 
-handleEvent(string pipe)
+integer fwBox(string boxName, string body, string conf)
 {
-    // Later: parse EVENT and drive book prims / Furware / spectator MOAP.
+    llMessageLinked(LINK_SET, 0, conf, "fw_conf : " + boxName);
+    llMessageLinked(LINK_SET, 0, body, "fw_data : " + boxName);
+    return TRUE;
+}
+
+string clip(string s, integer maxLen)
+{
+    if (llStringLength(s) <= maxLen) return s;
+    return llGetSubString(s, 0, maxLen - 1);
+}
+
+string labelFor(integer seat)
+{
+    string nm = llList2String(gName, seat);
+    if (nm != "") return nm;
+    if (gLive && seat < gPlayers) return "CPU";
+    return "P" + (string)(seat + 1);
+}
+
+integer scoreFor(integer seat)
+{
+    if (seat % 2 == 0) return gScoreA;
+    return gScoreB;
+}
+
+integer paintSeat(integer seat)
+{
+    string conf = "a=left; w=none; t=on";
+    string body = (string)(seat + 1) + " " + clip(labelFor(seat), 12);
+    if (!gLive || seat >= gPlayers)
+    {
+        conf += "; c=0.45,0.40,0.32";
+    }
+    else
+    {
+        body += " " + (string)scoreFor(seat);
+        if (gTurnSeat == seat)
+        {
+            body = "*" + body;
+            conf += "; c=0.83,0.67,0.22";
+        }
+        else
+        {
+            conf += "; c=0.96,0.91,0.82";
+        }
+    }
+    fwBox(boxOf(seat), body, conf);
+    return TRUE;
+}
+
+integer paintAll()
+{
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        paintSeat(i);
+    }
+    return TRUE;
+}
+
+integer clearState()
+{
+    gName = ["", "", "", ""];
+    gPlayers = 4;
+    gLive = FALSE;
+    gTurnSeat = -1;
+    gScoreA = 0;
+    gScoreB = 0;
+    return TRUE;
+}
+
+integer idleAttract()
+{
+    clearState();
+    paintAll();
+    debug("attract / idle");
+    return TRUE;
+}
+
+integer takeNames(list parts, integer startAt)
+{
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        string nm = "";
+        integer idx = startAt + i;
+        if (idx < llGetListLength(parts)) nm = llStringTrim(llList2String(parts, idx), STRING_TRIM);
+        gName = llListReplaceList(gName, [nm], i, i);
+    }
+    return TRUE;
+}
+
+integer handleStart(string payload)
+{
+    list parts = llParseStringKeepNulls(payload, ["|"], []);
+    integer n = llGetListLength(parts);
+    if (n < 1) return FALSE;
+    string kind = llList2String(parts, 0);
+    clearState();
+    gLive = TRUE;
+    if (kind == "solo")
+    {
+        if (n > 1) gPlayers = (integer)llList2String(parts, 1);
+        if (gPlayers < 2) gPlayers = 2;
+        if (gPlayers > MAX_SEATS) gPlayers = MAX_SEATS;
+        gTurnSeat = 0;
+        if (n > 2) gTurnSeat = (integer)llList2String(parts, 2);
+        if (n > 7) takeNames(parts, 7);
+    }
+    else
+    {
+        gPlayers = MAX_SEATS;
+        gTurnSeat = 0;
+        if (n > 5) takeNames(parts, 5);
+    }
+    if (gTurnSeat < 0 || gTurnSeat >= gPlayers) gTurnSeat = 0;
+    paintAll();
+    debug("START " + payload);
+    return TRUE;
+}
+
+integer handleEvent(string pipe)
+{
+    list parts = llParseStringKeepNulls(pipe, ["|"], []);
+    integer n = llGetListLength(parts);
+    if (n < 1) return FALSE;
+    string kind = llList2String(parts, 0);
+    integer player = 0;
+    if (n > 1) player = (integer)llList2String(parts, 1);
+    integer team = 0;
+    if (n > 2) team = (integer)llList2String(parts, 2);
+    integer seat = player - 1;
+    if (kind == "TURN")
+    {
+        if (seat >= 0 && seat < MAX_SEATS) gTurnSeat = seat;
+        paintAll();
+        return TRUE;
+    }
+    if (kind == "SCORE")
+    {
+        gScoreA = player;
+        gScoreB = team;
+        paintAll();
+        return TRUE;
+    }
+    if (kind == "GAME_OVER")
+    {
+        gTurnSeat = -1;
+        paintAll();
+        return TRUE;
+    }
     debug(pipe);
+    return TRUE;
 }
 
 default
 {
     state_entry()
     {
+        clearState();
         idleAttract();
-        llOwnerSay("Canasta display stub ready. Wire Furware/prims later (Docs/TABLE_DISPLAY.md).");
+        llOwnerSay("Canasta display: Furware text0–text3 (sitters 0–3).");
     }
 
     on_rez(integer p)
@@ -57,13 +211,17 @@ default
         }
         if (num == DISPLAY_CMD_START)
         {
-            debug("START " + str);
+            handleStart(str);
             return;
         }
         if (num == DISPLAY_CMD_EVENT)
         {
             handleEvent(str);
             return;
+        }
+        if ((string)id == "fw_ready")
+        {
+            paintAll();
         }
     }
 }

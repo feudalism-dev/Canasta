@@ -1,8 +1,23 @@
-# In-world table display (v1 stub, full visual later)
+# In-world table display
 
-The HUD is the rules engine. The table is a **spectator parlor**. Until Furware and prim books are built, `lsl/Canasta_Display.lsl` acknowledges reset/start and ignores events (or owner-says them when `DEBUG` is true).
+The HUD is the rules engine. The table is a **spectator parlor**. `lsl/Canasta_Display.lsl` drives **Furware** seat lines. Prim book stacks and spectator MOAP are still later.
 
 Seated play still **claims** the table so two matches cannot overlap.
+
+## Furware
+
+One Furware text script in the **linkset**. Four root sets, one per AVsitter seat:
+
+| Set name | Seat | Player |
+|----------|------|--------|
+| `text0` | 0 | 1 |
+| `text1` | 1 | 2 |
+| `text2` | 2 | 3 |
+| `text3` | 3 | 4 |
+
+Prim names: `FURWARE text mesh:text0:0:0` … `text0:0:3` (and the same for `text1`–`text3`). Put `Canasta_Display.lsl` on the display child. It sends `fw_data` / `fw_conf` to those set names.
+
+Idle line: `1 P1`. During a game: `1 Alice 50`, with a leading `*` and brass color on whose turn it is. Empty CPU seats show `CPU`. Partnership scores are shared (seats 0+2 vs 1+3).
 
 ## Event bus
 
@@ -37,4 +52,4 @@ EVENT|player|team|rank|value|extra
 - Furware Text: team scores, whose turn, meld minimum, round
 - Optional spectator MOAP mirroring the **public** board (never hands)
 
-Start payload (`91002`): `solo|nPlayers|humanSeat|uid0|uid1|uid2|uid3` or `match|uid0|uid1|uid2|uid3`.
+Start payload (`91002`): `solo|nPlayers|humanSeat|uid0|uid1|uid2|uid3|name0|name1|name2|name3` or `match|uid0|uid1|uid2|uid3|name0|name1|name2|name3`.

@@ -7,7 +7,7 @@
 | **AVsitter** | Sit poses only (`90070` / `90065`). Does **not** attach the HUD. |
 | **Table LSL** | Roster, **rezzes HUD**, one-game lock, display reset handshake |
 | **Http LSL** | HTTP-IN JSONP (same root prim as Table) |
-| **Display LSL** | Stub now; Furware / prims / spectator MOAP later |
+| **Display LSL** | Furware seat lines (`text0`–`text3`); prim books / spectator MOAP later |
 | **HUD LSL** | Experience **temp-attach** → set MOAP URL (Pages) |
 | **MOAP (React)** | Seated HUD always claims the table; public URL is solo-only |
 | **PeerJS** | Browser↔browser match traffic (not via the table) |
@@ -22,7 +22,8 @@ Browsers → PeerJS for multiplayer moves
 
 **Inventory**
 
-- **Table root:** `Canasta_Table.lsl` + `Canasta_Http.lsl` + `Canasta_Display.lsl` + AVsitter; HUD object **`Canasta HUD`** in table inventory. Compile Table + HUD with the **same Experience**.
+- **Table root:** `Canasta_Table.lsl` + `Canasta_Http.lsl` + AVsitter; HUD object **`Canasta HUD`** in table inventory. Compile Table + HUD with the **same Experience**.
+- **Display child:** `Canasta_Display.lsl` (Mono). Furware text sets `text0`–`text3` in the same linkset.
 - Root description contains `canasta-table`.
 
 Parcel must allow that Experience.

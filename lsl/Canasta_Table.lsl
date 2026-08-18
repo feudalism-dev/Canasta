@@ -458,6 +458,11 @@ integer processGrace()
     return TRUE;
 }
 
+string pipeSafe(string s)
+{
+    return llDumpList2String(llParseStringKeepNulls(s, ["|"], []), " ");
+}
+
 string seatUidPipe()
 {
     string s = "";
@@ -467,6 +472,18 @@ string seatUidPipe()
         if (i) s += "|";
         key av = llList2Key(gSeatAv, i);
         if (av != NULL_KEY) s += (string)av;
+    }
+    return s;
+}
+
+string seatNamePipe()
+{
+    string s = "";
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        if (i) s += "|";
+        s += pipeSafe(llList2String(gSeatName, i));
     }
     return s;
 }
@@ -481,6 +498,7 @@ string matchStartPayload()
         key av = llList2Key(gSeatAv, i);
         if (av != NULL_KEY && llListFindList(gJoined, [av]) >= 0) s += (string)av;
     }
+    s += "|" + seatNamePipe();
     return s;
 }
 
@@ -490,7 +508,7 @@ string soloStartPayload(key human, integer nPlayers)
     if (humanSeat < 0) humanSeat = 0;
     if (nPlayers < 1) nPlayers = 1;
     if (nPlayers > MAX_SEATS) nPlayers = MAX_SEATS;
-    return "solo|" + (string)nPlayers + "|" + (string)humanSeat + "|" + seatUidPipe();
+    return "solo|" + (string)nPlayers + "|" + (string)humanSeat + "|" + seatUidPipe() + "|" + seatNamePipe();
 }
 
 integer finishReset()
