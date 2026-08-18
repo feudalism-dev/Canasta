@@ -93,7 +93,7 @@ export type MatchState = {
 export type GameMove =
   | { kind: 'drawStock' }
   | { kind: 'takePile'; cardIds: string[] }
-  | { kind: 'meld'; cardIds: string[] }
+  | { kind: 'meld'; cardIds: string[]; groups?: string[][] }
   | { kind: 'addToMeld'; meldIndex: number; cardIds: string[] }
   | { kind: 'discard'; cardId: string }
   | { kind: 'consentGoOut'; accept: boolean }

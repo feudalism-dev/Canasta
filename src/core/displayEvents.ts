@@ -32,7 +32,6 @@ export function eventsForMove(
   }
   if (move.kind === 'meld' || move.kind === 'addToMeld') {
     const t = next.teams[team]!
-    const meld = t.melds[t.melds.length - 1]
     if (move.kind === 'addToMeld') {
       const m = t.melds[move.meldIndex]
       if (m) {
@@ -44,12 +43,15 @@ export function eventsForMove(
           out.push(`CANASTA|${seat}|${team}|${rankPipe(m.rank)}|${v}|`)
         }
       }
-    } else if (meld) {
-      out.push(`MELD|${seat}|${team}|${rankPipe(meld.rank)}|${meld.cards.length}|`)
-      const kind = canastaKind(meld, next.config.canastaSize)
-      if (kind !== 'none') {
-        const v = kind === 'natural' ? 1 : kind === 'wild' ? 2 : 0
-        out.push(`CANASTA|${seat}|${team}|${rankPipe(meld.rank)}|${v}|`)
+    } else {
+      const prevCount = prev.teams[team]!.melds.length
+      for (const meld of t.melds.slice(prevCount)) {
+        out.push(`MELD|${seat}|${team}|${rankPipe(meld.rank)}|${meld.cards.length}|`)
+        const kind = canastaKind(meld, next.config.canastaSize)
+        if (kind !== 'none') {
+          const v = kind === 'natural' ? 1 : kind === 'wild' ? 2 : 0
+          out.push(`CANASTA|${seat}|${team}|${rankPipe(meld.rank)}|${v}|`)
+        }
       }
     }
   }

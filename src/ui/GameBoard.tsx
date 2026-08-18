@@ -11,6 +11,8 @@ type Props = {
   state: MatchState
   localIndex: number
   selectedIds: Set<string>
+  parkedIds: Set<string>
+  meldGroups: string[][]
   aiThinking: boolean
   onToggle: (id: string) => void
   onToggleRank: (ids: string[]) => void
@@ -20,6 +22,7 @@ type Props = {
   onAdd: (meldIndex: number) => void
   onDiscard: () => void
   onClear: () => void
+  onDropGroup: (index: number) => void
   onMenu: () => void
   onContinue: () => void
   onConsent: (accept: boolean) => void
@@ -29,6 +32,8 @@ export function GameBoard({
   state,
   localIndex,
   selectedIds,
+  parkedIds,
+  meldGroups,
   aiThinking,
   onToggle,
   onToggleRank,
@@ -38,6 +43,7 @@ export function GameBoard({
   onAdd,
   onDiscard,
   onClear,
+  onDropGroup,
   onMenu,
   onContinue,
   onConsent,
@@ -47,7 +53,6 @@ export function GameBoard({
   const otherTeam = (myTeam === 0 ? 1 : 0) as 0 | 1
   const legal = legalHandIndexes(state, localIndex)
   const legalIds = new Set(me.hand.filter((_, i) => legal.has(i)).map((c) => c.id))
-  const selectedCards = me.hand.filter((c) => selectedIds.has(c.id))
   const coach = whatShouldIDo(state, localIndex)
   const myTurn = state.currentPlayer === localIndex && (state.phase === 'awaitingDraw' || state.phase === 'awaitingPlay')
   const need = initialMeldMinimum(state.config, state.teams[myTeam]!.score, state.round)
@@ -130,6 +135,7 @@ export function GameBoard({
       <RankHand
         hand={me.hand}
         selectedIds={selectedIds}
+        parkedIds={parkedIds}
         legalIds={legalIds}
         myTurn={myTurn && !aiThinking}
         onToggle={onToggle}
@@ -139,11 +145,12 @@ export function GameBoard({
       <MeldBuilder
         state={state}
         localIndex={localIndex}
-        selected={selectedCards}
+        groups={meldGroups}
         onMeld={onMeld}
         onAdd={onAdd}
         onDiscard={onDiscard}
         onClear={onClear}
+        onDropGroup={onDropGroup}
       />
 
       {state.phase === 'awaitingGoOutConsent' && state.pendingGoOut ? (

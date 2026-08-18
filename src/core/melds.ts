@@ -1,4 +1,4 @@
-import { cardPoints, isWild, type Card, type MeldRank } from './cards'
+import { cardPoints, isRedThree, isWild, meldCountPoints, type Card, type MeldRank } from './cards'
 import type { Meld, VariantConfig } from './types'
 
 export function naturalCount(meld: Meld): number {
@@ -103,6 +103,109 @@ export function inferMeldRank(cards: Card[]): MeldRank | null {
   if (rank === '2' || rank === 'JOKER' || rank === '3') return null
   if (naturals.some((c) => c.rank !== rank)) return null
   return rank as MeldRank
+}
+
+function attachSpareWild(groups: Card[][], wild: Card, config: VariantConfig): boolean {
+  for (const g of groups) {
+    const rank = inferMeldRank(g)
+    if (!rank || rank === 'WILD' || rank === '3') continue
+    const trial = [...g, wild]
+    if (!validateMeldCards(trial, rank, config)) {
+      g.push(wild)
+      return true
+    }
+  }
+  return false
+}
+
+/** Split mixed cards into complete rank-sets, assigning wilds to pairs first. */
+export function partitionMeldCards(cards: Card[], config: VariantConfig): { groups: Card[][]; error: string | null } {
+  if (cards.length === 0) return { groups: [], error: 'Select cards to meld.' }
+  const single = inferMeldRank(cards)
+  if (single) {
+    const err = validateMeldCards(cards, single, config)
+    return err ? { groups: [], error: err } : { groups: [cards], error: null }
+  }
+  const wilds = cards.filter(isWild)
+  const byRank = new Map<string, Card[]>()
+  for (const c of cards) {
+    if (isWild(c) || isRedThree(c)) continue
+    const list = byRank.get(c.rank) ?? []
+    list.push(c)
+    byRank.set(c.rank, list)
+  }
+  const groups: Card[][] = []
+  let wildLeft = [...wilds]
+  for (const [, naturals] of byRank) {
+    if (naturals.length >= 3) {
+      groups.push([...naturals])
+    } else if (naturals.length >= 2) {
+      if (!wildLeft.length) return { groups: [], error: 'Need a wild for that pair.' }
+      groups.push([...naturals, wildLeft.shift()!])
+    } else if (naturals.length === 1) {
+      return { groups: [], error: 'Each set needs at least two natural cards.' }
+    }
+  }
+  wildLeft = wildLeft.filter((w) => {
+    if (attachSpareWild(groups, w, config)) return false
+    return true
+  })
+  if (wildLeft.length >= 3 && config.house.wildBooksAllowed) {
+    groups.push(wildLeft)
+    wildLeft = []
+  }
+  if (wildLeft.length) return { groups: [], error: 'Those extra wilds do not make a meld.' }
+  if (!groups.length) return { groups: [], error: 'Those cards are not a meld.' }
+  for (const g of groups) {
+    const rank = inferMeldRank(g)
+    if (!rank) return { groups: [], error: 'Those extra cards are not a meld.' }
+    const err = validateMeldCards(g, rank, config)
+    if (err) return { groups: [], error: err }
+  }
+  return { groups, error: null }
+}
+
+/** Build enough complete sets from a hand to meet an opening-meld point floor. */
+export function planOpeningMeldGroups(hand: Card[], config: VariantConfig, need: number): Card[][] | null {
+  const wilds = hand.filter(isWild)
+  const byRank = new Map<string, Card[]>()
+  for (const c of hand) {
+    if (isWild(c) || isRedThree(c) || c.rank === '3') continue
+    const list = byRank.get(c.rank) ?? []
+    list.push(c)
+    byRank.set(c.rank, list)
+  }
+  const triples: Card[][] = []
+  const pairs: Card[][] = []
+  for (const [, naturals] of byRank) {
+    if (naturals.length >= 3) triples.push([...naturals])
+    else if (naturals.length >= 2) pairs.push([...naturals])
+  }
+  const groups: Card[][] = triples.map((g) => [...g])
+  const scoreOf = (packs: Card[][]) => packs.flat().reduce((n, c) => n + meldCountPoints(c), 0)
+  if (groups.length && scoreOf(groups) >= need) return groups
+  pairs.sort((a, b) => {
+    const pa = a.reduce((n, c) => n + meldCountPoints(c), 0)
+    const pb = b.reduce((n, c) => n + meldCountPoints(c), 0)
+    return pb - pa
+  })
+  const wildLeft = [...wilds]
+  for (const pair of pairs) {
+    if (!wildLeft.length) break
+    groups.push([...pair, wildLeft.shift()!])
+    if (scoreOf(groups) >= need) break
+  }
+  while (wildLeft.length) {
+    const w = wildLeft[0]!
+    if (!attachSpareWild(groups, w, config)) break
+    wildLeft.shift()
+    if (scoreOf(groups) >= need) break
+  }
+  if (wildLeft.length >= 3 && config.house.wildBooksAllowed) {
+    groups.push([...wildLeft])
+  }
+  if (!groups.length || scoreOf(groups) < need) return null
+  return groups
 }
 
 export function wouldClose(meld: Meld, adding: number, config: VariantConfig): boolean {

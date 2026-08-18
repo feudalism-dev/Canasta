@@ -125,6 +125,58 @@ describe('initial meld', () => {
     expect(res).toEqual({ ok: true })
     expect(s.teams[0]!.hasInitialMeld).toBe(true)
   })
+
+  it('lets two mixed sets meet a 90-point initial meld together', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    s.teams[0]!.score = 1500
+    const tens = [makeCard(0, 'H', '10', 0), makeCard(0, 'D', '10', 0)]
+    const jacks = [makeCard(1, 'H', 'J', 0), makeCard(1, 'D', 'J', 0)]
+    const js = [makeCard(2, 'J', 'JOKER', 0), makeCard(2, 'J', 'JOKER', 1)]
+    forceHands(s, [tens.concat(jacks).concat(js).concat(fillLow(9, 80)), fillLow(15, 500)], [makeCard(99, 'H', '4', 0)], fillLow(20, 200))
+    tryApply(s, { kind: 'drawStock' }, 0)
+    const tenIds = s.players[0]!.hand.filter((c) => c.rank === '10').slice(0, 2).map((c) => c.id)
+    const jackIds = s.players[0]!.hand.filter((c) => c.rank === 'J').slice(0, 2).map((c) => c.id)
+    const wildIds = s.players[0]!.hand.filter(isWild).slice(0, 2).map((c) => c.id)
+    const onlyTens = tryApply(
+      s,
+      { kind: 'meld', cardIds: [...tenIds, wildIds[0]!], groups: [[...tenIds, wildIds[0]!]] },
+      0,
+    )
+    expect(onlyTens.ok).toBe(false)
+    if (!onlyTens.ok) expect(onlyTens.error).toMatch(/Initial meld needs 90/)
+    const res = tryApply(
+      s,
+      {
+        kind: 'meld',
+        cardIds: [...tenIds, wildIds[0]!, ...jackIds, wildIds[1]!],
+        groups: [
+          [...tenIds, wildIds[0]!],
+          [...jackIds, wildIds[1]!],
+        ],
+      },
+      0,
+    )
+    expect(res).toEqual({ ok: true })
+    expect(s.teams[0]!.hasInitialMeld).toBe(true)
+    expect(s.teams[0]!.melds.map((m) => m.rank).sort()).toEqual(['10', 'J'])
+  })
+
+  it('splits mixed cards into opening sets without explicit groups', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    s.teams[0]!.score = 1500
+    const tens = [makeCard(0, 'H', '10', 0), makeCard(0, 'D', '10', 0)]
+    const jacks = [makeCard(1, 'H', 'J', 0), makeCard(1, 'D', 'J', 0)]
+    const js = [makeCard(2, 'J', 'JOKER', 0), makeCard(2, 'J', 'JOKER', 1)]
+    forceHands(s, [tens.concat(jacks).concat(js).concat(fillLow(9, 80)), fillLow(15, 500)], [makeCard(99, 'H', '4', 0)], fillLow(20, 200))
+    tryApply(s, { kind: 'drawStock' }, 0)
+    const ids = s.players[0]!.hand.filter((c) => c.rank === '10' || c.rank === 'J' || isWild(c)).slice(0, 6).map((c) => c.id)
+    const moves = getLegalMoves(s, 0)
+    const take = moves.find((m) => m.kind === 'meld' && m.cardIds.length >= 6)
+    expect(take).toBeTruthy()
+    const res = tryApply(s, { kind: 'meld', cardIds: ids }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.teams[0]!.melds).toHaveLength(2)
+  })
 })
 
 describe('discard pile', () => {

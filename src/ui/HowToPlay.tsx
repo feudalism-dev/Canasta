@@ -43,7 +43,11 @@ const PAGES: Page[] = [
     title: 'The hand is sorted for you',
     body: (
       <>
-        <p>Cards group by rank, the way people sort a physical hand. Tap a group to select it. The meld builder only offers legal plays, and the meter shows whether you have met the initial meld.</p>
+        <p>
+          Cards group by rank, the way people sort a physical hand. Tap a group to select it. For the
+          initial meld, tap Jacks then a joker to park that set, then tap Tens and another joker — the
+          meter adds both. Nothing goes on the table until the total meets the minimum and you press Meld.
+        </p>
       </>
     ),
   },

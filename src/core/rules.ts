@@ -17,6 +17,8 @@ import {
   closeIfNeeded,
   inferMeldRank,
   meldIsCanasta,
+  partitionMeldCards,
+  planOpeningMeldGroups,
   teamCanastaCounts,
   validateMeldCards,
 } from './melds'
@@ -439,50 +441,94 @@ function applyTakePile(state: MatchState, playerIndex: number, cardIds: string[]
   return { ok: true }
 }
 
-function applyMeld(state: MatchState, playerIndex: number, cardIds: string[]): ApplyResult {
+function packsFromMeldMove(
+  taken: Card[],
+  groups: string[][] | undefined,
+  config: MatchState['config'],
+): { packs: Card[][]; error: string | null } {
+  if (groups && groups.length) {
+    const byId = new Map(taken.map((c) => [c.id, c]))
+    const packs: Card[][] = []
+    const seen = new Set<string>()
+    for (const ids of groups) {
+      if (!ids.length) continue
+      const pack: Card[] = []
+      for (const id of ids) {
+        const card = byId.get(id)
+        if (!card) return { packs: [], error: 'Those cards are not in your hand.' }
+        if (seen.has(id)) return { packs: [], error: 'A card is in two sets.' }
+        seen.add(id)
+        pack.push(card)
+      }
+      packs.push(pack)
+    }
+    if (seen.size !== taken.length) return { packs: [], error: 'Select each card in only one set.' }
+    for (const pack of packs) {
+      const rank = inferMeldRank(pack)
+      if (!rank) return { packs: [], error: 'Those cards are not a single rank.' }
+      const err = validateMeldCards(pack, rank, config)
+      if (err) return { packs: [], error: err }
+    }
+    return { packs, error: null }
+  }
+  const split = partitionMeldCards(taken, config)
+  return { packs: split.groups, error: split.error }
+}
+
+function applyMeld(state: MatchState, playerIndex: number, cardIds: string[], groups?: string[][]): ApplyResult {
   if (state.phase !== 'awaitingPlay') return { ok: false, error: 'Draw first.' }
   if (playerIndex !== state.currentPlayer) return { ok: false, error: 'Not your turn.' }
   const player = state.players[playerIndex]!
   const team = state.teams[player.team]!
   const { taken, rest, missing } = takeCards(player.hand, cardIds)
   if (missing.length) return { ok: false, error: 'Those cards are not in your hand.' }
-  const rank = inferMeldRank(taken)
-  if (!rank) return { ok: false, error: 'Those cards are not a single rank.' }
-  if (rank === '3') {
-    const going = canPlayerGoOut(state, playerIndex)
-    if (!going.ok) return { ok: false, error: 'Black threes can only be melded when going out.' }
-    if (rest.length > 1) return { ok: false, error: 'Black threes are only melded as you go out.' }
-  }
-  const err = validateMeldCards(taken, rank, state.config)
-  if (err) return { ok: false, error: err }
-  if (rank === 'WILD' && !state.config.house.wildBooksAllowed) {
-    return { ok: false, error: 'Wild books are not allowed.' }
+  const split = packsFromMeldMove(taken, groups, state.config)
+  if (split.error) return { ok: false, error: split.error }
+  const packs = split.packs
+  if (!packs.length) return { ok: false, error: 'Select cards to meld.' }
+  for (const pack of packs) {
+    const rank = inferMeldRank(pack)
+    if (rank === '3') {
+      const going = canPlayerGoOut(state, playerIndex)
+      if (!going.ok) return { ok: false, error: 'Black threes can only be melded when going out.' }
+      if (rest.length > 1) return { ok: false, error: 'Black threes are only melded as you go out.' }
+    }
+    if (rank === 'WILD' && !state.config.house.wildBooksAllowed) {
+      return { ok: false, error: 'Wild books are not allowed.' }
+    }
+    if (state.config.booksCloseAtSeven && pack.length === state.config.canastaSize) {
+      const wilds = pack.filter((c) => isWild(c)).length
+      const naturals = pack.length - wilds
+      if (wilds > 0 && rank !== 'WILD' && naturals < state.config.minNaturalsForDirtyBook) {
+        return { ok: false, error: 'A dirty book needs at least four natural cards.' }
+      }
+    }
   }
   if (!team.hasInitialMeld) {
     const count = taken.reduce((n, c) => n + meldCountPoints(c), 0)
     const need = initialMeldMinimum(state.config, team.score, state.round)
-    if (count < need) return { ok: false, error: `Initial meld needs ${need}; this play is ${count}.` }
+    if (count < need) return { ok: false, error: `Initial meld needs ${need}; these sets are ${count}.` }
   }
-  if (state.config.booksCloseAtSeven && taken.length === state.config.canastaSize) {
-    const wilds = taken.filter((c) => isWild(c)).length
-    const naturals = taken.length - wilds
-    if (wilds > 0 && rank !== 'WILD' && naturals < state.config.minNaturalsForDirtyBook) {
-      return { ok: false, error: 'A dirty book needs at least four natural cards.' }
-    }
-  }
-  const nextMeld: Meld = closeIfNeeded({ rank, cards: taken, closed: false }, state.config)
-  const keep = minCardsToKeep(state, playerIndex, [...team.melds, nextMeld])
+  const nextMelds: Meld[] = packs.map((pack) => {
+    const rank = inferMeldRank(pack)!
+    return closeIfNeeded({ rank, cards: pack, closed: false }, state.config)
+  })
+  const keep = minCardsToKeep(state, playerIndex, [...team.melds, ...nextMelds])
   if (rest.length < keep) {
     return { ok: false, error: 'Keep enough cards to discard — you cannot go out yet.' }
   }
   player.hand = rest
-  const meld = nextMeld
-  team.melds.push(meld)
+  team.melds.push(...nextMelds)
   team.hasInitialMeld = true
   player.meldedThisHand = true
-  const kind = canastaKind(meld, state.config.canastaSize)
-  const stamp = kind === 'natural' ? 'Clean canasta!' : kind === 'mixed' ? 'Dirty canasta!' : kind === 'wild' ? 'Wild book!' : 'Meld laid.'
-  state.lastMessage = `${player.displayName}: ${stamp}`
+  if (nextMelds.length === 1) {
+    const meld = nextMelds[0]!
+    const kind = canastaKind(meld, state.config.canastaSize)
+    const stamp = kind === 'natural' ? 'Clean canasta!' : kind === 'mixed' ? 'Dirty canasta!' : kind === 'wild' ? 'Wild book!' : 'Meld laid.'
+    state.lastMessage = `${player.displayName}: ${stamp}`
+  } else {
+    state.lastMessage = `${player.displayName} lays ${nextMelds.length} melds.`
+  }
   maybePickupFoot(state, playerIndex, false)
   tryAutoGoOut(state, playerIndex)
   return { ok: true }
@@ -625,7 +671,7 @@ export function tryApply(state: MatchState, move: GameMove, playerIndex?: number
     case 'takePile':
       return applyTakePile(state, who, move.cardIds)
     case 'meld':
-      return applyMeld(state, who, move.cardIds)
+      return applyMeld(state, who, move.cardIds, move.groups)
     case 'addToMeld':
       return applyAdd(state, who, move.meldIndex, move.cardIds)
     case 'discard':
@@ -681,6 +727,14 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
   if (state.phase !== 'awaitingPlay') return moves
   const player = state.players[playerIndex]!
   const team = state.teams[player.team]!
+  if (!team.hasInitialMeld) {
+    const need = initialMeldMinimum(state.config, team.score, state.round)
+    const opening = planOpeningMeldGroups(player.hand, state.config, need)
+    if (opening) {
+      const groups = opening.map((g) => g.map((c) => c.id))
+      moves.push({ kind: 'meld', cardIds: groups.flat(), groups })
+    }
+  }
   const byRank = new Map<string, Card[]>()
   const wilds = player.hand.filter(isWild)
   for (const c of player.hand) {

@@ -10,6 +10,7 @@ type Props = {
   size?: Size
   legal?: boolean
   selected?: boolean
+  parked?: boolean
   dimmed?: boolean
   sideways?: boolean
   stamp?: 'clean' | 'dirty' | 'wild'
@@ -27,6 +28,7 @@ export function CardView({
   size = 'md',
   legal,
   selected,
+  parked,
   dimmed,
   sideways,
   stamp,
@@ -38,6 +40,7 @@ export function CardView({
     facedown ? 'is-back' : '',
     legal ? 'is-legal' : '',
     selected ? 'is-selected' : '',
+    parked ? 'is-parked' : '',
     dimmed ? 'is-dim' : '',
     sideways ? 'is-side' : '',
     card && !facedown ? cardToneClass(card) : '',

@@ -618,6 +618,10 @@ select {
   box-shadow: 0 0 0 2px var(--brass), 0 10px 16px var(--shadow);
 }
 
+.cn-card.is-parked {
+  box-shadow: 0 0 0 2px var(--legal), 0 6px 12px var(--shadow);
+}
+
 .cn-card.is-dim {
   filter: brightness(0.72) saturate(0.8);
 }
@@ -727,6 +731,45 @@ select {
   background: rgba(0, 0, 0, 0.28);
   border: 1px solid var(--brass-dim);
   padding: calc(0.35 * var(--rem)) calc(0.5 * var(--rem)) calc(0.45 * var(--rem));
+}
+
+.proposed {
+  margin: calc(0.3 * var(--rem)) 0 calc(0.15 * var(--rem));
+}
+
+.proposed-cap {
+  margin: 0 0 calc(0.15 * var(--rem));
+  font-size: calc(0.62 * var(--rem));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.proposed-row {
+  display: flex;
+  gap: calc(0.35 * var(--rem));
+  overflow-x: auto;
+}
+
+.proposed-set {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px dashed var(--brass-dim);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(0.1 * var(--rem));
+  padding: calc(0.15 * var(--rem));
+  font-size: calc(0.62 * var(--rem));
+}
+
+.proposed-set.is-ok {
+  border-color: var(--legal);
+}
+
+.proposed-set.is-short {
+  border-color: rgba(194, 59, 59, 0.7);
 }
 
 .meter {

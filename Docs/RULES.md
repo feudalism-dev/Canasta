@@ -41,7 +41,7 @@ Play to **5,000**. Multiple hands. Dealer rotates conceptually (v1: player 0 dea
 - 1,500 to 2,995: 90
 - 3,000+: 120
 
-Only cards from **hand plus the top discard** (if taking the pile) count toward the minimum. Buried pile cards do not. Red threes do not.
+Only cards from **hand plus the top discard** (if taking the pile) count toward the minimum. Buried pile cards do not. Red threes do not. Several complete sets laid together count as one initial meld; they are not shown to others until the total meets the minimum.
 
 **Meld limits:** At least two naturals. At most three wilds. Canastas may grow past seven.
 

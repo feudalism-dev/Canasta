@@ -39,7 +39,7 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
       : `Your turn. Draw two from the stock, or take the pile with two matching naturals.${freezeNote}`
   }
   if (!team.hasInitialMeld) {
-    return `Your turn. Need ${need} to meld. Select a rank group — the meter counts for you.`
+    return `Your turn. Need ${need} to meld. Build one or more sets in your hand — the meter counts all of them, and nothing is shown to others until you press Meld.`
   }
   const books = teamCanastaCounts(team.melds, state.config.canastaSize)
   if (state.config.variant === 'handAndFoot') {

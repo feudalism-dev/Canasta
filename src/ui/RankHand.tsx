@@ -4,6 +4,7 @@ import { CardView } from './CardView'
 type Props = {
   hand: Card[]
   selectedIds: Set<string>
+  parkedIds: Set<string>
   legalIds: Set<string>
   myTurn: boolean
   onToggle: (id: string) => void
@@ -12,7 +13,7 @@ type Props = {
 
 const ORDER: Rank[] = ['4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '3', '2', 'JOKER']
 
-export function RankHand({ hand, selectedIds, legalIds, myTurn, onToggle, onToggleRank }: Props) {
+export function RankHand({ hand, selectedIds, parkedIds, legalIds, myTurn, onToggle, onToggleRank }: Props) {
   const groups = groupByRank(hand)
   const ranks = ORDER.filter((r) => (groups.get(r) || []).length > 0)
   return (
@@ -38,6 +39,7 @@ export function RankHand({ hand, selectedIds, legalIds, myTurn, onToggle, onTogg
                   card={c}
                   size="md"
                   selected={selectedIds.has(c.id)}
+                  parked={parkedIds.has(c.id)}
                   legal={legalIds.has(c.id)}
                   dimmed={myTurn && !legalIds.has(c.id) && !selectedIds.has(c.id)}
                   onClick={() => onToggle(c.id)}

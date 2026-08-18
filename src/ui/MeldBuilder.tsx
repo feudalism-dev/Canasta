@@ -1,31 +1,59 @@
-import { meldCountPoints, type Card } from '../core/cards'
+import { meldCountPoints, rankLabel, type Card } from '../core/cards'
 import { canAddCards, inferMeldRank, validateMeldCards } from '../core/melds'
 import type { MatchState } from '../core/types'
 import { initialMeldMinimum } from '../core/variants'
+import { CardView } from './CardView'
 
 type Props = {
   state: MatchState
   localIndex: number
-  selected: Card[]
+  groups: string[][]
   onMeld: () => void
   onAdd: (meldIndex: number) => void
   onDiscard: () => void
   onClear: () => void
+  onDropGroup: (index: number) => void
 }
 
-export function MeldBuilder({ state, localIndex, selected, onMeld, onAdd, onDiscard, onClear }: Props) {
+function inspectGroup(ids: string[], hand: Card[], config: MatchState['config']) {
+  const cards = ids.map((id) => hand.find((c) => c.id === id)).filter((c): c is Card => Boolean(c))
+  const pts = cards.reduce((n, c) => n + meldCountPoints(c), 0)
+  const rank = inferMeldRank(cards)
+  const err = rank ? validateMeldCards(cards, rank, config) : cards.length ? 'Need a complete set' : 'Empty'
+  return { cards, pts, rank, ok: !err && Boolean(rank) }
+}
+
+export function MeldBuilder({
+  state,
+  localIndex,
+  groups,
+  onMeld,
+  onAdd,
+  onDiscard,
+  onClear,
+  onDropGroup,
+}: Props) {
   const me = state.players[localIndex]!
   const team = state.teams[me.team]!
   const need = initialMeldMinimum(state.config, team.score, state.round)
+  const inspected = groups.map((ids) => inspectGroup(ids, me.hand, state.config))
+  const selected = inspected.flatMap((g) => g.cards)
   const pts = selected.reduce((n, c) => n + meldCountPoints(c), 0)
-  const rank = inferMeldRank(selected)
-  const meldErr = rank ? validateMeldCards(selected, rank, state.config) : 'Select a rank'
-  const canMeld = !meldErr && (team.hasInitialMeld || pts >= need)
-  const addable = team.melds
-    .map((m, i) => ({ i, m, err: canAddCards(m, selected, state.config) }))
-    .filter((x) => !x.err)
-  const one = selected.length === 1
+  const allComplete = inspected.length > 0 && inspected.every((g) => g.ok)
+  const canMeld = allComplete && (team.hasInitialMeld || pts >= need)
+  const addable =
+    inspected.length === 1
+      ? team.melds
+          .map((m, i) => ({ i, m, err: canAddCards(m, selected, state.config) }))
+          .filter((x) => !x.err)
+      : []
+  const one = selected.length === 1 && groups.length === 1
   const canDiscard = one && state.phase === 'awaitingPlay' && state.currentPlayer === localIndex
+  const meldLabel = !inspected.length
+    ? 'Meld'
+    : inspected.length === 1 && inspected[0]!.rank
+      ? `Meld ${inspected[0]!.cards.length} ${inspected[0]!.rank === 'WILD' ? 'wilds' : inspected[0]!.rank}`
+      : `Meld ${inspected.length} sets`
 
   return (
     <div className="meld-builder">
@@ -39,9 +67,34 @@ export function MeldBuilder({ state, localIndex, selected, onMeld, onAdd, onDisc
         </strong>
         {team.hasInitialMeld ? <em>Met</em> : null}
       </div>
+      {inspected.length > 0 ? (
+        <div className="proposed">
+          <p className="proposed-cap">{team.hasInitialMeld ? 'Ready to lay' : 'Private — others cannot see this'}</p>
+          <div className="proposed-row">
+            {inspected.map((g, i) => (
+              <button
+                type="button"
+                key={`g-${i}`}
+                className={`proposed-set ${g.ok ? 'is-ok' : 'is-short'}`}
+                onClick={() => onDropGroup(i)}
+                title="Remove this set"
+              >
+                <div className="open-spread">
+                  {g.cards.slice(0, 4).map((c) => (
+                    <CardView key={c.id} card={c} size="sm" selected />
+                  ))}
+                </div>
+                <span>
+                  {g.ok ? `${g.rank === 'WILD' ? 'Wild' : g.rank} · ${g.pts}` : g.rank ? `${rankLabel(g.rank)} · short` : 'Short'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="builder-actions">
         <button type="button" className="btn primary" disabled={!canMeld} onClick={onMeld}>
-          {rank ? `Meld ${selected.length} ${rank === 'WILD' ? 'wilds' : rank}` : 'Meld'}
+          {meldLabel}
         </button>
         {addable.map((x) => (
           <button key={x.i} type="button" className="btn secondary" onClick={() => onAdd(x.i)}>
@@ -55,7 +108,13 @@ export function MeldBuilder({ state, localIndex, selected, onMeld, onAdd, onDisc
           Clear
         </button>
       </div>
-      {meldErr && selected.length > 0 ? <p className="hint">{meldErr}</p> : null}
+      {!team.hasInitialMeld && selected.length > 0 && !canMeld ? (
+        <p className="hint">
+          {allComplete
+            ? `Need ${need}; these sets are ${pts}. Add another set, or Clear — nothing is on the table yet.`
+            : 'Finish each set (two naturals plus a wild, or three naturals). A new rank starts the next set.'}
+        </p>
+      ) : null}
     </div>
   )
 }

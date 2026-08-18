@@ -6,6 +6,7 @@ import { HowToPlay } from './ui/HowToPlay'
 import { ParkedHud } from './ui/ParkedHud'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { ToastManager, useToasts } from './ui/ToastManager'
+import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
 import { startSolo, type LocalControllers } from './ui/localSession'
 import type { AiDifficulty } from './ai/heuristic'
 import { planPileTake } from './core/rules'
@@ -39,7 +40,7 @@ function AppInner() {
   const [local, setLocal] = useState<LocalControllers | null>(null)
   const [peer, setPeer] = useState<PeerSession | null>(null)
   const [tick, setTick] = useState(0)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [meldGroups, setMeldGroups] = useState<string[][]>([])
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
   const lastToast = useRef('')
@@ -119,7 +120,7 @@ function AppInner() {
       }
     }
     peer?.submit(move)
-    setSelectedIds(new Set())
+    setMeldGroups([])
     setTick((t) => t + 1)
   }
 
@@ -326,22 +327,22 @@ function AppInner() {
   if (!state) return wrap(<div className="shell-menu" />)
 
   const me = state.players[localIndex]!
+  const byId = new Map(me.hand.map((c) => [c.id, c]))
+  const selectedIds = new Set(meldGroups.flat())
+  const parkedIds = new Set(
+    meldGroups.flatMap((ids) => {
+      const cards = ids.map((id) => byId.get(id)).filter((c): c is (typeof me.hand)[number] => Boolean(c))
+      if (cards.length < 3) return []
+      return ids
+    }),
+  )
   const toggle = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    const card = byId.get(id)
+    if (!card) return
+    setMeldGroups((prev) => addCardToGroups(prev, card, byId))
   }
   const toggleRank = (ids: string[]) => {
-    setSelectedIds((prev) => {
-      const allOn = ids.every((id) => prev.has(id))
-      const next = new Set(prev)
-      if (allOn) ids.forEach((id) => next.delete(id))
-      else ids.forEach((id) => next.add(id))
-      return next
-    })
+    setMeldGroups((prev) => addRankToGroups(prev, ids, byId))
   }
 
   return wrap(
@@ -349,6 +350,8 @@ function AppInner() {
       state={state}
       localIndex={localIndex}
       selectedIds={selectedIds}
+      parkedIds={parkedIds}
+      meldGroups={meldGroups}
       aiThinking={aiThinking}
       onToggle={toggle}
       onToggleRank={toggleRank}
@@ -358,13 +361,20 @@ function AppInner() {
         if (plan.ok && plan.cardIds !== undefined) submit({ kind: 'takePile', cardIds: plan.cardIds })
         else push(!plan.ok ? plan.error : 'Select two matching naturals, or the pile is stopped.')
       }}
-      onMeld={() => submit({ kind: 'meld', cardIds: [...selectedIds] })}
+      onMeld={() =>
+        submit({
+          kind: 'meld',
+          cardIds: meldGroups.flat(),
+          groups: meldGroups,
+        })
+      }
       onAdd={(meldIndex) => submit({ kind: 'addToMeld', meldIndex, cardIds: [...selectedIds] })}
       onDiscard={() => {
         const id = [...selectedIds][0] ?? me.hand[0]?.id
         if (id) submit({ kind: 'discard', cardId: id })
       }}
-      onClear={() => setSelectedIds(new Set())}
+      onClear={() => setMeldGroups([])}
+      onDropGroup={(index) => setMeldGroups((prev) => prev.filter((_, i) => i !== index))}
       onMenu={() => void leaveToMenu()}
       onContinue={() => submit({ kind: 'continue' })}
       onConsent={(accept) => submit({ kind: 'consentGoOut', accept })}
