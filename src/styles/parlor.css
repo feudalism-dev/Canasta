@@ -569,11 +569,12 @@ select {
   isolation: isolate;
 }
 
-.open-spread .cn-card {
-  margin-right: calc(-42px * var(--ui-scale));
+.open-spread .spread-card {
+  position: relative;
+  margin-right: calc(-50px * var(--ui-scale));
 }
 
-.open-spread .cn-card:last-child {
+.open-spread .spread-card:last-child {
   margin-right: 0;
 }
 
@@ -633,6 +634,8 @@ select {
 
 .cn-card {
   position: relative;
+  z-index: 0;
+  isolation: isolate;
   width: var(--card-w-md);
   height: var(--card-h-md);
   border: none;
@@ -709,8 +712,10 @@ select {
 .cn-card-face {
   position: absolute;
   inset: 3px;
+  overflow: hidden;
   border: 1px solid rgba(18, 12, 8, 0.12);
   border-radius: 3px;
+  background: #f7f1e4;
 }
 
 .cn-card-corner {

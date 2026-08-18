@@ -58,8 +58,10 @@ export function MeldTray({ title, melds, config, redThrees, highlight, onMeldCli
                 </div>
               ) : (
                 <div className="open-spread">
-                  {m.cards.map((c) => (
-                    <CardView key={c.id} card={c} size="book" />
+                  {m.cards.map((c, n) => (
+                    <div key={c.id} className="spread-card" style={{ zIndex: n + 1 }}>
+                      <CardView card={c} size="book" />
+                    </div>
                   ))}
                 </div>
               )}
