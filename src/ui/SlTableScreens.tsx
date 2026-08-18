@@ -35,6 +35,8 @@ type Props = {
   isPeerHost?: boolean
   onPeerReady?: () => void
   onHowToPlay?: () => void
+  coachTips?: boolean
+  onCoachTips?: (on: boolean) => void
 }
 
 export function SlTableScreens({
@@ -61,6 +63,8 @@ export function SlTableScreens({
   isPeerHost,
   onPeerReady,
   onHowToPlay,
+  coachTips = true,
+  onCoachTips,
 }: Props) {
   const [entered, setEntered] = useState(false)
   const [table, setTable] = useState<TableStatus | null>(null)
@@ -169,6 +173,14 @@ export function SlTableScreens({
         <label className="check">
           <input type="checkbox" checked={partnership} onChange={(e) => onPartnership(e.target.checked)} />
           Solo with AI partner (4 hands)
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={coachTips}
+            onChange={(e) => onCoachTips?.(e.target.checked)}
+          />
+          Coach — tips on how to play
         </label>
         {variant === 'handAndFoot' ? <HandAndFootHouseFields house={house} onChange={onHouse} /> : null}
         <button

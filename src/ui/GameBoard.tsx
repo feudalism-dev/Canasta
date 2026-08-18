@@ -1,4 +1,4 @@
-import { whatShouldIDo } from '../core/coach'
+import { coachAdvice } from '../core/coach'
 import { legalHandIndexes } from '../core/rules'
 import { partnerIndex } from '../core/score'
 import type { MatchState } from '../core/types'
@@ -27,6 +27,8 @@ type Props = {
   onMenu: () => void
   onContinue: () => void
   onConsent: (accept: boolean) => void
+  coachTips?: boolean
+  onCoachTips?: (on: boolean) => void
 }
 
 export function GameBoard({
@@ -48,13 +50,16 @@ export function GameBoard({
   onMenu,
   onContinue,
   onConsent,
+  coachTips = false,
+  onCoachTips,
 }: Props) {
   const me = state.players[localIndex]!
   const myTeam = me.team
   const otherTeam = (myTeam === 0 ? 1 : 0) as 0 | 1
   const legal = legalHandIndexes(state, localIndex)
   const legalIds = new Set(me.hand.filter((_, i) => legal.has(i)).map((c) => c.id))
-  const coach = whatShouldIDo(state, localIndex)
+  const advice = coachAdvice(state, localIndex, { tips: coachTips, selectedIds })
+  const coachLine = aiThinking ? `${state.players[state.currentPlayer]!.displayName} is thinking…` : advice.headline
   const myTurn = state.currentPlayer === localIndex && (state.phase === 'awaitingDraw' || state.phase === 'awaitingPlay')
   const need = initialMeldMinimum(state.config, state.teams[myTeam]!.score, state.round)
   const variant = state.config.variant === 'canasta' ? 'Canasta' : 'Hand & Foot'
@@ -89,9 +94,20 @@ export function GameBoard({
             <em>Meld</em> {state.teams[myTeam]!.hasInitialMeld ? '✓' : need}
           </div>
         </div>
-        <button type="button" className="btn ghost tiny-btn" onClick={onMenu}>
-          Menu
-        </button>
+        <div className="board-top-actions">
+          {onCoachTips ? (
+            <button
+              type="button"
+              className={`btn ghost tiny-btn ${coachTips ? 'is-on' : ''}`}
+              onClick={() => onCoachTips(!coachTips)}
+            >
+              {coachTips ? 'Coach on' : 'Coach off'}
+            </button>
+          ) : null}
+          <button type="button" className="btn ghost tiny-btn" onClick={onMenu}>
+            Menu
+          </button>
+        </div>
       </header>
 
       <p className={`turn-banner ${myTurn ? 'is-you' : 'is-other'}`}>
@@ -103,7 +119,15 @@ export function GameBoard({
               ? 'Your turn — meld or discard'
               : `${state.players[state.currentPlayer]!.displayName}'s turn`}
       </p>
-      <p className="coach">{aiThinking ? `${state.players[state.currentPlayer]!.displayName} is thinking…` : coach}</p>
+      <div className={`coach ${coachTips && advice.tip && !aiThinking ? 'has-tip' : ''}`}>
+        <p className="coach-status">{coachLine}</p>
+        {coachTips && advice.tip && !aiThinking ? (
+          <p className="coach-tip">
+            <em>Coach</em>
+            {advice.tip}
+          </p>
+        ) : null}
+      </div>
 
       <div className="seats">
         {state.players.map((p, i) => (

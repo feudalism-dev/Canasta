@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import './styles/parlor.css'
 import { AppChrome } from './ui/AppChrome'
+import { readCoachTips, writeCoachTips } from './ui/coachPref'
 import { GameBoard } from './ui/GameBoard'
 import { HowToPlay } from './ui/HowToPlay'
 import { HandAndFootHouseFields } from './ui/HouseFields'
@@ -38,6 +39,7 @@ function AppInner() {
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
+  const [coachTips, setCoachTips] = useState(readCoachTips)
   const [local, setLocal] = useState<LocalControllers | null>(null)
   const [peer, setPeer] = useState<PeerSession | null>(null)
   const [tick, setTick] = useState(0)
@@ -229,6 +231,11 @@ function AppInner() {
         isPeerHost={peer?.isHost}
         onPeerReady={() => peer?.setReady(true)}
         onHowToPlay={() => setScreen('help')}
+        coachTips={coachTips}
+        onCoachTips={(on) => {
+          writeCoachTips(on)
+          setCoachTips(on)
+        }}
       />,
     )
   }
@@ -282,6 +289,17 @@ function AppInner() {
           <label className="check">
             <input type="checkbox" checked={partnership} onChange={(e) => setPartnership(e.target.checked)} />
             Play with an AI partner vs two AI (recommended)
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={coachTips}
+              onChange={(e) => {
+                writeCoachTips(e.target.checked)
+                setCoachTips(e.target.checked)
+              }}
+            />
+            Coach — tips on how to play
           </label>
           <label>
             Difficulty
@@ -357,6 +375,15 @@ function AppInner() {
       onMenu={() => void leaveToMenu()}
       onContinue={() => submit({ kind: 'continue' })}
       onConsent={(accept) => submit({ kind: 'consentGoOut', accept })}
+      coachTips={Boolean(local) && coachTips}
+      onCoachTips={
+        local
+          ? (on) => {
+              writeCoachTips(on)
+              setCoachTips(on)
+            }
+          : undefined
+      }
     />,
   )
 }

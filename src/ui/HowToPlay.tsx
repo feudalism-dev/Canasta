@@ -21,7 +21,11 @@ const PAGES: Page[] = [
     title: 'Your turn',
     body: (
       <>
-        <p>Draw from the stock, or take the whole discard pile when the HUD says you can. Then meld if you like, then discard.</p>
+        <p>
+          Draw from the stock, or take the whole discard pile when the HUD says you can. Then meld if you like, then
+          discard. Solo play can keep a <strong>Coach</strong> on — a second line under the status bar that explains
+          the pile, opening meld, and what your selected cards can do.
+        </p>
         <ul>
           <li>Canasta draws <strong>one</strong>. Hand and Foot draws <strong>two</strong>.</li>
           <li>A frozen pile (or any Hand and Foot pile) needs <strong>two natural cards</strong> of the top rank.</li>
