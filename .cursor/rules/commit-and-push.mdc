@@ -1,0 +1,12 @@
+---
+description: Commit and push after every completed change
+alwaysApply: true
+---
+
+# Git
+
+After finishing a change, commit and push to `origin` without waiting to be asked.
+
+- Follow this repo's commit style: one short sentence on why, not a file list.
+- When HUD web assets change, bump `HUD_PAGE_ASSET_REV` in `lsl/Canasta_HUD.lsl` in the same commit.
+- Do not skip hooks. Do not force-push `main`.
