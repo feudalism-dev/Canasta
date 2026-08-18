@@ -18,6 +18,8 @@
   --card-h-sm: calc(62px * var(--ui-scale));
   --card-w-md: calc(58px * var(--ui-scale));
   --card-h-md: calc(82px * var(--ui-scale));
+  --card-w-book: calc(76px * var(--ui-scale));
+  --card-h-book: calc(108px * var(--ui-scale));
   --card-w-lg: calc(78px * var(--ui-scale));
   --card-h-lg: calc(110px * var(--ui-scale));
 }
@@ -446,7 +448,14 @@ select {
 }
 
 .meld-tray {
-  margin: calc(0.15 * var(--rem)) 0;
+  margin: calc(0.2 * var(--rem)) 0;
+}
+
+.meld-tray.is-ours .meld-row {
+  background: rgba(201, 162, 39, 0.07);
+  border: 1px solid rgba(201, 162, 39, 0.22);
+  border-radius: 8px;
+  padding: calc(0.35 * var(--rem)) calc(0.4 * var(--rem)) calc(0.25 * var(--rem));
 }
 
 .meld-tray header {
@@ -457,22 +466,26 @@ select {
 
 .meld-tray h3 {
   margin: 0;
-  font-size: calc(0.72 * var(--rem));
+  font-size: calc(0.78 * var(--rem));
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .red3-chip {
-  font-size: calc(0.68 * var(--rem));
+  font-size: calc(0.72 * var(--rem));
   color: var(--red);
 }
 
 .meld-row {
   display: flex;
-  gap: calc(0.35 * var(--rem));
-  overflow-x: auto;
-  min-height: var(--card-h-sm);
-  padding: calc(0.2 * var(--rem)) 0;
+  flex-wrap: wrap;
+  gap: calc(0.55 * var(--rem)) calc(0.7 * var(--rem));
+  padding: calc(0.28 * var(--rem)) 0;
+  align-items: flex-end;
+}
+
+.meld-row:has(.book) {
+  min-height: calc(var(--card-h-book) + 1.6 * var(--rem));
 }
 
 .book {
@@ -483,29 +496,85 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: calc(0.18 * var(--rem));
+}
+
+.book-stack {
+  position: relative;
+  width: var(--card-w-book);
+  height: var(--card-h-book);
+}
+
+.book-stack .book-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: #efe6d4;
+  box-shadow: 0 3px 8px var(--shadow);
+  pointer-events: none;
+}
+
+.book-stack .book-edge:first-child {
+  transform: translate(5px, 4px);
+}
+
+.book-stack .book-edge:nth-child(2) {
+  transform: translate(2.5px, 2px);
+}
+
+.book-stack .cn-card {
+  position: relative;
+  z-index: 1;
 }
 
 .book.is-natural .cn-card,
 .book.is-clean .cn-card {
-  box-shadow: 0 0 0 2px #c23b3b, 0 6px 14px var(--shadow);
+  box-shadow: 0 0 0 3px #c23b3b, 0 8px 16px var(--shadow);
 }
 
 .book.is-mixed .cn-card,
 .book.is-dirty .cn-card {
-  box-shadow: 0 0 0 2px #222, 0 6px 14px var(--shadow);
+  box-shadow: 0 0 0 3px #1a120c, 0 8px 16px var(--shadow);
+}
+
+.book.is-wild .cn-card {
+  box-shadow: 0 0 0 3px var(--brass), 0 8px 16px var(--shadow);
 }
 
 .book-cap {
-  font-size: calc(0.62 * var(--rem));
-  opacity: 0.75;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+  font-size: calc(0.78 * var(--rem));
+  opacity: 0.95;
+}
+
+.book-cap strong {
+  font-family: var(--font-display);
+  font-size: calc(1.05 * var(--rem));
+  letter-spacing: 0.06em;
+}
+
+.book-cap em {
+  font-style: normal;
+  font-size: calc(0.72 * var(--rem));
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.8;
 }
 
 .open-spread {
   display: flex;
+  isolation: isolate;
 }
 
 .open-spread .cn-card {
-  margin-right: calc(-28px * var(--ui-scale));
+  margin-right: calc(-42px * var(--ui-scale));
+}
+
+.open-spread .cn-card:last-child {
+  margin-right: 0;
 }
 
 .rank-hand {
@@ -584,6 +653,13 @@ select {
   width: var(--card-w-sm);
   height: var(--card-h-sm);
   font-size: calc(9px * var(--ui-scale));
+}
+
+.cn-card.is-book {
+  width: var(--card-w-book);
+  height: var(--card-h-book);
+  font-size: calc(16px * var(--ui-scale));
+  border-radius: 6px;
 }
 
 .cn-card.is-lg {
@@ -710,21 +786,28 @@ select {
   font-size: 1.2em;
 }
 
-.cn-card.is-lg .cn-pips.is-ace i {
+.cn-card.is-book .cn-pips i {
+  font-size: 1.18em;
+}
+
+.cn-card.is-lg .cn-pips.is-ace i,
+.cn-card.is-book .cn-pips.is-ace i {
   font-size: 2.4em;
 }
 
 .cn-stamp {
   position: absolute;
-  bottom: calc(10px * var(--ui-scale));
+  bottom: calc(12px * var(--ui-scale));
   left: 50%;
   transform: translateX(-50%) rotate(-8deg);
   font-family: var(--font-display);
-  font-size: calc(0.45 * var(--rem));
-  letter-spacing: 0.12em;
+  font-size: calc(0.62 * var(--rem));
+  letter-spacing: 0.14em;
+  font-weight: 700;
   border: 1px solid currentColor;
-  padding: calc(0.05 * var(--rem)) calc(0.2 * var(--rem));
-  opacity: 0.85;
+  padding: calc(0.08 * var(--rem)) calc(0.28 * var(--rem));
+  background: rgba(247, 241, 228, 0.88);
+  opacity: 0.95;
 }
 
 .meld-builder {

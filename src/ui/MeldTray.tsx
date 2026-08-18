@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { isRedSuit, isWild, type Card } from '../core/cards'
 import { canastaKind, sortMeldsForDisplay } from '../core/melds'
 import type { Meld, VariantConfig } from '../core/types'
 import { CardView } from './CardView'
@@ -10,6 +11,17 @@ type Props = {
   redThrees: number
   highlight?: boolean
   onMeldClick?: (index: number) => void
+}
+
+/** Closed books show a natural of the rank: red on clean, black on dirty. */
+function bookFaceCard(meld: Meld, canastaSize: number): Card {
+  const last = meld.cards[meld.cards.length - 1]!
+  const kind = canastaKind(meld, canastaSize)
+  if (kind === 'none') return last
+  if (kind === 'wild') return meld.cards.find((c) => c.rank === 'JOKER') ?? last
+  const naturals = meld.cards.filter((c) => !isWild(c))
+  const wantRed = kind === 'natural'
+  return naturals.find((c) => isRedSuit(c.suit) === wantRed) ?? naturals[0] ?? last
 }
 
 export function MeldTray({ title, melds, config, redThrees, highlight, onMeldClick }: Props) {
@@ -25,29 +37,38 @@ export function MeldTray({ title, melds, config, redThrees, highlight, onMeldCli
         {ordered.map(({ meld: m, index: i }) => {
           const kind = canastaKind(m, config.canastaSize)
           const stamp = kind === 'natural' ? 'clean' : kind === 'mixed' ? 'dirty' : kind === 'wild' ? 'wild' : undefined
-          const top = m.cards[m.cards.length - 1]
+          const closed = kind !== 'none'
+          const face = bookFaceCard(m, config.canastaSize)
+          const rankText = m.rank === 'WILD' ? 'Wild' : m.rank
           return (
             <motion.button
               type="button"
               key={`${m.rank}-${i}`}
-              className={`book ${m.closed || kind !== 'none' ? 'is-closed' : ''} ${kind !== 'none' ? `is-${kind}` : ''}`}
+              className={`book ${closed ? 'is-closed' : 'is-open'} ${kind !== 'none' ? `is-${kind}` : ''}`}
               onClick={() => onMeldClick?.(i)}
-              initial={kind !== 'none' ? { scale: 0.86, rotate: -6 } : false}
+              initial={closed ? { scale: 0.86, rotate: -6 } : false}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: 'spring', stiffness: 380, damping: 18 }}
             >
-              {kind !== 'none' ? (
-                <CardView card={top} size="sm" stamp={stamp} facedown={false} />
+              {closed ? (
+                <div className="book-stack">
+                  <i className="book-edge" />
+                  <i className="book-edge" />
+                  <CardView card={face} size="book" stamp={stamp} facedown={false} />
+                </div>
               ) : (
                 <div className="open-spread">
-                  {m.cards.slice(0, 4).map((c) => (
-                    <CardView key={c.id} card={c} size="sm" />
+                  {m.cards.map((c) => (
+                    <CardView key={c.id} card={c} size="book" />
                   ))}
-                  {m.cards.length > 4 ? <span className="more">+{m.cards.length - 4}</span> : null}
                 </div>
               )}
               <span className="book-cap">
-                {m.rank === 'WILD' ? 'Wild' : m.rank} · {m.cards.length}
+                <strong>{rankText}</strong>
+                <em>
+                  {m.cards.length}
+                  {stamp ? ` · ${stamp}` : ''}
+                </em>
               </span>
             </motion.button>
           )

@@ -2,7 +2,7 @@ import { isRedSuit, rankLabel, type Card } from '../core/cards'
 import { assets } from './assets'
 import { CardFace } from './CardFace'
 
-type Size = 'sm' | 'md' | 'lg'
+type Size = 'sm' | 'md' | 'book' | 'lg'
 
 type Props = {
   card?: Card
