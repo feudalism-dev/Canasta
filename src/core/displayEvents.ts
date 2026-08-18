@@ -44,15 +44,19 @@ export function eventsForMove(
         }
       }
     } else {
-      const prevCount = prev.teams[team]!.melds.length
-      for (const meld of t.melds.slice(prevCount)) {
+      const prevMelds = prev.teams[team]!.melds
+      t.melds.forEach((meld, i) => {
+        const before = prevMelds[i]
+        const grew = !before || before.rank !== meld.rank || before.cards.length !== meld.cards.length
+        if (!grew) return
         out.push(`MELD|${seat}|${team}|${rankPipe(meld.rank)}|${meld.cards.length}|`)
         const kind = canastaKind(meld, next.config.canastaSize)
-        if (kind !== 'none') {
+        const wasNone = !before || canastaKind(before, prev.config.canastaSize) === 'none'
+        if (kind !== 'none' && wasNone) {
           const v = kind === 'natural' ? 1 : kind === 'wild' ? 2 : 0
           out.push(`CANASTA|${seat}|${team}|${rankPipe(meld.rank)}|${v}|`)
         }
-      }
+      })
     }
   }
   if (prev.players[playerIndex] && !prev.players[playerIndex]!.footPickedUp && next.players[playerIndex]!.footPickedUp) {

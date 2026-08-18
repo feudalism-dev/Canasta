@@ -52,5 +52,5 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
     return 'Your turn. You have the books. Discard your last card to go out (ask partner first).'
   }
   if (books.clean + books.dirty === 0) return 'Your turn. Build a canasta of seven before you can go out.'
-  return 'Your turn. Add to melds, then discard. Last card can go out if you have a canasta.'
+  return 'Your turn. Add to melds. You may meld your last cards to go out, or discard.'
 }

@@ -47,7 +47,7 @@ Only cards from **hand plus the top discard** (if taking the pile) count toward 
 
 **Canasta bonuses:** Natural (no wilds) +500. Mixed +300.
 
-**Going out:** The team must have at least one canasta. Going out +100. Concealed going out (no prior meld this hand, and the play includes a canasta) +200. No partner consent in Classic Canasta.
+**Going out:** The team must have at least one canasta. You may meld your last card(s) or discard the last card — a leftover discard is not required. Going out +100. Concealed going out (no prior meld this hand, and the play includes a canasta) +200. No partner consent in Classic Canasta.
 
 **Red three score:** Each laid red three is +100, or +800 for all four, **if the team has made at least one meld**. If the team never melded, red threes count **against**.
 

@@ -475,6 +475,45 @@ function packsFromMeldMove(
   return { packs: split.groups, error: split.error }
 }
 
+function openMeldOf(melds: Meld[], rank: MeldRank, config: MatchState['config']): Meld | undefined {
+  return melds.find((m) => m.rank === rank && !(config.booksCloseAtSeven && m.closed))
+}
+
+function previewMeldsAfterPacks(
+  melds: Meld[],
+  packs: Card[][],
+  config: MatchState['config'],
+): { next: Meld[]; error: string | null } {
+  const next: Meld[] = melds.map((m) => ({ ...m, cards: [...m.cards] }))
+  for (const pack of packs) {
+    const rank = inferMeldRank(pack)
+    if (!rank) return { next: [], error: 'Those cards are not a single rank.' }
+    const existing = openMeldOf(next, rank, config)
+    if (existing) {
+      const err = canAddCards(existing, pack, config)
+      if (err) return { next: [], error: err }
+      existing.cards.push(...pack)
+      const closed = closeIfNeeded(existing, config)
+      existing.closed = closed.closed
+    } else {
+      const err = validateMeldCards(pack, rank, config)
+      if (err) return { next: [], error: err }
+      next.push(closeIfNeeded({ rank, cards: [...pack], closed: false }, config))
+    }
+  }
+  return { next, error: null }
+}
+
+function keepCardsError(state: MatchState, meldsAfter: Meld[]): string {
+  if (state.config.requireDiscardToGoOut) {
+    return 'Keep a card to discard — Hand and Foot goes out on a final discard.'
+  }
+  if (!booksAllowGoingOut(state, meldsAfter)) {
+    return 'You need a canasta to go out. Add these to an existing pile, or keep cards to discard.'
+  }
+  return 'Keep enough cards to discard — you cannot go out yet.'
+}
+
 function applyMeld(state: MatchState, playerIndex: number, cardIds: string[], groups?: string[][]): ApplyResult {
   if (state.phase !== 'awaitingPlay') return { ok: false, error: 'Draw first.' }
   if (playerIndex !== state.currentPlayer) return { ok: false, error: 'Not your turn.' }
@@ -496,38 +535,31 @@ function applyMeld(state: MatchState, playerIndex: number, cardIds: string[], gr
     if (rank === 'WILD' && !state.config.house.wildBooksAllowed) {
       return { ok: false, error: 'Wild books are not allowed.' }
     }
-    if (state.config.booksCloseAtSeven && pack.length === state.config.canastaSize) {
-      const wilds = pack.filter((c) => isWild(c)).length
-      const naturals = pack.length - wilds
-      if (wilds > 0 && rank !== 'WILD' && naturals < state.config.minNaturalsForDirtyBook) {
-        return { ok: false, error: 'A dirty book needs at least four natural cards.' }
-      }
-    }
   }
   if (!team.hasInitialMeld) {
     const count = taken.reduce((n, c) => n + meldCountPoints(c), 0)
     const need = initialMeldMinimum(state.config, team.score, state.round)
     if (count < need) return { ok: false, error: `Initial meld needs ${need}; these sets are ${count}.` }
   }
-  const nextMelds: Meld[] = packs.map((pack) => {
-    const rank = inferMeldRank(pack)!
-    return closeIfNeeded({ rank, cards: pack, closed: false }, state.config)
-  })
-  const keep = minCardsToKeep(state, playerIndex, [...team.melds, ...nextMelds])
+  const preview = previewMeldsAfterPacks(team.melds, packs, state.config)
+  if (preview.error) return { ok: false, error: preview.error }
+  const keep = minCardsToKeep(state, playerIndex, preview.next)
   if (rest.length < keep) {
-    return { ok: false, error: 'Keep enough cards to discard — you cannot go out yet.' }
+    return { ok: false, error: keepCardsError(state, preview.next) }
   }
   player.hand = rest
-  team.melds.push(...nextMelds)
+  team.melds = preview.next
   team.hasInitialMeld = true
   player.meldedThisHand = true
-  if (nextMelds.length === 1) {
-    const meld = nextMelds[0]!
+  const touched = packs.map((pack) => inferMeldRank(pack))
+  const changed = preview.next.filter((m) => touched.includes(m.rank))
+  if (changed.length === 1) {
+    const meld = changed[0]!
     const kind = canastaKind(meld, state.config.canastaSize)
     const stamp = kind === 'natural' ? 'Clean canasta!' : kind === 'mixed' ? 'Dirty canasta!' : kind === 'wild' ? 'Wild book!' : 'Meld laid.'
     state.lastMessage = `${player.displayName}: ${stamp}`
   } else {
-    state.lastMessage = `${player.displayName} lays ${nextMelds.length} melds.`
+    state.lastMessage = `${player.displayName} lays ${packs.length} melds.`
   }
   maybePickupFoot(state, playerIndex, false)
   tryAutoGoOut(state, playerIndex)
@@ -551,7 +583,7 @@ function applyAdd(state: MatchState, playerIndex: number, meldIndex: number, car
   )
   const keep = minCardsToKeep(state, playerIndex, nextMelds)
   if (rest.length < keep) {
-    return { ok: false, error: 'Keep enough cards to discard — you cannot go out yet.' }
+    return { ok: false, error: keepCardsError(state, nextMelds) }
   }
   player.hand = rest
   meld.cards.push(...taken)
@@ -756,9 +788,10 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
         const count = set.reduce((n, c) => n + meldCountPoints(c), 0)
         if (count < initialMeldMinimum(state.config, team.score, state.round)) continue
       }
-      const nextMeld: Meld = { rank: inferred, cards: set, closed: false }
+      const preview = previewMeldsAfterPacks(team.melds, [set], state.config)
+      if (preview.error) continue
       const restLen = player.hand.length - set.length
-      if (restLen < minCardsToKeep(state, playerIndex, [...team.melds, nextMeld])) continue
+      if (restLen < minCardsToKeep(state, playerIndex, preview.next)) continue
       moves.push({ kind: 'meld', cardIds: set.map((c) => c.id) })
     }
     team.melds.forEach((m, meldIndex) => {
@@ -779,8 +812,8 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
     const set = wilds.slice(0, Math.min(7, wilds.length))
     if (!validateMeldCards(set, 'WILD', state.config)) {
       const restLen = player.hand.length - set.length
-      const nextMeld: Meld = { rank: 'WILD', cards: set, closed: false }
-      if (restLen >= minCardsToKeep(state, playerIndex, [...team.melds, nextMeld])) {
+      const preview = previewMeldsAfterPacks(team.melds, [set], state.config)
+      if (!preview.error && restLen >= minCardsToKeep(state, playerIndex, preview.next)) {
         moves.push({ kind: 'meld', cardIds: ids })
       }
     }

@@ -377,7 +377,7 @@ describe('going out and scoring', () => {
     s.phase = 'awaitingPlay'
     const res = tryApply(s, { kind: 'meld', cardIds: s.players[0]!.hand.filter((c) => c.rank === 'A').map((c) => c.id) }, 0)
     expect(res.ok).toBe(false)
-    if (!res.ok) expect(res.error).toMatch(/Keep enough cards/)
+    if (!res.ok) expect(res.error).toMatch(/canasta to go out|Keep enough cards/)
   })
 
   it('cannot discard the last card without a canasta', () => {
@@ -400,6 +400,37 @@ describe('going out and scoring', () => {
     tryApply(s, { kind: 'discard', cardId: s.players[0]!.hand[0]!.id }, 0)
     expect(s.phase).toBe('matchEnd')
     expect(s.winnerTeam).toBe(0)
+  })
+
+  it('goes out by melding the last cards when the team already has a canasta', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [{ rank: 'K', cards: kings(7), closed: false }]
+    forceHands(s, [aces(3), fillLow(15)], [makeCard(99, 'H', '4', 0)], fillLow(20, 200))
+    s.phase = 'awaitingPlay'
+    s.players[0]!.footPickedUp = true
+    const res = tryApply(s, { kind: 'meld', cardIds: s.players[0]!.hand.map((c) => c.id) }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.players[0]!.hand).toHaveLength(0)
+    expect(s.phase).toBe('roundEnd')
+    expect(s.wentOutPlayer).toBe(0)
+  })
+
+  it('goes out by melding the last cards onto a pile that becomes the canasta', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [{ rank: 'K', cards: kings(4), closed: false }]
+    forceHands(s, [kings(3, 10), fillLow(15, 80)], [makeCard(99, 'H', '4', 0)], fillLow(20, 200))
+    s.phase = 'awaitingPlay'
+    s.players[0]!.footPickedUp = true
+    const ids = s.players[0]!.hand.map((c) => c.id)
+    const res = tryApply(s, { kind: 'meld', cardIds: ids }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.teams[0]!.melds).toHaveLength(1)
+    expect(s.teams[0]!.melds[0]!.cards.length).toBeGreaterThanOrEqual(7)
+    expect(s.players[0]!.hand).toHaveLength(0)
+    expect(s.phase).toBe('roundEnd')
+    expect(s.wentOutPlayer).toBe(0)
   })
 })
 

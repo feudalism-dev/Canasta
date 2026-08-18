@@ -60,6 +60,10 @@ const PAGES: Page[] = [
           <strong>Clean / red</strong> = seven naturals, no wilds (+500). <strong>Dirty / black</strong> =
           mixed with wilds (+300). Hand and Foot books close at seven. Classic Canasta canastas may grow.
         </p>
+        <p>
+          In Classic Canasta you may go out by melding your last cards — you do not have to save a discard.
+          Hand and Foot still needs that final discard.
+        </p>
       </>
     ),
   },
