@@ -23,7 +23,7 @@ Browsers → PeerJS for multiplayer moves
 **Inventory**
 
 - **Table root:** `Canasta_Table.lsl` + `Canasta_Http.lsl` + AVsitter; HUD object **`Canasta HUD`** in table inventory. Compile Table + HUD with the **same Experience**.
-- **Display child:** `Canasta_Display.lsl` (Mono). Furware text sets `text0`–`text3` in the same linkset.
+- **Display child:** `Canasta_Display.lsl` (Mono). Furware sets `text0`–`text3` plus **one** `FURWARE text` script in the same linkset. Table prim must stay the linkset root.
 - Root description contains `canasta-table`.
 
 Parcel must allow that Experience.

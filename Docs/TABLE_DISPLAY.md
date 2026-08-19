@@ -6,6 +6,10 @@ Seated play still **claims** the table so two matches cannot overlap.
 
 ## Furware
 
+The letter meshes do nothing by themselves. Drop **one** script named **`FURWARE text`** (from the Furware kit) into the same linkset as the table. On reset you should hear `FURWARE text started with 4 set(s).`
+
+The **table prim** (the one with Table + Http + AVsitter + `Canasta HUD` in inventory) must be the **linkset root**. If a Furware letter is root (`FURWARE text mesh:text1:0:0` in the root), unlink and link again: select the letters first, **click the table last**, then Link.
+
 One Furware text script in the **linkset**. Four root sets, one per AVsitter seat:
 
 | Set name | Seat | Player |

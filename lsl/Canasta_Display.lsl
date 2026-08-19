@@ -1,8 +1,8 @@
 // Canasta — In-world display (Furware per-seat lines)
 // Drop on the display child prim (same linkset as Table). Compile: Mono.
-// Furware sets: text0..text3 = sitters 0..3 (player 1..4).
-// Prim names like: FURWARE text mesh:text0:0:0
-// One Furware text script in the linkset. See Docs/TABLE_DISPLAY.md
+// Mesh names: FURWARE text mesh:text0:0:0 … text0:0:3 (and text1–text3).
+// Also drop ONE script named "FURWARE text" in this linkset (from the Furware kit).
+// The table prim (Table+Http+AVsitter) must be the linkset root, not a letter.
 
 integer DISPLAY_CMD_EVENT = 91001;
 integer DISPLAY_CMD_START = 91002;
@@ -11,6 +11,7 @@ integer DISPLAY_RSP_RESET_DONE = 91004;
 
 integer DEBUG = FALSE;
 integer MAX_SEATS = 4;
+float FW_WAIT_SEC = 10.0;
 
 list gName = [];
 integer gPlayers = 4;
@@ -18,6 +19,7 @@ integer gLive = FALSE;
 integer gTurnSeat = -1;
 integer gScoreA = 0;
 integer gScoreB = 0;
+integer gFwUp = FALSE;
 
 integer debug(string m)
 {
@@ -84,6 +86,7 @@ integer paintSeat(integer seat)
 
 integer paintAll()
 {
+    if (!gFwUp) return FALSE;
     integer i;
     for (i = 0; i < MAX_SEATS; i++)
     {
@@ -187,18 +190,41 @@ integer handleEvent(string pipe)
     return TRUE;
 }
 
+integer waitForFurware(integer resetScript)
+{
+    gFwUp = FALSE;
+    llSetTimerEvent(FW_WAIT_SEC);
+    if (resetScript) llMessageLinked(LINK_SET, 0, "", "fw_reset");
+    return TRUE;
+}
+
 default
 {
     state_entry()
     {
         clearState();
-        idleAttract();
-        llOwnerSay("Canasta display: Furware text0–text3 (sitters 0–3).");
+        waitForFurware(TRUE);
+        llOwnerSay("Canasta display: waiting for FURWARE text (sets text0–text3).");
     }
 
     on_rez(integer p)
     {
         llResetScript();
+    }
+
+    changed(integer change)
+    {
+        if (change & CHANGED_LINK)
+        {
+            waitForFurware(FALSE);
+        }
+    }
+
+    timer()
+    {
+        llSetTimerEvent(0.0);
+        if (gFwUp) return;
+        llOwnerSay("Canasta display: Furware did not answer. Drop ONE script named FURWARE text from the Furware kit into this linkset. Mesh prims alone stay blank. After reset you should hear 'FURWARE text started with 4 set(s).'");
     }
 
     link_message(integer sender, integer num, string str, key id)
@@ -221,7 +247,10 @@ default
         }
         if ((string)id == "fw_ready")
         {
+            gFwUp = TRUE;
+            llSetTimerEvent(0.0);
             paintAll();
+            llOwnerSay("Canasta display: Furware ready — painted text0–text3.");
         }
     }
 }
