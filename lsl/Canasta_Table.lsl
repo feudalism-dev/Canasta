@@ -1,8 +1,7 @@
 // Canasta — Table Controller
 // Drop in the game table root (same object as AVsitter).
-// Handles: seat roster, HUD rez + Experience handshake, one-game lock.
-// HTTP-IN JSONP is Canasta_Http.lsl (same prim). Compile: Mono + Experience.
-// See Docs/SECOND_LIFE.md
+// Roster, HUD rez, one-game lock. JSONP is Canasta_Http.lsl (same prim).
+// Compile: Mono + Experience. See Docs/SECOND_LIFE.md
 
 integer AVSITTER_STAND = 90065;
 integer AVSITTER_SITTER = 90070;
@@ -44,24 +43,13 @@ key gPendingUid = NULL_KEY;
 integer gResetDeadline = 0;
 integer gPendingPlayers = 1;
 
-list gGraceAv = [];
-list gGraceSeat = [];
-list gGraceUntil = [];
+// stride: av, seat, until
+list gGrace = [];
 
 string gCapUrl = "";
-string gBoard = "";
-string gBoardAcc = "";
-integer gReadyTick = 0;
-integer DEBUG = FALSE;
 
 list gRezQueue = [];
 list gHudReadyQueue = [];
-
-integer debug(string m)
-{
-    if (DEBUG) llOwnerSay("CN TABLE: " + m);
-    return TRUE;
-}
 
 integer tableChannel()
 {
@@ -121,11 +109,10 @@ integer isJoined(key av)
 
 integer clearGraceFor(key av)
 {
-    integer idx = llListFindList(gGraceAv, [av]);
+    integer idx = llListFindList(gGrace, [av]);
     if (idx < 0) return FALSE;
-    gGraceAv = llDeleteSubList(gGraceAv, idx, idx);
-    gGraceSeat = llDeleteSubList(gGraceSeat, idx, idx);
-    gGraceUntil = llDeleteSubList(gGraceUntil, idx, idx);
+    if (idx % 3) return FALSE;
+    gGrace = llDeleteSubList(gGrace, idx, idx + 2);
     return TRUE;
 }
 
@@ -156,35 +143,29 @@ string rosterJson()
         if (av == NULL_KEY) jump cont;
         if (!first) s += ",";
         first = FALSE;
-        s += "{"
-            + "\"seat\":" + (string)i + ","
-            + "\"uid\":\"" + (string)av + "\","
-            + "\"name\":\"" + jsonEscape(llList2String(gSeatName, i)) + "\","
-            + "\"active\":" + llList2String(["false", "true"], llList2Integer(gActive, i)) + ","
-            + "\"joined\":" + llList2String(["false", "true"], isJoined(av))
-            + "}";
+        s += "{\"seat\":" + (string)i
+            + ",\"uid\":\"" + (string)av
+            + "\",\"name\":\"" + jsonEscape(llList2String(gSeatName, i))
+            + "\",\"active\":" + llList2String(["false", "true"], llList2Integer(gActive, i))
+            + ",\"joined\":" + llList2String(["false", "true"], isJoined(av)) + "}";
         @cont;
     }
-    s += "]";
-    return s;
+    return s + "]";
 }
 
 string statusJson(integer ok, string err)
 {
-    string j = "{"
-        + "\"ok\":" + llList2String(["false", "true"], ok) + ","
-        + "\"tableId\":\"" + (string)llGetKey() + "\","
-        + "\"mode\":\"" + modeName() + "\","
-        + "\"activeCount\":" + (string)activeCount() + ","
-        + "\"seatedCount\":" + (string)seatedCount() + ","
-        + "\"roomCode\":\"" + jsonEscape(gRoomCode) + "\","
-        + "\"hostUid\":\"" + (string)gHostUid + "\","
-        + "\"soloUid\":\"" + (string)gSoloUid + "\","
-        + "\"roster\":" + rosterJson() + ","
-        + "\"board\":\"" + jsonEscape(gBoard) + "\"";
+    string j = "{\"ok\":" + llList2String(["false", "true"], ok)
+        + ",\"tableId\":\"" + (string)llGetKey()
+        + "\",\"mode\":\"" + modeName()
+        + "\",\"activeCount\":" + (string)activeCount()
+        + ",\"seatedCount\":" + (string)seatedCount()
+        + ",\"roomCode\":\"" + jsonEscape(gRoomCode)
+        + "\",\"hostUid\":\"" + (string)gHostUid
+        + "\",\"soloUid\":\"" + (string)gSoloUid
+        + "\",\"roster\":" + rosterJson();
     if (err != "") j += ",\"error\":\"" + jsonEscape(err) + "\"";
-    j += "}";
-    return j;
+    return j + "}";
 }
 
 pushStatus()
@@ -202,10 +183,19 @@ httpResp(key httpId, string cb, string json)
     }
 }
 
-replyJson(key httpId, string cb, string json)
+failReq(key httpId, string cb, string err)
 {
-    if (httpId == NULL_KEY) return;
-    llMessageLinked(LINK_THIS, HTTP_CMD, "RESP|" + cb + "|" + json, httpId);
+    httpResp(httpId, cb, statusJson(FALSE, err));
+}
+
+okReq(key httpId, string cb)
+{
+    httpResp(httpId, cb, statusJson(TRUE, ""));
+}
+
+clearBoardStore()
+{
+    llMessageLinked(LINK_THIS, HTTP_CMD, "BCLR|", NULL_KEY);
 }
 
 sendDisplayCap()
@@ -234,11 +224,9 @@ integer beginTrackReset(integer clearLock)
     }
     gMode = MODE_RESETTING;
     gResetDeadline = llGetUnixTime() + RESET_TIMEOUT_SEC;
-    gBoard = "";
-    gBoardAcc = "";
+    clearBoardStore();
     llMessageLinked(LINK_SET, DISPLAY_CMD_RESET, "", NULL_KEY);
     pushStatus();
-    debug("DISPLAY_CMD_RESET");
     return TRUE;
 }
 
@@ -286,21 +274,11 @@ integer sendHudDetach(key av, integer seat)
     return TRUE;
 }
 
-string readyMessage(key av, integer seat)
-{
-    if (av == NULL_KEY || seat < 0 || seat >= MAX_SEATS) return "";
-    return "CN_READY|"
-        + (string)llGetKey() + "|"
-        + (string)seat + "|"
-        + (string)av + "|"
-        + gCapUrl + "|"
-        + llList2String(gSeatName, seat);
-}
-
 string sendReady(key av, integer seat)
 {
-    string msg = readyMessage(av, seat);
-    if (msg == "") return "";
+    if (av == NULL_KEY || seat < 0 || seat >= MAX_SEATS) return "";
+    string msg = "CN_READY|" + (string)llGetKey() + "|" + (string)seat + "|"
+        + (string)av + "|" + gCapUrl + "|" + llList2String(gSeatName, seat);
     llRegionSayTo(av, commandChannel(av), msg);
     return msg;
 }
@@ -310,21 +288,13 @@ integer rezHudFor(key av, integer seat)
     if (av == NULL_KEY || seat < 0 || seat >= MAX_SEATS) return FALSE;
     if (llGetInventoryType(HUD_OBJECT_NAME) != INVENTORY_OBJECT)
     {
-        llRegionSayTo(av, 0, "Canasta: HUD object missing from table inventory (" + HUD_OBJECT_NAME + ").");
+        llRegionSayTo(av, 0, "Canasta: HUD object missing from table inventory.");
         llOwnerSay("CRITICAL: Put \"" + HUD_OBJECT_NAME + "\" in the table inventory.");
         return FALSE;
     }
     integer ch = commandChannel(av);
     llRezObject(HUD_OBJECT_NAME, llGetPos() + <0.0, 0.0, 1.5>, ZERO_VECTOR, ZERO_ROTATION, ch);
     gRezQueue += [ch, av, seat];
-    return TRUE;
-}
-
-integer queueHudReady(key hudId, integer ch, string msg)
-{
-    integer wasEmpty = (llGetListLength(gHudReadyQueue) == 0);
-    gHudReadyQueue += [hudId, ch, msg];
-    if (wasEmpty) llSetTimerEvent(0.35);
     return TRUE;
 }
 
@@ -372,7 +342,6 @@ integer forfeitAvatar(key av)
     if (seat >= 0) gActive = llListReplaceList(gActive, [FALSE], seat, seat);
     integer j = llListFindList(gJoined, [av]);
     if (j >= 0) gJoined = llDeleteSubList(gJoined, j, j);
-
     if (gMode == MODE_SOLO && av == gSoloUid)
     {
         releaseGameLock();
@@ -428,14 +397,11 @@ integer onSit(key av, integer seat)
     if (prev == seat && old == av)
     {
         sendReady(av, seat);
-        key hud = NULL_KEY;
-        if (seat >= 0 && seat < MAX_SEATS) hud = llList2Key(gHudObj, seat);
-        if (hud == NULL_KEY) rezHudFor(av, seat);
+        if (llList2Key(gHudObj, seat) == NULL_KEY) rezHudFor(av, seat);
         return TRUE;
     }
     if (prev >= 0 && prev != seat) clearSeat(prev);
     if (old != NULL_KEY && old != av) clearSeat(seat);
-
     string nm = llKey2Name(av);
     if (nm == "") nm = llGetDisplayName(av);
     gSeatAv = llListReplaceList(gSeatAv, [av], seat, seat);
@@ -447,31 +413,20 @@ integer onSit(key av, integer seat)
     return TRUE;
 }
 
-integer beginStandGrace(key av, integer seat)
-{
-    clearGraceFor(av);
-    gGraceAv += [av];
-    gGraceSeat += [seat];
-    gGraceUntil += [llGetUnixTime() + (integer)STAND_GRACE_SEC];
-    return TRUE;
-}
-
 integer processGrace()
 {
     integer now = llGetUnixTime();
     integer i = 0;
-    while (i < llGetListLength(gGraceAv))
+    while (i < llGetListLength(gGrace))
     {
-        if (llList2Integer(gGraceUntil, i) <= now)
+        if (llList2Integer(gGrace, i + 2) <= now)
         {
-            key av = llList2Key(gGraceAv, i);
-            integer seat = llList2Integer(gGraceSeat, i);
-            gGraceAv = llDeleteSubList(gGraceAv, i, i);
-            gGraceSeat = llDeleteSubList(gGraceSeat, i, i);
-            gGraceUntil = llDeleteSubList(gGraceUntil, i, i);
+            key av = llList2Key(gGrace, i);
+            integer seat = llList2Integer(gGrace, i + 1);
+            gGrace = llDeleteSubList(gGrace, i, i + 2);
             if (seatOf(av) == seat) clearSeat(seat);
         }
-        else i++;
+        else i += 3;
     }
     return TRUE;
 }
@@ -481,7 +436,7 @@ string pipeSafe(string s)
     return llDumpList2String(llParseStringKeepNulls(s, ["|"], []), " ");
 }
 
-string seatUidPipe()
+string seatPipe(integer uids)
 {
     string s = "";
     integer i;
@@ -489,25 +444,16 @@ string seatUidPipe()
     {
         if (i) s += "|";
         key av = llList2Key(gSeatAv, i);
-        if (av != NULL_KEY) s += (string)av;
-    }
-    return s;
-}
-
-string seatNamePipe()
-{
-    string s = "";
-    integer i;
-    for (i = 0; i < MAX_SEATS; i++)
-    {
-        if (i) s += "|";
-        string nm = pipeSafe(llList2String(gSeatName, i));
-        if (nm == "")
+        if (uids)
         {
-            key av = llList2Key(gSeatAv, i);
-            if (av != NULL_KEY) nm = pipeSafe(llKey2Name(av));
+            if (av != NULL_KEY) s += (string)av;
         }
-        s += nm;
+        else
+        {
+            string nm = pipeSafe(llList2String(gSeatName, i));
+            if (nm == "" && av != NULL_KEY) nm = pipeSafe(llKey2Name(av));
+            s += nm;
+        }
     }
     return s;
 }
@@ -522,8 +468,7 @@ string matchStartPayload()
         key av = llList2Key(gSeatAv, i);
         if (av != NULL_KEY && llListFindList(gJoined, [av]) >= 0) s += (string)av;
     }
-    s += "|" + seatNamePipe();
-    return s;
+    return s + "|" + seatPipe(FALSE);
 }
 
 string soloStartPayload(key human, integer nPlayers)
@@ -532,7 +477,7 @@ string soloStartPayload(key human, integer nPlayers)
     if (humanSeat < 0) humanSeat = 0;
     if (nPlayers < 1) nPlayers = 1;
     if (nPlayers > MAX_SEATS) nPlayers = MAX_SEATS;
-    return "solo|" + (string)nPlayers + "|" + (string)humanSeat + "|" + seatUidPipe() + "|" + seatNamePipe();
+    return "solo|" + (string)nPlayers + "|" + (string)humanSeat + "|" + seatPipe(TRUE) + "|" + seatPipe(FALSE);
 }
 
 integer finishReset()
@@ -542,7 +487,6 @@ integer finishReset()
     string cb = gPendingCb;
     key uid = gPendingUid;
     clearPendingHttp();
-
     if (action == "claim_solo")
     {
         gMode = MODE_SOLO;
@@ -552,7 +496,7 @@ integer finishReset()
         gJoined = [uid];
         llMessageLinked(LINK_SET, DISPLAY_CMD_START, soloStartPayload(uid, gPendingPlayers), NULL_KEY);
         gPendingPlayers = 1;
-        httpResp(httpId, cb, statusJson(TRUE, ""));
+        okReq(httpId, cb);
         return TRUE;
     }
     if (action == "create")
@@ -562,14 +506,14 @@ integer finishReset()
         gSoloUid = NULL_KEY;
         gRoomCode = mintRoomCode();
         gJoined = [uid];
-        httpResp(httpId, cb, statusJson(TRUE, ""));
+        okReq(httpId, cb);
         return TRUE;
     }
     if (action == "start")
     {
         gMode = MODE_MATCH;
         llMessageLinked(LINK_SET, DISPLAY_CMD_START, matchStartPayload(), NULL_KEY);
-        httpResp(httpId, cb, statusJson(TRUE, ""));
+        okReq(httpId, cb);
         return TRUE;
     }
     gMode = MODE_IDLE;
@@ -577,35 +521,8 @@ integer finishReset()
     gHostUid = NULL_KEY;
     gRoomCode = "";
     gJoined = [];
-    gBoard = "";
-    gBoardAcc = "";
+    clearBoardStore();
     pushStatus();
-    return TRUE;
-}
-
-integer takeBoardChunk(string payload)
-{
-    list bp = llParseStringKeepNulls(payload, ["|"], []);
-    if (llList2String(bp, 0) != "BOARD") return FALSE;
-    integer idx = (integer)llList2String(bp, 1);
-    integer tot = (integer)llList2String(bp, 2);
-    string chunk = "";
-    integer k;
-    integer n = llGetListLength(bp);
-    for (k = 3; k < n; k++)
-    {
-        if (k > 3) chunk += "|";
-        chunk += llList2String(bp, k);
-    }
-    if (idx == 0) gBoardAcc = chunk;
-    else gBoardAcc += chunk;
-    if (tot < 1) tot = 1;
-    if (idx >= tot - 1)
-    {
-        gBoard = gBoardAcc;
-        gBoardAcc = "";
-        pushStatus();
-    }
     return TRUE;
 }
 
@@ -632,86 +549,55 @@ integer requireSeatedActive(key uid, integer seatHint)
     return seat;
 }
 
+integer emitterOk(key uid)
+{
+    if (gMode == MODE_RESETTING) return FALSE;
+    if (gMode == MODE_SOLO && uid == gSoloUid) return TRUE;
+    if (gMode == MODE_MATCH && uid == gHostUid) return TRUE;
+    return FALSE;
+}
+
 handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, string pname, integer nPlayers, string payload)
 {
-    if (action == "board")
-    {
-        payload = llDumpList2String(llParseStringKeepNulls(payload, ["%7C"], []), "|");
-        if (payload == "")
-        {
-            replyJson(httpId, cb, "{\"ok\":true,\"board\":\"" + jsonEscape(gBoard) + "\"}");
-            return;
-        }
-        if (gMode == MODE_RESETTING)
-        {
-            replyJson(httpId, cb, "{\"ok\":false,\"error\":\"table resetting\"}");
-            return;
-        }
-        if (gMode == MODE_SOLO)
-        {
-            if (uid != gSoloUid)
-            {
-                replyJson(httpId, cb, "{\"ok\":false,\"error\":\"only solo player emits\"}");
-                return;
-            }
-        }
-        else if (gMode == MODE_MATCH)
-        {
-            if (uid != gHostUid)
-            {
-                replyJson(httpId, cb, "{\"ok\":false,\"error\":\"only host emits\"}");
-                return;
-            }
-        }
-        else
-        {
-            replyJson(httpId, cb, "{\"ok\":false,\"error\":\"no active match\"}");
-            return;
-        }
-        gBoard = payload;
-        replyJson(httpId, cb, "{\"ok\":true}");
-        return;
-    }
     if (action == "enter")
     {
         integer seat = seatOf(uid);
         if (seat < 0)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "not seated"));
+            failReq(httpId, cb, "not seated");
             return;
         }
         if (pname != "") gSeatName = llListReplaceList(gSeatName, [pname], seat, seat);
         gActive = llListReplaceList(gActive, [TRUE], seat, seat);
-        httpResp(httpId, cb, statusJson(TRUE, ""));
+        okReq(httpId, cb);
         return;
     }
     if (action == "leave")
     {
         forfeitAvatar(uid);
-        httpResp(httpId, cb, statusJson(TRUE, ""));
+        okReq(httpId, cb);
         return;
     }
     if (action == "claim_solo")
     {
-        integer seat = requireSeatedActive(uid, seatHint);
-        if (seat < 0)
+        if (requireSeatedActive(uid, seatHint) < 0)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "must be seated and active"));
+            failReq(httpId, cb, "must be seated and active");
             return;
         }
         if (gMode == MODE_RESETTING)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "table resetting"));
+            failReq(httpId, cb, "table resetting");
             return;
         }
         if (gMode != MODE_IDLE)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "table busy"));
+            failReq(httpId, cb, "table busy");
             return;
         }
         if (activeCount() > 1)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "other players are active — use multiplayer"));
+            failReq(httpId, cb, "other players are active — use multiplayer");
             return;
         }
         if (nPlayers < 1) nPlayers = 1;
@@ -725,18 +611,18 @@ handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, s
     {
         if (gMode == MODE_RESETTING)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "table resetting"));
+            failReq(httpId, cb, "table resetting");
             return;
         }
         if (gMode == MODE_SOLO && uid != gSoloUid)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "not solo player"));
+            failReq(httpId, cb, "not solo player");
             return;
         }
         if ((gMode == MODE_LOBBY || gMode == MODE_MATCH) && uid != gHostUid && !isJoined(uid))
         {
             forfeitAvatar(uid);
-            httpResp(httpId, cb, statusJson(TRUE, ""));
+            okReq(httpId, cb);
             return;
         }
         if (gMode == MODE_LOBBY || gMode == MODE_MATCH)
@@ -745,30 +631,29 @@ handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, s
             else forfeitAvatar(uid);
         }
         else releaseGameLock();
-        httpResp(httpId, cb, statusJson(TRUE, ""));
+        okReq(httpId, cb);
         return;
     }
     if (action == "create")
     {
-        integer seat = requireSeatedActive(uid, seatHint);
-        if (seat < 0)
+        if (requireSeatedActive(uid, seatHint) < 0)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "must be seated and active"));
+            failReq(httpId, cb, "must be seated and active");
             return;
         }
         if (gMode == MODE_RESETTING)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "table resetting"));
+            failReq(httpId, cb, "table resetting");
             return;
         }
         if (gMode != MODE_IDLE)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "table busy"));
+            failReq(httpId, cb, "table busy");
             return;
         }
         if (activeCount() < 2)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "need 2+ active players"));
+            failReq(httpId, cb, "need 2+ active players");
             return;
         }
         stashPending(httpId, cb, "create", uid);
@@ -777,49 +662,48 @@ handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, s
     }
     if (action == "join")
     {
-        integer seat = requireSeatedActive(uid, seatHint);
-        if (seat < 0)
+        if (requireSeatedActive(uid, seatHint) < 0)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "must be seated and active"));
+            failReq(httpId, cb, "must be seated and active");
             return;
         }
         if (gMode != MODE_LOBBY)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "no open lobby"));
+            failReq(httpId, cb, "no open lobby");
             return;
         }
         if (!isJoined(uid))
         {
             if (llGetListLength(gJoined) >= MAX_SEATS)
             {
-                httpResp(httpId, cb, statusJson(FALSE, "lobby full"));
+                failReq(httpId, cb, "lobby full");
                 return;
             }
             gJoined += [uid];
         }
-        httpResp(httpId, cb, statusJson(TRUE, ""));
+        okReq(httpId, cb);
         return;
     }
     if (action == "start")
     {
         if (gMode == MODE_RESETTING)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "table resetting"));
+            failReq(httpId, cb, "table resetting");
             return;
         }
         if (uid != gHostUid)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "only host can start"));
+            failReq(httpId, cb, "only host can start");
             return;
         }
         if (gMode != MODE_LOBBY)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "not in lobby"));
+            failReq(httpId, cb, "not in lobby");
             return;
         }
         if (llGetListLength(gJoined) < 2)
         {
-            httpResp(httpId, cb, statusJson(FALSE, "need at least 2 joined"));
+            failReq(httpId, cb, "need at least 2 joined");
             return;
         }
         stashPending(httpId, cb, "start", uid);
@@ -828,55 +712,34 @@ handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, s
     }
     if (action == "event")
     {
+        payload = llDumpList2String(llParseStringKeepNulls(payload, ["%7C"], []), "|");
         if (payload == "")
         {
             httpResp(httpId, cb, "{\"ok\":false,\"error\":\"missing p\"}");
             return;
         }
-        // Undo %7C encoding from Http transport
-        payload = llDumpList2String(llParseStringKeepNulls(payload, ["%7C"], []), "|");
-        if (gMode == MODE_RESETTING)
+        if (!emitterOk(uid))
         {
-            httpResp(httpId, cb, "{\"ok\":false,\"error\":\"table resetting\"}");
+            httpResp(httpId, cb, "{\"ok\":false,\"error\":\"no emitter\"}");
             return;
         }
-        if (gMode == MODE_SOLO)
+        if (llGetSubString(payload, 0, 5) == "BOARD|")
         {
-            if (uid != gSoloUid)
-            {
-                httpResp(httpId, cb, "{\"ok\":false,\"error\":\"only solo player emits\"}");
-                return;
-            }
-        }
-        else if (gMode == MODE_MATCH)
-        {
-            if (uid != gHostUid)
-            {
-                httpResp(httpId, cb, "{\"ok\":false,\"error\":\"only host emits\"}");
-                return;
-            }
-        }
-        else
-        {
-            httpResp(httpId, cb, "{\"ok\":false,\"error\":\"no active match\"}");
-            return;
-        }
-        if (takeBoardChunk(payload))
-        {
-            replyJson(httpId, cb, "{\"ok\":true}");
+            llMessageLinked(LINK_THIS, HTTP_CMD, payload, NULL_KEY);
+            httpResp(httpId, cb, "{\"ok\":true}");
             return;
         }
         if (takeNamesEvent(payload))
         {
             llMessageLinked(LINK_SET, DISPLAY_CMD_EVENT, payload, NULL_KEY);
-            replyJson(httpId, cb, "{\"ok\":true}");
+            httpResp(httpId, cb, "{\"ok\":true}");
             return;
         }
         llMessageLinked(LINK_SET, DISPLAY_CMD_EVENT, payload, NULL_KEY);
-        replyJson(httpId, cb, "{\"ok\":true}");
+        httpResp(httpId, cb, "{\"ok\":true}");
         return;
     }
-    httpResp(httpId, cb, statusJson(FALSE, "unknown action"));
+    failReq(httpId, cb, "unknown action");
 }
 
 default
@@ -890,11 +753,11 @@ default
         gHostUid = NULL_KEY;
         gRoomCode = "";
         gJoined = [];
-        gBoard = "";
+        clearBoardStore();
         llListen(tableChannel(), "", NULL_KEY, "");
         llSetTimerEvent(2.0);
         pushStatus();
-        llOwnerSay("Canasta table ready. Key=" + (string)llGetKey());
+        llOwnerSay("Canasta table ready. Free=" + (string)llGetFreeMemory());
     }
 
     on_rez(integer p)
@@ -927,7 +790,6 @@ default
             if (llGetSubString(str, 0, 3) == "REQ|")
             {
                 list parts = llParseStringKeepNulls(str, ["|"], []);
-                // REQ|httpId|cb|action|uid|seat|name|players|p...
                 key httpId = (key)llList2String(parts, 1);
                 string cb = llList2String(parts, 2);
                 string action = llList2String(parts, 3);
@@ -944,13 +806,12 @@ default
                     if (i > 8) payload += "|";
                     payload += llList2String(parts, i);
                 }
-                if (uid == NULL_KEY && action != "status" && action != "board")
+                if (uid == NULL_KEY && action != "status")
                 {
-                    httpResp(httpId, cb, statusJson(FALSE, "uid required"));
+                    failReq(httpId, cb, "uid required");
                     return;
                 }
                 handleHttpReq(httpId, cb, action, uid, seatHint, pname, nPlayers, payload);
-                return;
             }
             return;
         }
@@ -959,52 +820,42 @@ default
             onSit(id, (integer)str);
             return;
         }
-        if (num == AVSITTER_STAND)
+        if (num != AVSITTER_STAND) return;
+        key av = id;
+        integer seat = -1;
+        if (av != NULL_KEY) seat = seatOf(av);
+        if (seat < 0)
         {
-            key av = id;
-            integer seat = -1;
-            if (av != NULL_KEY) seat = seatOf(av);
-            if (seat < 0)
+            key fromStr = (key)str;
+            if (fromStr != NULL_KEY)
             {
-                key fromStr = (key)str;
-                if (fromStr != NULL_KEY)
-                {
-                    av = fromStr;
-                    seat = seatOf(av);
-                }
+                av = fromStr;
+                seat = seatOf(av);
             }
-            if (seat < 0)
-            {
-                integer s = (integer)str;
-                if (s >= 0 && s < MAX_SEATS)
-                {
-                    seat = s;
-                    if (av == NULL_KEY) av = llList2Key(gSeatAv, seat);
-                }
-            }
-            sendHudDetach(av, seat);
-            if (seat >= 0 && av != NULL_KEY)
-            {
-                if (gMode == MODE_SOLO && av == gSoloUid)
-                {
-                    clearGraceFor(av);
-                    forfeitAvatar(av);
-                    clearSeatRoster(seat);
-                    pushStatus();
-                    return;
-                }
-                if ((gMode == MODE_LOBBY || gMode == MODE_MATCH) && av == gHostUid)
-                {
-                    clearGraceFor(av);
-                    forfeitAvatar(av);
-                    clearSeatRoster(seat);
-                    pushStatus();
-                    return;
-                }
-            }
-            beginStandGrace(av, seat);
-            return;
         }
+        if (seat < 0)
+        {
+            integer s = (integer)str;
+            if (s >= 0 && s < MAX_SEATS)
+            {
+                seat = s;
+                if (av == NULL_KEY) av = llList2Key(gSeatAv, seat);
+            }
+        }
+        sendHudDetach(av, seat);
+        if (seat >= 0 && av != NULL_KEY)
+        {
+            if ((gMode == MODE_SOLO && av == gSoloUid) || ((gMode == MODE_LOBBY || gMode == MODE_MATCH) && av == gHostUid))
+            {
+                clearGraceFor(av);
+                forfeitAvatar(av);
+                clearSeatRoster(seat);
+                pushStatus();
+                return;
+            }
+        }
+        clearGraceFor(av);
+        gGrace += [av, seat, llGetUnixTime() + (integer)STAND_GRACE_SEC];
     }
 
     object_rez(key objId)
@@ -1014,9 +865,11 @@ default
         key av = llList2Key(gRezQueue, 1);
         integer seat = llList2Integer(gRezQueue, 2);
         gRezQueue = llDeleteSubList(gRezQueue, 0, 2);
-        string msg = readyMessage(av, seat);
+        string msg = sendReady(av, seat);
         if (msg == "") return;
-        queueHudReady(objId, ch, msg);
+        integer wasEmpty = (llGetListLength(gHudReadyQueue) == 0);
+        gHudReadyQueue += [objId, ch, msg];
+        if (wasEmpty) llSetTimerEvent(0.35);
         if (seat >= 0 && seat < MAX_SEATS)
         {
             gHudObj = llListReplaceList(gHudObj, [objId], seat, seat);
@@ -1042,17 +895,7 @@ default
         processGrace();
         if (gMode == MODE_RESETTING && gResetDeadline > 0)
         {
-            if (llGetUnixTime() >= gResetDeadline)
-            {
-                debug("reset timeout — finishing");
-                finishReset();
-            }
-        }
-        gReadyTick++;
-        if (gReadyTick >= 30)
-        {
-            gReadyTick = 0;
-            announceAllSeated();
+            if (llGetUnixTime() >= gResetDeadline) finishReset();
         }
     }
 }

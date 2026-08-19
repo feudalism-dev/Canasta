@@ -1,35 +1,38 @@
 // Canasta — HTTP-IN JSONP front door
 // Drop in the SAME prim as Canasta_Table.lsl (root / AVsitter).
 // Compile: Mono. See Docs/SECOND_LIFE.md
+// Owns the spectator board snapshot so Table stays under the Mono heap cap.
 //
 // Http ↔ Table: HTTP_CMD = 92001
 //   Http → Table: REQ|httpId|cb|action|uid|seat|name|players|p
 //   Http → Table: CAP|url
-//   Table → Http: RESP|httpId|cb|json   (one-shot JSONP; does not replace status cache)
-//   Table → Http: STATUS|json   (cached for action=status)
-// action=board GET (empty p) reads the public spectator snapshot; host/solo POST p writes it.
+//   Table → Http: RESP|cb|json   (id = http request key)
+//   Table → Http: STATUS|json
+//   Table → Http: BOARD|i|n|chunk   (assemble snapshot)
+//   Table → Http: BCLR|
 
 integer HTTP_CMD = 92001;
-
 float CAP_RETRY_SEC = 6.0;
 
 string gCapUrl = "";
-key gUrlReq = NULL_KEY;
 integer gCapRetry = 0;
 string gLastStatus = "{\"ok\":true,\"mode\":\"idle\",\"roster\":[]}";
-integer DEBUG = FALSE;
-
-integer debug(string m)
-{
-    if (DEBUG) llOwnerSay("CN HTTP: " + m);
-    return TRUE;
-}
+string gBoard = "";
+string gBoardAcc = "";
 
 string jsonEscape(string s)
 {
     s = llDumpList2String(llParseStringKeepNulls(s, ["\\"], []), "\\\\");
     s = llDumpList2String(llParseStringKeepNulls(s, ["\""], []), "\\\"");
     return llDumpList2String(llParseStringKeepNulls(s, ["\n"], []), "\\n");
+}
+
+string withBoard(string status)
+{
+    integer n = llStringLength(status);
+    if (n < 2) return status;
+    if (llGetSubString(status, n - 1, n - 1) != "}") return status;
+    return llGetSubString(status, 0, n - 2) + ",\"board\":\"" + jsonEscape(gBoard) + "\"}";
 }
 
 list parseQuery(string qs)
@@ -84,12 +87,43 @@ toTable(string msg)
     llMessageLinked(LINK_THIS, HTTP_CMD, msg, NULL_KEY);
 }
 
-requestCap()
+clearBoard()
 {
-    gUrlReq = llRequestSecureURL();
+    gBoard = "";
+    gBoardAcc = "";
 }
 
-handleHttp(key id, string method, string body, string query)
+integer takeBoardChunk(string payload)
+{
+    list bp = llParseStringKeepNulls(payload, ["|"], []);
+    if (llList2String(bp, 0) != "BOARD") return FALSE;
+    integer idx = (integer)llList2String(bp, 1);
+    integer tot = (integer)llList2String(bp, 2);
+    string chunk = "";
+    integer k;
+    integer n = llGetListLength(bp);
+    for (k = 3; k < n; k++)
+    {
+        if (k > 3) chunk += "|";
+        chunk += llList2String(bp, k);
+    }
+    if (idx == 0) gBoardAcc = chunk;
+    else gBoardAcc += chunk;
+    if (tot < 1) tot = 1;
+    if (idx >= tot - 1)
+    {
+        gBoard = gBoardAcc;
+        gBoardAcc = "";
+    }
+    return TRUE;
+}
+
+requestCap()
+{
+    llRequestSecureURL();
+}
+
+handleHttp(key id, string query)
 {
     list q = parseQuery(query);
     string action = qget(q, "action");
@@ -97,7 +131,12 @@ handleHttp(key id, string method, string body, string query)
 
     if (action == "" || action == "status")
     {
-        sendJsonp(id, cb, gLastStatus);
+        sendJsonp(id, cb, withBoard(gLastStatus));
+        return;
+    }
+    if (action == "board")
+    {
+        sendJsonp(id, cb, "{\"ok\":true,\"board\":\"" + jsonEscape(gBoard) + "\"}");
         return;
     }
 
@@ -106,11 +145,7 @@ handleHttp(key id, string method, string body, string query)
     string pname = qget(q, "name");
     string players = qget(q, "players");
     string p = qget(q, "p");
-    // Pipe may contain | — keep as last field; Table reparses from query extras if needed.
-    // Encode p with no raw pipes: use %7C already unescaped by parseQuery.
-    // Re-escape pipes for link transport.
     p = llDumpList2String(llParseStringKeepNulls(p, ["|"], []), "%7C");
-
     toTable("REQ|" + (string)id + "|" + cb + "|" + action + "|" + uid + "|" + seat + "|" + pname + "|" + players + "|" + p);
 }
 
@@ -136,15 +171,12 @@ default
     link_message(integer sender, integer num, string str, key id)
     {
         if (num != HTTP_CMD) return;
-        // RESP uses id=http request key; str = cb|json
         if (llGetSubString(str, 0, 4) == "RESP|")
         {
             string rest = llGetSubString(str, 5, -1);
             integer bar = llSubStringIndex(rest, "|");
             if (bar < 0) return;
-            string cb = llGetSubString(rest, 0, bar - 1);
-            string json = llGetSubString(rest, bar + 1, -1);
-            sendJsonp(id, cb, json);
+            sendJsonp(id, llGetSubString(rest, 0, bar - 1), llGetSubString(rest, bar + 1, -1));
             return;
         }
         if (llGetSubString(str, 0, 6) == "STATUS|")
@@ -152,6 +184,15 @@ default
             string json = llGetSubString(str, 7, -1);
             if (json != "") gLastStatus = json;
             return;
+        }
+        if (llGetSubString(str, 0, 5) == "BOARD|")
+        {
+            takeBoardChunk(str);
+            return;
+        }
+        if (llGetSubString(str, 0, 4) == "BCLR|")
+        {
+            clearBoard();
         }
     }
 
@@ -161,7 +202,6 @@ default
         {
             gCapUrl = body;
             gCapRetry = 0;
-            debug("HTTP-IN " + gCapUrl);
             toTable("CAP|" + gCapUrl);
             return;
         }
@@ -169,12 +209,11 @@ default
         {
             gCapUrl = "";
             gCapRetry++;
-            debug("HTTP-IN denied; retry " + (string)gCapRetry);
             return;
         }
         string query = llGetHTTPHeader(id, "x-query-string");
         if (query == "" && llSubStringIndex(body, "action=") == 0) query = body;
-        handleHttp(id, method, body, query);
+        handleHttp(id, query);
     }
 
     timer()

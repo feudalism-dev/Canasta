@@ -74,10 +74,10 @@ EVENT|player|team|rank|value|extra
 | `GAME_OVER` | Match over | winning team in `team` |
 | `FREEZE` | Pile freeze changed | `value` 1=frozen 0=clear |
 | `NAMES` | Roster labels | name0–name3 (AI included) |
-| `BOARD` | Spectator snapshot chunk | `i|n|chunk` — Table concatenates into `gBoard` |
+| `BOARD` | Spectator snapshot chunk | `i|n|chunk` — Http concatenates (not Table, to stay under Mono heap) |
 
 `player` is 1–4 (seat + 1). `team` is 0 or 1. `rank` is `4`–`A`, `2`, `3R`, `3B`, `JOKER`, or `NONE`.
 
-HTTP `action=board` GET reads the stored snapshot. Host/solo writes it via `BOARD` chunks (also copied onto `action=status` as `board`).
+HTTP `action=board` GET is answered by **Http** from the stored snapshot. Host/solo writes it via `BOARD` chunks. Table reset sends `BCLR|` so the snapshot clears. Status JSONP also includes `board`.
 
 Start payload (`91002`): `solo|nPlayers|humanSeat|uid0|uid1|uid2|uid3|name0|name1|name2|name3` or `match|uid0|uid1|uid2|uid3|name0|name1|name2|name3`. Names are the last four fields. Table sends the HTTP-IN URL to Display on `91005`.
