@@ -10,7 +10,6 @@ type Props = {
   config: VariantConfig
   redThrees: number
   highlight?: boolean
-  flyCards?: boolean
   onMeldClick?: (index: number) => void
 }
 
@@ -25,7 +24,7 @@ function bookFaceCard(meld: Meld, canastaSize: number): Card {
   return naturals.find((c) => isRedSuit(c.suit) === wantRed) ?? naturals[0] ?? last
 }
 
-export function MeldTray({ title, melds, config, redThrees, highlight, flyCards = true, onMeldClick }: Props) {
+export function MeldTray({ title, melds, config, redThrees, highlight, onMeldClick }: Props) {
   const ordered = sortMeldsForDisplay(melds, config.canastaSize)
   return (
     <section className={`meld-tray ${highlight ? 'is-ours' : ''}`}>
@@ -46,8 +45,9 @@ export function MeldTray({ title, melds, config, redThrees, highlight, flyCards 
               type="button"
               key={`${m.rank}-${i}`}
               className={`book ${closed ? 'is-closed' : 'is-open'} ${kind !== 'none' ? `is-${kind}` : ''}`}
+              data-meld-rank={m.rank}
               onClick={() => onMeldClick?.(i)}
-              initial={closed && !flyCards ? { scale: 0.86, rotate: -6 } : false}
+              initial={closed ? { scale: 0.86, rotate: -6 } : false}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: 'spring', stiffness: 380, damping: 18 }}
             >
@@ -55,30 +55,13 @@ export function MeldTray({ title, melds, config, redThrees, highlight, flyCards 
                 <div className="book-stack">
                   <i className="book-edge" />
                   <i className="book-edge" />
-                  {m.cards.map((c, n) => {
-                    const onTop = c.id === face.id
-                    return (
-                      <div
-                        key={c.id}
-                        className={`book-fly ${onTop ? 'is-top' : 'is-under'}`}
-                        style={{ zIndex: onTop ? m.cards.length + 1 : n + 1 }}
-                      >
-                        <CardView
-                          card={c}
-                          size="book"
-                          layoutId={flyCards ? c.id : undefined}
-                          stamp={onTop ? stamp : undefined}
-                          facedown={false}
-                        />
-                      </div>
-                    )
-                  })}
+                  <CardView card={face} size="book" stamp={stamp} facedown={false} />
                 </div>
               ) : (
                 <div className="open-spread">
                   {m.cards.map((c, n) => (
                     <div key={c.id} className="spread-card" style={{ zIndex: n + 1 }}>
-                      <CardView card={c} size="book" layoutId={flyCards ? c.id : undefined} />
+                      <CardView card={c} size="book" />
                     </div>
                   ))}
                 </div>

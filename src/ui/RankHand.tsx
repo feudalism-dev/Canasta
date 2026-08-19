@@ -38,7 +38,6 @@ export function RankHand({ hand, selectedIds, parkedIds, legalIds, myTurn, onTog
                   key={c.id}
                   card={c}
                   size="md"
-                  layoutId={c.id}
                   selected={selectedIds.has(c.id)}
                   parked={parkedIds.has(c.id)}
                   legal={legalIds.has(c.id)}

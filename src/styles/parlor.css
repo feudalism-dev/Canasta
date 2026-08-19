@@ -561,15 +561,6 @@ select {
   z-index: 1;
 }
 
-.book-fly {
-  position: absolute;
-  inset: 0;
-}
-
-.book-fly.is-under .cn-card {
-  pointer-events: none;
-}
-
 .book.is-natural .cn-card,
 .book.is-clean .cn-card {
   box-shadow: 0 0 0 3px #c23b3b, 0 8px 16px var(--shadow);
@@ -1162,6 +1153,19 @@ ul {
 
 .spectator-root .meld-tray h3 {
   font-size: calc(0.64 * var(--rem));
+}
+
+.spec-fly {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 12;
+  pointer-events: none;
+}
+
+.spec-fly .cn-card {
+  cursor: default;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.45);
 }
 
 .lobby-map-wrap {

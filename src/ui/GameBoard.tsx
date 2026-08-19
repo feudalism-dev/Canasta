@@ -1,4 +1,3 @@
-import { LayoutGroup } from 'framer-motion'
 import { coachAdvice } from '../core/coach'
 import { legalHandIndexes } from '../core/rules'
 import { partnerIndex } from '../core/score'
@@ -74,7 +73,6 @@ export function GameBoard({
   const asker = pendingOut ? state.players[pendingOut.playerIndex] : null
 
   return (
-    <LayoutGroup>
     <div className={`table-root ${myTurn ? 'is-my-turn' : ''}`}>
       <div className="table-felt" />
       <div className="table-brass" />
@@ -245,6 +243,5 @@ export function GameBoard({
         </div>
       ) : null}
     </div>
-    </LayoutGroup>
   )
 }

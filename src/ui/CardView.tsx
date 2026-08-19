@@ -1,4 +1,3 @@
-import { motion, useReducedMotion } from 'framer-motion'
 import { isRedSuit, rankLabel, type Card } from '../core/cards'
 import { assets } from './assets'
 import { CardFace } from './CardFace'
@@ -15,7 +14,6 @@ type Props = {
   dimmed?: boolean
   sideways?: boolean
   stamp?: 'clean' | 'dirty' | 'wild'
-  layoutId?: string
   onClick?: () => void
 }
 
@@ -34,10 +32,8 @@ export function CardView({
   dimmed,
   sideways,
   stamp,
-  layoutId,
   onClick,
 }: Props) {
-  const reduceMotion = useReducedMotion()
   const cls = [
     'cn-card',
     `is-${size}`,
@@ -53,36 +49,21 @@ export function CardView({
     .filter(Boolean)
     .join(' ')
 
-  const label = facedown || !card ? 'Facedown card' : `${rankLabel(card.rank)} of ${card.suit}`
-  const inner =
-    facedown || !card ? (
-      <span className="cn-card-back" style={{ backgroundImage: `url(${assets.cardBack})` }} />
-    ) : (
-      <>
-        <CardFace card={card} />
-        {stamp ? <span className="cn-stamp">{stamp === 'clean' ? 'CLEAN' : stamp === 'dirty' ? 'DIRTY' : 'WILD'}</span> : null}
-      </>
-    )
-  const fly = layoutId
-    ? {
-        layoutId,
-        initial: false as const,
-        transition: reduceMotion
-          ? { duration: 0 }
-          : { type: 'spring' as const, stiffness: 420, damping: 32, mass: 0.85 },
-      }
-    : {}
+  const Tag = onClick ? 'button' : 'div'
+  const clickProps = onClick ? { type: 'button' as const, onClick } : {}
 
-  if (onClick) {
+  if (facedown || !card) {
     return (
-      <motion.button type="button" className={cls} onClick={onClick} aria-label={label} {...fly}>
-        {inner}
-      </motion.button>
+      <Tag className={cls} {...clickProps} aria-label="Facedown card">
+        <span className="cn-card-back" style={{ backgroundImage: `url(${assets.cardBack})` }} />
+      </Tag>
     )
   }
+
   return (
-    <motion.div className={cls} aria-label={label} {...fly}>
-      {inner}
-    </motion.div>
+    <Tag className={cls} {...clickProps} aria-label={`${rankLabel(card.rank)} of ${card.suit}`}>
+      <CardFace card={card} />
+      {stamp ? <span className="cn-stamp">{stamp === 'clean' ? 'CLEAN' : stamp === 'dirty' ? 'DIRTY' : 'WILD'}</span> : null}
+    </Tag>
   )
 }

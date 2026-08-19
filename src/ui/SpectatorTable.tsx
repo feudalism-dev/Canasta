@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { isWild, rankLabel } from '../core/cards'
 import {
   decodePublicBoard,
@@ -11,6 +11,7 @@ import {
 import { tableGetBoard, tableStatus } from '../sl/tableApi'
 import { CardView } from './CardView'
 import { MeldTray } from './MeldTray'
+import { TableFlyLayer } from './TableFlyLayer'
 import { applyUiScale } from './uiScale'
 
 type Props = {
@@ -33,7 +34,7 @@ function SeatChip({ board, seat, label }: { board: PublicBoard; seat: number; la
   const isTurn = board.live && board.currentSeat === seat
   const partnerNote = seat === 0 || seat === 2 ? 'Team 1+3' : 'Team 2+4'
   return (
-    <div className={`spec-seat ${isTurn ? 'is-turn' : ''} ${vacant ? 'is-vacant' : ''}`}>
+    <div className={`spec-seat ${isTurn ? 'is-turn' : ''} ${vacant ? 'is-vacant' : ''}`} data-seat={seat}>
       <span className="spec-seat-num">
         Player {seat + 1} · {label}
       </span>
@@ -67,6 +68,7 @@ function phaseLine(board: PublicBoard): string {
 export function SpectatorTable({ slCap }: Props) {
   const [board, setBoard] = useState<PublicBoard>(idlePublicBoard)
   const [linkOk, setLinkOk] = useState(true)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     applyUiScale(0.78)
@@ -124,9 +126,10 @@ export function SpectatorTable({ slCap }: Props) {
   const sideways = Boolean(top && (isWild(top) || board.frozen))
 
   return (
-    <div className={`spectator-root ${board.live ? 'is-live' : ''}`}>
+    <div className={`spectator-root ${board.live ? 'is-live' : ''}`} ref={rootRef}>
       <div className="table-felt" />
       <div className="table-brass" />
+      <TableFlyLayer board={board} rootRef={rootRef} />
 
       <header className="spec-banner">
         <div className="brand-mark">
@@ -157,13 +160,12 @@ export function SpectatorTable({ slCap }: Props) {
           <div className="spec-north">
             <SeatChip board={board} seat={2} label="opposite" />
           </div>
-          <div className="spec-them">
+          <div className="spec-them" data-team-tray="1">
             <MeldTray
               title="Players 2 & 4 — books"
               melds={publicMeldsAsEngine(board.teams[1]!.melds)}
               config={config}
               redThrees={board.teams[1]!.redThrees}
-              flyCards={false}
             />
           </div>
           <div className="spec-west">
@@ -171,11 +173,11 @@ export function SpectatorTable({ slCap }: Props) {
           </div>
           <div className="spec-mid">
             <div className="piles spec-piles">
-              <div className="pile-slot">
+              <div className="pile-slot" data-stock-pile>
                 <span className="pile-label">Stock · {board.stock}</span>
                 <CardView facedown size="lg" />
               </div>
-              <div className={`pile-slot discard ${board.frozen ? 'is-frozen' : ''}`}>
+              <div className={`pile-slot discard ${board.frozen ? 'is-frozen' : ''}`} data-discard-pile>
                 <span className="pile-label">
                   Discard · {board.discardCount}
                   {board.frozen ? ' · frozen' : ''}
@@ -194,14 +196,13 @@ export function SpectatorTable({ slCap }: Props) {
           <div className="spec-east">
             <SeatChip board={board} seat={1} label="right" />
           </div>
-          <div className="spec-us">
+          <div className="spec-us" data-team-tray="0">
             <MeldTray
               title="Players 1 & 3 — books"
               melds={publicMeldsAsEngine(board.teams[0]!.melds)}
               config={config}
               redThrees={board.teams[0]!.redThrees}
               highlight
-              flyCards={false}
             />
           </div>
           <div className="spec-south">

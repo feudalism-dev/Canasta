@@ -44,7 +44,7 @@ The display child is the **game table top** for people who are not playing. `Can
 
 `https://feudalism-dev.github.io/Canasta/?view=table&tableId=…&uid=spec&sl_cap=…&rev=N`
 
-The page polls JSONP `action=status` / `action=board` (~1s). The seated HUD sends **short** `NAMES|…` and chunked `BOARD|i|n|…` events (a full snapshot in one query string was too large for MOAP JSONP, so the table top never updated). Public snapshot: names, hand counts, foot sealed/open, team scores, books, stock, discard top/size/freeze, whose turn, and a call-out like “Player 2 is drawing…”. Hole cards are never sent.
+The page polls JSONP `action=status` / `action=board` (~1s). When that snapshot shows a draw, pile take, meld, or discard, cards fly from the acting seat (or stock/discard) onto the books or pile. The seated HUD sends **short** `NAMES|…` and chunked `BOARD|i|n|…` events (a full snapshot in one query string was too large for MOAP JSONP, so the table top never updated). Public snapshot: names, hand counts, foot sealed/open, team scores, books, stock, discard top/size/freeze, whose turn, and a call-out like “Player 2 is drawing…”. Hole cards are never sent.
 
 Idle / between games shows the four empty seats and the felt.
 
