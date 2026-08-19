@@ -50,7 +50,7 @@ describe('public board snapshot', () => {
     expect(again.variant).toBe('handAndFoot')
     expect(again.players.map((p) => p.name)).toEqual(['Ada Lovelace', 'Brass', 'Vel', 'Lamp'])
     expect(again.players[0]!.handCount).toBe(state.players[0]!.hand.length)
-    expect(again.teams[0]!.melds[0]).toEqual({ rank: 'K', count: 3, kind: 'open' })
+    expect(again.teams[0]!.melds[0]).toEqual({ rank: 'K', count: 3, kind: 'open', faces: 'KKK' })
     expect(again.top).toEqual({ rank: '9', suit: 'H' })
     expect(again.frozen).toBe(true)
   })
@@ -68,5 +68,38 @@ describe('public board snapshot', () => {
     expect(melds[0]!.cards).toHaveLength(7)
     expect(melds[0]!.closed).toBe(true)
     expect(melds[0]!.cards.every((c) => c.rank === 'Q')).toBe(true)
+  })
+
+  it('round-trips wilds in an open meld as JJJ2*', () => {
+    const state = createMatch({
+      variant: 'canasta',
+      names: ['Ada', 'Brass', 'Vel', 'Lamp'],
+      humans: [true, false, false, false],
+      seed: 7,
+    })
+    state.teams[0]!.melds = [
+      {
+        rank: 'J',
+        cards: [
+          { id: 'j1', rank: 'J', suit: 'H' },
+          { id: 'j2', rank: 'J', suit: 'S' },
+          { id: 'j3', rank: 'J', suit: 'D' },
+          { id: 'w2', rank: '2', suit: 'C' },
+          { id: 'jk', rank: 'JOKER', suit: 'J' },
+        ],
+        closed: false,
+      },
+    ]
+    const encoded = encodePublicBoard(publicBoardFromMatch(state))
+    expect(encoded).toContain('JoJJJ2*')
+    const again = decodePublicBoard(encoded)
+    expect(again.teams[0]!.melds[0]).toEqual({ rank: 'J', count: 5, kind: 'open', faces: 'JJJ2*' })
+    const cards = publicMeldsAsEngine(again.teams[0]!.melds)[0]!.cards
+    expect(cards.map((c) => c.rank)).toEqual(['J', 'J', 'J', '2', 'JOKER'])
+  })
+
+  it('still paints a legacy count-only meld token', () => {
+    const board = decodePublicBoard('1~1~c~1~5000~p~0~40~1~0~9H~hi^Ada:0:11:-1^0:1:0:Jo5;0:0:0:')
+    expect(board.teams[0]!.melds[0]).toEqual({ rank: 'J', count: 5, kind: 'open' })
   })
 })

@@ -53,8 +53,18 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+export function standalonePlayUrl(boot?: Pick<SlBootstrap, 'name' | 'rev'> | null): string {
+  const url = originPath()
+  const params = new URLSearchParams()
+  params.set('client', 'web')
+  if (boot?.name) params.set('name', boot.name)
+  if (boot?.rev) params.set('rev', boot.rev)
+  url.search = params.toString()
+  return url.toString()
+}
+
 export async function openSeatedBrowser(boot: SlBootstrap, room?: string): Promise<'opened' | 'signaled'> {
-  const playUrl = buildSessionUrl(boot, { client: 'browser', room })
+  const playUrl = standalonePlayUrl(boot)
   await copyText(playUrl)
   const popup = window.open(playUrl, '_blank', 'noopener')
   if (popup) return 'opened'

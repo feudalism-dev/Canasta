@@ -9,6 +9,8 @@ export type PublicMeld = {
   rank: MeldRank
   count: number
   kind: PublicMeldKind
+  /** Rank letters in play order, e.g. JJJ2* — 2 = deuce, * = joker. */
+  faces?: string
 }
 
 export type PublicPlayer = {
@@ -66,10 +68,21 @@ function rankChar(rank: string): string {
 
 function parseRankChar(ch: string): string | null {
   if (ch === 'T') return '10'
-  if (ch === 'R') return 'JOKER'
+  if (ch === 'R' || ch === '*') return 'JOKER'
   if (ch === 'W') return 'WILD'
   if ('23456789JQKA'.includes(ch)) return ch
   return null
+}
+
+function faceChar(rank: string): string {
+  if (rank === 'JOKER') return '*'
+  if (rank === 'WILD') return '2'
+  if (rank === '10') return 'T'
+  return rank
+}
+
+export function meldFacesFromCards(cards: Card[]): string {
+  return cards.map((c) => faceChar(c.rank)).join('')
 }
 
 function kindChar(kind: PublicMeldKind): string {
@@ -152,6 +165,7 @@ export function publicBoardFromMatch(state: MatchState): PublicBoard {
       rank: m.rank,
       count: m.cards.length,
       kind: meldKind(m, size),
+      faces: meldFacesFromCards(m.cards),
     })),
   })) as [PublicTeam, PublicTeam]
   const top = state.discard[state.discard.length - 1] ?? null
@@ -200,7 +214,9 @@ export function encodePublicBoard(board: PublicBoard): string {
   const teams = board.teams
     .map((t) => {
       const has = t.hasMeld ? '1' : '0'
-      const melds = t.melds.map((m) => `${rankChar(m.rank)}${kindChar(m.kind)}${m.count}`).join(',')
+      const melds = t.melds
+        .map((m) => `${rankChar(m.rank)}${kindChar(m.kind)}${m.faces || String(m.count)}`)
+        .join(',')
       return `${t.score}:${has}:${t.redThrees}:${melds}`
     })
     .join(';')
@@ -213,13 +229,31 @@ export function isIdleBoardPayload(raw: string): boolean {
   return t.startsWith('1~0~') || t.startsWith('1|0|')
 }
 
+function normalizeFaces(raw: string): string | null {
+  let faces = ''
+  for (const ch of raw.toUpperCase()) {
+    const rank = parseRankChar(ch === '*' ? '*' : ch)
+    if (!rank) return null
+    faces += faceChar(rank)
+  }
+  return faces.length ? faces : null
+}
+
 function parseMeldToken(tok: string): PublicMeld | null {
   if (tok.length < 3) return null
   const rank = parseRankChar(tok[0]!)
   const kind = parseKindChar(tok[1]!)
-  const count = Number(tok.slice(2))
-  if (!rank || !kind || !Number.isFinite(count) || count < 1) return null
-  return { rank: rank as MeldRank, count, kind }
+  if (!rank || !kind) return null
+  const rest = tok.slice(2)
+  if (!rest) return null
+  const allDigits = /^\d+$/.test(rest)
+  const n = Number(rest)
+  if (allDigits && rest.length <= 2 && Number.isFinite(n) && n >= 1 && n <= 18) {
+    return { rank: rank as MeldRank, count: n, kind }
+  }
+  const faces = normalizeFaces(rest)
+  if (!faces) return null
+  return { rank: rank as MeldRank, count: faces.length, kind, faces }
 }
 
 function parsePlayerToken(tok: string): PublicPlayer | null {
@@ -310,8 +344,32 @@ export function decodePublicBoard(raw: string): PublicBoard {
   }
 }
 
-/** Fake face-up cards for the spectator tray — never hole cards. */
+function cardsFromFaces(faces: string): Card[] {
+  const cards: Card[] = []
+  let nats = 0
+  let wilds = 0
+  for (let i = 0; i < faces.length; i++) {
+    const rank = parseRankChar(faces[i]!)
+    if (!rank) continue
+    if (rank === 'JOKER') {
+      cards.push(makeCard(0, 'J', 'JOKER', i))
+      wilds++
+    } else if (rank === '2' || rank === 'WILD') {
+      cards.push(makeCard(0, SUITS_CYCLE[wilds % 4]!, '2', i))
+      wilds++
+    } else {
+      const r = rank as Rank
+      const suit: Suit = r === '3' ? (nats % 2 === 0 ? 'S' : 'C') : SUITS_CYCLE[nats % 4]!
+      cards.push(makeCard(0, suit, r, i))
+      nats++
+    }
+  }
+  return cards
+}
+
+/** Face-up cards for the spectator tray — ranks from the snapshot, never hole-card ids. */
 export function publicMeldCards(meld: PublicMeld): Card[] {
+  if (meld.faces) return cardsFromFaces(meld.faces)
   const cards: Card[] = []
   const n = Math.max(1, Math.min(meld.count, 18))
   if (meld.kind === 'wild' || meld.rank === 'WILD') {

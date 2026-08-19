@@ -8,7 +8,7 @@ export type SlBootstrap = {
   name: string
   rev: string
   parked: boolean
-  client: 'hud' | 'browser' | ''
+  client: 'hud' | 'browser' | 'web' | ''
   room: string
   action: string
   view: 'table' | ''
@@ -38,7 +38,7 @@ export function readSlBootstrap(href = window.location.href): SlBootstrap | null
   const seatRaw = merged.get('seat')
   const seat = seatRaw != null && seatRaw !== '' ? Number(seatRaw) : -1
   const clientRaw = (merged.get('client') || '').trim().toLowerCase()
-  const client = clientRaw === 'browser' || clientRaw === 'hud' ? clientRaw : ''
+  const client = clientRaw === 'browser' || clientRaw === 'hud' || clientRaw === 'web' ? clientRaw : ''
   const parked = merged.get('parked') === '1' || merged.get('parked') === 'true' || clientRaw === 'parked'
   return {
     tableId,
@@ -52,5 +52,25 @@ export function readSlBootstrap(href = window.location.href): SlBootstrap | null
     room: (merged.get('room') || '').trim().toUpperCase(),
     action: (merged.get('action') || '').trim().toLowerCase(),
     view,
+  }
+}
+
+export function isTableHudSession(boot: SlBootstrap | null): boolean {
+  if (!boot) return false
+  if (boot.view === 'table') return false
+  if (boot.parked) return false
+  if (boot.client === 'browser' || boot.client === 'web') return false
+  return Boolean(boot.tableId && boot.uid)
+}
+
+export function readWebNameHint(href = window.location.href): string {
+  try {
+    const url = new URL(href)
+    const merged = new URLSearchParams()
+    paramsFrom(url.search).forEach((v, k) => merged.set(k, v))
+    paramsFrom(url.hash).forEach((v, k) => merged.set(k, v))
+    return (merged.get('name') || '').trim()
+  } catch {
+    return ''
   }
 }

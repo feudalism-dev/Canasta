@@ -7,7 +7,7 @@ integer USE_DEV = FALSE;
 string WEB_URL_PROD = "https://feudalism-dev.github.io/Canasta/";
 string WEB_URL_DEV = "https://feudalism-dev.github.io/Canasta/";
 // Bump when GitHub Pages deploys so MoAP reloads.
-integer HUD_PAGE_ASSET_REV = 31;
+integer HUD_PAGE_ASSET_REV = 32;
 
 integer HUD_FACE = 4;
 integer HUD_MEDIA_PIXELS = 1024;
@@ -119,6 +119,15 @@ string sessionHome(integer parked, string client)
     return home;
 }
 
+string standalonePlayUrl()
+{
+    string home = webBase()
+        + "?client=web"
+        + "&rev=" + (string)HUD_PAGE_ASSET_REV;
+    if (gNameHint != "") home += "&name=" + llEscapeURL(gNameHint);
+    return home;
+}
+
 integer applyMoap(integer force)
 {
     if (gWearer == NULL_KEY) return FALSE;
@@ -178,8 +187,8 @@ integer pollMediaHandoff()
         if (!gParked)
         {
             gParked = TRUE;
-            string playUrl = sessionHome(FALSE, "browser");
-            llLoadURL(gWearer, "Play Canasta in your web browser. Solo vs computer works here; multiplayer still uses this table.", playUrl);
+            string playUrl = standalonePlayUrl();
+            llLoadURL(gWearer, "Play Hand and Foot / Canasta in your web browser. This is a solo game on the web. Multiplayer still uses this table HUD.", playUrl);
             applyMoap(TRUE);
             llOwnerSay("Canasta HUD parked. Play in your browser, or Return to HUD from the parked screen.");
         }

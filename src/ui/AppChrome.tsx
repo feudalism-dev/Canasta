@@ -73,8 +73,8 @@ export function AppChrome({ slBoot, parked, roomCode, onStatus, showOppTray = tr
                 void openSeatedBrowser(slBoot!, roomCode).then((how) => {
                   onStatus?.(
                     how === 'opened'
-                      ? 'Opened in your browser. You can close this HUD media.'
-                      : 'Copied the table link. Confirm the Second Life dialog to open your browser.',
+                      ? 'Opened a solo game in your browser. This HUD is parked.'
+                      : 'Copied the web game link. Confirm the Second Life dialog to open your browser.',
                   )
                 })
               }}

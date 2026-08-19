@@ -18,7 +18,7 @@ import { cloneState } from './core/state'
 import type { HouseRules, MatchState, Variant } from './core/types'
 import { DEFAULT_HOUSE } from './core/types'
 import { createPeerHost, joinPeerRoom, type PeerSession } from './net/peerSession'
-import { readSlBootstrap } from './sl/bootstrap'
+import { isTableHudSession, readSlBootstrap, readWebNameHint } from './sl/bootstrap'
 import { emitDisplayPipes, emitPublicBoard } from './sl/displaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 
@@ -35,8 +35,9 @@ export default function App() {
 function AppInner() {
   const { push } = useToasts()
   const slBoot = useMemo(() => readSlBootstrap(), [])
-  const [screen, setScreen] = useState<Screen>(slBoot ? 'sl' : 'menu')
-  const [name, setName] = useState(slBoot?.name || 'You')
+  const tableHud = isTableHudSession(slBoot)
+  const [screen, setScreen] = useState<Screen>(tableHud ? 'sl' : 'menu')
+  const [name, setName] = useState(slBoot?.name || readWebNameHint() || 'You')
   const [variant, setVariant] = useState<Variant>('canasta')
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
@@ -71,7 +72,7 @@ function AppInner() {
   const wrap = (node: ReactNode) => (
     <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
       <AppChrome
-        slBoot={slBoot}
+        slBoot={tableHud || slBoot?.parked ? slBoot : null}
         parked={Boolean(slBoot?.parked)}
         roomCode={peer?.roomCode || slBoot?.room}
         showOppTray={showOppTray}
@@ -102,7 +103,7 @@ function AppInner() {
   }, [state?.lastMessage, tick, push])
 
   useEffect(() => {
-    if (!state || !slBoot?.slCap) return
+    if (!state || !tableHud || !slBoot?.slCap) return
     const isEmitter = Boolean(local) || peer?.isHost === true
     if (!isEmitter) {
       prevMatchRef.current = cloneState(state)
@@ -121,7 +122,7 @@ function AppInner() {
       )
     }
     prevMatchRef.current = cloneState(state)
-  }, [tick, state, local, peer, slBoot])
+  }, [tick, state, local, peer, slBoot, tableHud])
 
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
@@ -141,9 +142,9 @@ function AppInner() {
   const startLocal = async () => {
     local?.destroy()
     peer?.destroy()
-    const humanSeat = slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
+    const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
     const playerCount = soloSeatCount(partnership, humanSeat)
-    if (slBoot?.slCap) {
+    if (tableHud && slBoot?.slCap) {
       try {
         await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, playerCount)
       } catch (e) {
@@ -154,7 +155,7 @@ function AppInner() {
     prevMatchRef.current = null
     setLocal(ctrl)
     setPeer(null)
-    slMatchKind.current = slBoot ? 'solo' : 'none'
+    slMatchKind.current = tableHud ? 'solo' : 'none'
     setScreen('game')
     push(ctrl.state.lastMessage)
   }
@@ -164,7 +165,7 @@ function AppInner() {
     local?.destroy()
     setPeer(null)
     setLocal(null)
-    if (slBoot?.slCap && slMatchKind.current !== 'none') {
+    if (tableHud && slBoot?.slCap && slMatchKind.current !== 'none') {
       try {
         await tableEndGame(slBoot.slCap, slBoot.uid, slBoot.seat)
       } catch {
@@ -172,7 +173,7 @@ function AppInner() {
       }
     }
     slMatchKind.current = 'none'
-    setScreen(slBoot ? 'sl' : 'menu')
+    setScreen(tableHud ? 'sl' : 'menu')
   }
 
   if (slBoot?.view === 'table') {
@@ -193,7 +194,7 @@ function AppInner() {
     )
   }
 
-  if (screen === 'sl' && slBoot && !state) {
+  if (screen === 'sl' && tableHud && slBoot && !state) {
     return wrap(
       <SlTableScreens
         boot={slBoot}
@@ -284,7 +285,7 @@ function AppInner() {
     return wrap(
       <div className="shell-menu">
         <div className="menu-card wide help-card">
-          <HowToPlay onClose={() => setScreen(slBoot ? 'sl' : 'menu')} closeLabel="Back" />
+          <HowToPlay onClose={() => setScreen(tableHud ? 'sl' : 'menu')} closeLabel="Back" />
         </div>
       </div>,
     )

@@ -15,7 +15,7 @@ integer DISPLAY_CMD_NEED_CAP = 91006;
 // Change this if the table-top media is not face 0.
 integer DISPLAY_FACE = 0;
 integer DISPLAY_MEDIA_PIXELS = 1024;
-integer PAGE_ASSET_REV = 26;
+integer PAGE_ASSET_REV = 27;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 
 integer DEBUG = FALSE;
