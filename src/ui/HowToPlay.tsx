@@ -91,7 +91,7 @@ const PAGES: Page[] = [
     title: 'Second Life',
     body: (
       <>
-        <p>Solo vs computer works in any browser. Multiplayer requires everyone seated at the same in-world table. Sit, become Active, then Create or Join.</p>
+        <p>Solo vs computer works in any browser. Multiplayer requires everyone seated at the same in-world table. Opposite chairs are partners, adjacent are opponents, and empty chairs are computers. Sit where you want the teams, then Create or Join.</p>
       </>
     ),
   },

@@ -1,5 +1,8 @@
 import Peer, { type DataConnection } from 'peerjs'
+import { pumpComputers } from '../ai/computerTurns'
+import type { AiDifficulty } from '../ai/heuristic'
 import { createMatch } from '../core/state'
+import { fourHandRoster, type Occupant } from '../core/tableSeating'
 import { tryApply, type GameMove, type MatchState } from '../core/rules'
 import { DEFAULT_HOUSE, type HouseRules, type Variant } from '../core/types'
 
@@ -16,7 +19,7 @@ type Wire =
   | { t: 'hello'; id: string; name: string; avatarUid?: string; seat?: number }
   | { t: 'lobby'; seats: LobbySeat[]; roomCode: string; variant: Variant }
   | { t: 'ready'; id: string; ready: boolean }
-  | { t: 'start'; state: MatchState }
+  | { t: 'start'; state: MatchState; occupants: { uid: string; seat: number }[] }
   | { t: 'state'; state: MatchState }
   | { t: 'move'; move: GameMove; playerIndex?: number }
   | { t: 'info'; message: string }
@@ -36,6 +39,7 @@ export type PeerHostOptions = {
   seat?: number
   variant?: Variant
   house?: HouseRules
+  difficulty?: AiDifficulty
 }
 
 export type PeerJoinOptions = {
@@ -52,11 +56,12 @@ export type PeerSession = {
   localIndex: number
   status: string
   variant: Variant
+  aiThinking: boolean
   onChange: (cb: () => void) => () => void
   setReady: (ready: boolean) => void
   setVariant: (v: Variant) => void
   setHouse: (house: HouseRules) => void
-  startMatch: () => void
+  startMatch: (occupants?: Occupant[]) => void
   submit: (move: GameMove) => void
   destroy: () => void
 }
@@ -104,7 +109,9 @@ function buildSession(
 ): PeerSession {
   const localId = peer.id
   const localAvatarUid = opts && 'avatarUid' in opts ? opts.avatarUid : undefined
-  const localSeat = opts && 'seat' in opts ? opts.seat : undefined
+  let localSeat = opts && 'seat' in opts ? opts.seat : undefined
+  const difficulty: AiDifficulty =
+    opts && 'difficulty' in opts && opts.difficulty ? opts.difficulty : 'normal'
   const allowedAvatarUids =
     opts && 'allowedAvatarUids' in opts && opts.allowedAvatarUids
       ? new Set(opts.allowedAvatarUids.map((u) => u.toLowerCase()))
@@ -123,6 +130,9 @@ function buildSession(
   ]
   let state: MatchState | null = null
   let status = isHost ? `Room ${code} — share this code` : `Joined ${code}`
+  let aiThinking = false
+  let cancelled = false
+  let running = false
   const listeners = new Set<() => void>()
   const conns = new Map<string, DataConnection>()
   const notify = () => listeners.forEach((l) => l())
@@ -146,6 +156,37 @@ function buildSession(
     const name = seats.find((s) => s.id === localId)?.name
     const idx = state.players.findIndex((p) => p.displayName === name)
     return idx >= 0 ? idx : 0
+  }
+
+  const applyOccupantSeats = (rows: { uid: string; seat: number }[]) => {
+    const uid = (localAvatarUid || '').toLowerCase()
+    if (!uid) return
+    const mine = rows.find((r) => (r.uid || '').toLowerCase() === uid)
+    if (mine && mine.seat >= 0) localSeat = mine.seat
+  }
+
+  const pumpAi = async () => {
+    if (!isHost || !state || running || cancelled) return
+    running = true
+    try {
+      await pumpComputers(state, difficulty, {
+        isCancelled: () => cancelled || !state,
+        onThinking: (on) => {
+          aiThinking = on
+          notify()
+        },
+        onStep: () => {
+          if (!state) return
+          broadcast({ t: 'state', state })
+          status = state.lastMessage
+          notify()
+        },
+      })
+    } finally {
+      aiThinking = false
+      running = false
+      notify()
+    }
   }
 
   const onMessage = (fromId: string, msg: Wire) => {
@@ -200,6 +241,7 @@ function buildSession(
     if (msg.t === 'start' || msg.t === 'state') {
       state = msg.state
       status = state.lastMessage
+      if (msg.t === 'start') applyOccupantSeats(msg.occupants)
       notify()
       return
     }
@@ -214,6 +256,7 @@ function buildSession(
       broadcast({ t: 'state', state })
       status = state.lastMessage
       notify()
+      void pumpAi()
       return
     }
     if (msg.t === 'info') {
@@ -269,6 +312,9 @@ function buildSession(
     get variant() {
       return variant
     },
+    get aiThinking() {
+      return aiThinking
+    },
     onChange(cb) {
       listeners.add(cb)
       return () => listeners.delete(cb)
@@ -292,32 +338,30 @@ function buildSession(
       if (!isHost) return
       house = { ...DEFAULT_HOUSE, ...next }
     },
-    startMatch() {
+    startMatch(tableOccupants?: Occupant[]) {
       if (!isHost) {
         status = 'Only host can start.'
         notify()
         return
       }
-      if (seats.length !== 2 && seats.length !== 4) {
-        status = 'Need 2 or 4 players.'
+      const fromTable = (tableOccupants || []).filter((o) => o.seat >= 0 && o.seat < 4)
+      const fromLobby = seats
+        .filter((s) => s.seat != null && s.seat >= 0)
+        .map((s) => ({ seat: s.seat as number, name: s.name, uid: s.avatarUid }))
+      const humans = fromTable.length ? fromTable : fromLobby
+      if (humans.length < 1) {
+        status = 'Need at least one seated player.'
         notify()
         return
       }
-      const ordered =
-        seats.every((s) => s.seat != null && s.seat >= 0)
-          ? [...seats].sort((a, b) => (a.seat ?? 0) - (b.seat ?? 0))
-          : seats
-      const names = ordered.map((s) => s.name)
-      const humans = ordered.map(() => true)
-      state = createMatch({ variant, names, humans, house })
-      if (ordered.length === 4) {
-        ordered.forEach((s, i) => {
-          if (state && s.seat != null) state.players[i]!.seat = s.seat
-        })
-      }
-      broadcast({ t: 'start', state })
+      const roster = fourHandRoster(humans)
+      state = createMatch({ variant, names: roster.names, humans: roster.humans, house })
+      const occupantRows = humans.map((h) => ({ uid: h.uid || '', seat: h.seat }))
+      applyOccupantSeats(occupantRows)
+      broadcast({ t: 'start', state, occupants: occupantRows })
       status = state.lastMessage
       notify()
+      void pumpAi()
     },
     submit(move) {
       if (isHost && state) {
@@ -330,12 +374,14 @@ function buildSession(
         broadcast({ t: 'state', state })
         status = state.lastMessage
         notify()
+        void pumpAi()
       } else {
         const hostConn = [...conns.values()][0]
         if (hostConn) send(hostConn, { t: 'move', move, playerIndex: localIndexOf() })
       }
     },
     destroy() {
+      cancelled = true
       peer.destroy()
     },
   }

@@ -25,7 +25,7 @@ npm run preview
 
 ## Multiplayer
 
-Multiplayer is **table-only** in Second Life: sit at a Canasta table, then Create or Join. Friends at the same table Ready → Host Start Match. Uses PeerJS over the public broker (no paid backend).
+Multiplayer is **table-only** in Second Life: sit at a Canasta table, check the chair map (opposite = partners, empty chairs = computers), then Create or Join. Friends at the same table Ready → Host Start Match. Uses PeerJS over the public broker (no paid backend).
 
 This site (the public URL, not seated) is **solo vs computer only**.
 

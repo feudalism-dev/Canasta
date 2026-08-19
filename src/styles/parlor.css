@@ -1154,3 +1154,77 @@ ul {
 .spectator-root .meld-tray h3 {
   font-size: calc(0.64 * var(--rem));
 }
+
+.lobby-map-wrap {
+  margin: calc(0.55 * var(--rem)) 0 calc(0.35 * var(--rem));
+}
+
+.lobby-map {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: auto auto auto;
+  grid-template-areas:
+    ". north ."
+    "west mid east"
+    ". south .";
+  gap: calc(0.28 * var(--rem));
+  align-items: stretch;
+}
+
+.lobby-north { grid-area: north; }
+.lobby-west { grid-area: west; }
+.lobby-east { grid-area: east; }
+.lobby-south { grid-area: south; }
+.lobby-mid {
+  grid-area: mid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(4.2 * var(--rem));
+  font-size: calc(0.62 * var(--rem));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brass);
+  text-align: center;
+}
+
+.lobby-chair {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(201, 162, 39, 0.22);
+  padding: calc(0.18 * var(--rem)) calc(0.3 * var(--rem));
+  font-size: calc(0.64 * var(--rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.02rem;
+  min-width: 0;
+}
+
+.lobby-chair strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lobby-chair em {
+  font-style: normal;
+  opacity: 0.8;
+  font-size: 0.9em;
+}
+
+.lobby-chair.is-you {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 1px var(--brass);
+}
+
+.lobby-chair.is-partner {
+  border-color: rgba(120, 180, 140, 0.7);
+}
+
+.lobby-chair.is-opp {
+  border-color: rgba(180, 90, 70, 0.55);
+}
+
+.lobby-chair.is-cpu {
+  opacity: 0.62;
+}
+

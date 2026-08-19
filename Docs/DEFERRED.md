@@ -2,8 +2,7 @@
 
 - Second Life Experience Database for purchase entitlement / ELO
 - Modern American Canasta (CLA special hands, 8,500)
-- 3-player cutthroat and 5–6 player Hand and Foot
-- 2 humans + 2 AI at a table
+- 3-player cutthroat (no partners) and 5–6 player Hand and Foot
 - Private PeerServer if the public PeerJS broker is insufficient
 - Turn timeout / AFK forfeit
 - Prim book stacks (table-top MOAP and Furware seat scores are live; see `TABLE_DISPLAY.md`)

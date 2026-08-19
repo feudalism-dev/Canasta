@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { HouseRules, Variant } from '../core/types'
+import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields } from './HouseFields'
+import { SeatMap } from './SeatMap'
 import type { SlBootstrap } from '../sl/bootstrap'
 import {
   tableCreate,
@@ -31,7 +33,7 @@ type Props = {
   onHostStartMp: (tableStatus?: TableStatus) => void | Promise<void>
   onLeaveLobby?: () => void | Promise<void>
   peerRoomCode?: string
-  peerSeats?: { id: string; name: string; ready: boolean; isHost: boolean }[]
+  peerSeats?: { id: string; name: string; ready: boolean; isHost: boolean; avatarUid?: string; seat?: number }[]
   isPeerHost?: boolean
   onPeerReady?: () => void
   onHowToPlay?: () => void
@@ -129,6 +131,24 @@ export function SlTableScreens({
   const canCreate = entered && !tableBusy && activeCount >= 2
   const canJoin = entered && mode === 'lobby' && !iJoined
   const showMpLobby = mode === 'lobby' || mode === 'match' || !!peerRoomCode
+  const youSeat = me?.seat ?? (boot.seat >= 0 ? boot.seat : 0)
+  const occupants: Occupant[] = (table?.roster || [])
+    .filter((r) => r.seat >= 0)
+    .map((r) => {
+      const peer = (peerSeats || []).find((s) => (s.avatarUid || '').toLowerCase() === r.uid.toLowerCase())
+      return {
+        seat: r.seat,
+        name: r.name,
+        uid: r.uid,
+        joined: r.joined,
+        ready: peer?.ready,
+      }
+    })
+  const seating =
+    occupants.length > 0
+      ? occupants
+      : [{ seat: youSeat, name: displayName || 'You', uid: boot.uid, joined: iJoined }]
+  const matchup = matchupSentence(chairsFromOccupants(seating, youSeat), youSeat)
 
   if (!entered) {
     return (
@@ -157,7 +177,7 @@ export function SlTableScreens({
   return (
     <div className="shell-menu">
       <div className="menu-card">
-        <p className="brand-kicker">Seat {(boot.seat >= 0 ? boot.seat : 0) + 1} · {mode}</p>
+        <p className="brand-kicker">Seat {youSeat + 1} · {mode}</p>
         <h1>Canasta &amp; Hand and Foot</h1>
         <label>
           Name
@@ -183,6 +203,8 @@ export function SlTableScreens({
           Coach — tips on how to play
         </label>
         {variant === 'handAndFoot' ? <HandAndFootHouseFields house={house} onChange={onHouse} /> : null}
+        <SeatMap occupants={seating} youSeat={youSeat} />
+        <p className="muted">{matchup}</p>
         <button
           type="button"
           className="btn primary"
@@ -191,7 +213,7 @@ export function SlTableScreens({
         >
           Play Solo vs Computer
         </button>
-        <p className="muted">Multiplayer: everyone must sit at this table.</p>
+        <p className="muted">Multiplayer is always four hands. Seating picks teams — empty chairs are computers.</p>
         {canCreate ? (
           <button
             type="button"
@@ -200,7 +222,7 @@ export function SlTableScreens({
             onClick={async () => {
               setBusy(true)
               try {
-                const st = await tableCreate(boot.slCap, boot.uid, boot.seat)
+                const st = await tableCreate(boot.slCap, boot.uid, youSeat)
                 if (!st.ok || !st.roomCode) throw new Error(st.error || 'Create failed')
                 await onCreatedMp(st.roomCode, st)
                 setStatus(`Room ${st.roomCode}`)
@@ -222,7 +244,7 @@ export function SlTableScreens({
             onClick={async () => {
               setBusy(true)
               try {
-                const st = await tableJoin(boot.slCap, boot.uid, boot.seat)
+                const st = await tableJoin(boot.slCap, boot.uid, youSeat)
                 if (!st.ok) throw new Error(st.error || 'Join failed')
                 await onJoinedMp(st.roomCode || table.roomCode || '', st)
               } catch (e) {
@@ -232,7 +254,7 @@ export function SlTableScreens({
               }
             }}
           >
-            Join {table.roomCode}
+            Join {table.roomCode} as Player {youSeat + 1}
           </button>
         ) : null}
         {showMpLobby ? (
@@ -257,8 +279,21 @@ export function SlTableScreens({
                 type="button"
                 className="btn primary"
                 onClick={async () => {
-                  if (boot.slCap) await tableStart(boot.slCap, boot.uid, boot.seat)
-                  await onHostStartMp(table || undefined)
+                  const sitting = (table?.roster || []).filter((r) => r.seat >= 0)
+                  const notJoined = sitting.filter((r) => !r.joined)
+                  if (notJoined.length) {
+                    setErr(
+                      `${notJoined.map((r) => r.name).join(', ')} must Join before Start. Switch seats first if the teams are wrong.`,
+                    )
+                    return
+                  }
+                  let latest = table || undefined
+                  if (boot.slCap) {
+                    latest = await tableStatus(boot.slCap, boot.uid, youSeat)
+                    setTable(latest)
+                    await tableStart(boot.slCap, boot.uid, youSeat)
+                  }
+                  await onHostStartMp(latest)
                 }}
               >
                 Start Match

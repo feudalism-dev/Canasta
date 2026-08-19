@@ -6,7 +6,9 @@ Two variants share one meld engine. House toggles are listed at the end.
 
 **2** (heads-up, each player is their own team) or **4** (partners sit across: seats 0+2 vs 1+3).
 
-Solo default: you + AI partner vs two AI. Optional 1v1 vs one AI.
+Solo can be 1v1 vs one computer, or you + a computer partner vs two computers.
+
+**Table multiplayer always deals four hands.** Seating picks the teams: Players 1 and 3 vs Players 2 and 4. Empty chairs are computers. Two humans sitting opposite are partners; two sitting adjacent each get a computer partner.
 
 ## Shared ideas
 

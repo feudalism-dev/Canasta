@@ -64,7 +64,7 @@ function AppInner() {
 
   const state = local?.state ?? peer?.state ?? null
   const localIndex = local?.localIndex ?? peer?.localIndex ?? 0
-  const aiThinking = local?.aiThinking ?? false
+  const aiThinking = local?.aiThinking ?? peer?.aiThinking ?? false
 
   const wrap = (node: ReactNode) => (
     <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
@@ -210,6 +210,7 @@ function AppInner() {
             seat: slBoot.seat,
             variant,
             house,
+            difficulty,
           })
           setPeer(session)
           setLocal(null)
@@ -225,10 +226,13 @@ function AppInner() {
         }}
         house={house}
         onHouse={setHouse}
-        onHostStartMp={() => {
+        onHostStartMp={(tableStatus) => {
           peer?.setVariant(variant)
           peer?.setHouse(house)
-          peer?.startMatch()
+          const occupants = (tableStatus?.roster || [])
+            .filter((r) => r.seat >= 0 && r.joined)
+            .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid }))
+          peer?.startMatch(occupants)
           setTick((t) => t + 1)
         }}
         onLeaveLobby={async () => {

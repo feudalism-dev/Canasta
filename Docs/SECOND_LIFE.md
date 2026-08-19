@@ -34,7 +34,7 @@ Parcel must allow that Experience.
 2. **Seated play always claims the table.** Solo vs AI from the HUD locks the table. There is no HUD-only ghost match overlapping another game.
 3. **Public URL (not seated)** is solo vs computer only. Multiplayer is table-only — Create/Join require Active players at that table.
 4. **One table, one game.** At most one claimed Solo or one MP match (or its lobby) per table.
-5. **MP only among Actives** who Create/Join that match. Non-joiners wait for the next game.
+5. **MP only among Actives** who Create/Join that match. Seating picks teams (1+3 vs 2+4); empty chairs are computers. Non-joiners wait for the next game.
 6. **Post-game:** first Active to **Create** wins host (no sticky host).
 7. **Channels:** table-scoped bus + `llRegionSayTo` + `uid` in payload (no cross-table crosstalk).
 
