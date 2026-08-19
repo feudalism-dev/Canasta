@@ -103,6 +103,7 @@ export type GameMove =
   | { kind: 'addToMeld'; meldIndex: number; cardIds: string[] }
   | { kind: 'discard'; cardId: string }
   | { kind: 'consentGoOut'; accept: boolean }
+  | { kind: 'goOut' }
   | { kind: 'continue' }
 
 export type ApplyResult = { ok: true } | { ok: false; error: string }

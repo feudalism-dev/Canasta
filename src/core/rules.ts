@@ -353,6 +353,7 @@ function needsConsent(state: MatchState, playerIndex: number): boolean {
 
 function finishRound(state: MatchState, wentOutPlayer: number): void {
   state.wentOutPlayer = wentOutPlayer
+  state.pendingGoOut = null
   const wentOutTeam = wentOutPlayer >= 0 ? state.players[wentOutPlayer]!.team : -1
   const b0 = scoreTeamHand(state, 0, wentOutTeam)
   const b1 = scoreTeamHand(state, 1, wentOutTeam)
@@ -605,7 +606,7 @@ function applyAdd(state: MatchState, playerIndex: number, meldIndex: number, car
 function tryAutoGoOut(state: MatchState, playerIndex: number): void {
   const player = state.players[playerIndex]!
   if (player.hand.length > 0) return
-  if (state.config.requireDiscardToGoOut) return
+  if (state.phase !== 'awaitingPlay' && state.phase !== 'awaitingGoOutConsent') return
   const able = canPlayerGoOut(state, playerIndex)
   if (!able.ok) return
   if (needsConsent(state, playerIndex)) {
@@ -670,6 +671,10 @@ function applyConsent(state: MatchState, playerIndex: number, accept: boolean): 
   }
   const partner = state.players[mate]!
   if (!accept) {
+    if (!pending.discardId) {
+      finishRound(state, pending.playerIndex)
+      return { ok: true }
+    }
     state.pendingGoOut = null
     const whoSaidNo = partner.displayName
     endTurn(state)
@@ -700,6 +705,18 @@ export function tryApply(state: MatchState, move: GameMove, playerIndex?: number
     return { ok: true }
   }
   if (move.kind === 'consentGoOut') return applyConsent(state, who, move.accept)
+  if (move.kind === 'goOut') {
+    if (state.phase !== 'awaitingPlay') return { ok: false, error: 'You cannot go out right now.' }
+    if (who !== state.currentPlayer) return { ok: false, error: 'Not your turn.' }
+    maybePickupFoot(state, who, false)
+    tryAutoGoOut(state, who)
+    if (state.phase === 'awaitingPlay' && state.players[who]!.hand.length === 0) {
+      const able = canPlayerGoOut(state, who)
+      if (able.ok) return { ok: false, error: 'Waiting on your partner.' }
+      return { ok: false, error: able.error }
+    }
+    return { ok: true }
+  }
   switch (move.kind) {
     case 'drawStock':
       return applyDrawStock(state, who)
@@ -762,6 +779,10 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
   if (state.phase !== 'awaitingPlay') return moves
   const player = state.players[playerIndex]!
   const team = state.teams[player.team]!
+  if (player.hand.length === 0) {
+    moves.push({ kind: 'goOut' })
+    return moves
+  }
   if (!team.hasInitialMeld) {
     const need = initialMeldMinimum(state.config, team.score, state.round)
     const opening = planOpeningMeldGroups(player.hand, state.config, need)

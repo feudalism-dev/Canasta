@@ -375,6 +375,7 @@ function AppInner() {
       onMenu={() => void leaveToMenu()}
       onContinue={() => submit({ kind: 'continue' })}
       onConsent={(accept) => submit({ kind: 'consentGoOut', accept })}
+      onGoOut={() => submit({ kind: 'goOut' })}
       coachTips={Boolean(local) && coachTips}
       onCoachTips={
         local

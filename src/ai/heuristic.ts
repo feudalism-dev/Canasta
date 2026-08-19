@@ -27,6 +27,7 @@ export function pickAiMove(state: MatchState, playerIndex: number, difficulty: A
     const yes = moves.find((m) => m.kind === 'consentGoOut' && m.accept)
     const no = moves.find((m) => m.kind === 'consentGoOut' && !m.accept)
     const me = state.players[playerIndex]!
+    if (state.pendingGoOut && state.pendingGoOut.discardId === null && yes) return yes
     if (me.hand.length <= 8 && yes) return yes
     if (no && me.hand.length > 12) return no
     return yes ?? no ?? moves[0]!

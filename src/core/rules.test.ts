@@ -515,6 +515,57 @@ describe('Hand and Foot', () => {
     expect(s.phase).toBe('roundEnd')
     expect(s.wentOutPlayer).toBe(0)
   })
+
+  it('goes out by adding the last card onto an existing canasta', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [{ rank: 'K', cards: kings(7), closed: false }]
+    forceHands(s, [[makeCard(1, 'H', 'K', 1)], fillLow(15)], [makeCard(99, 'H', '4', 0)], fillLow(20, 200))
+    s.phase = 'awaitingPlay'
+    const res = tryApply(s, { kind: 'addToMeld', meldIndex: 0, cardIds: [s.players[0]!.hand[0]!.id] }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.players[0]!.hand).toHaveLength(0)
+    expect(s.phase).toBe('roundEnd')
+    expect(s.wentOutPlayer).toBe(0)
+  })
+
+  it('recovers go-out when the hand is already empty', () => {
+    const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [{ rank: 'K', cards: kings(7), closed: false }]
+    forceHands(s, [[], fillLow(15)], [makeCard(99, 'H', '4', 0)], fillLow(20, 200))
+    s.phase = 'awaitingPlay'
+    expect(getLegalMoves(s, 0)).toEqual([{ kind: 'goOut' }])
+    const res = tryApply(s, { kind: 'goOut' }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.phase).toBe('roundEnd')
+    expect(s.wentOutPlayer).toBe(0)
+  })
+
+  it('still ends the hand if a partner refuses after the last cards were already melded', () => {
+    const s = createMatch({
+      variant: 'handAndFoot',
+      names: ['You', 'Brass', 'Velvet', 'Lamp'],
+      humans: [true, false, true, false],
+      seed: 4,
+      house: { ...DEFAULT_HOUSE, requireDiscardToGoOut: false },
+    })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      { rank: 'A', cards: aces(4).concat(wilds(3)), closed: true },
+    ]
+    forceHands(s, [aces(3, 50), fillLow(8, 80), fillLow(8, 160), fillLow(8, 240)], [makeCard(99, 'H', '9', 0)], fillLow(20, 400))
+    for (const p of s.players) p.footPickedUp = true
+    s.phase = 'awaitingPlay'
+    const ids = s.players[0]!.hand.map((c) => c.id)
+    expect(tryApply(s, { kind: 'meld', cardIds: ids }, 0)).toEqual({ ok: true })
+    expect(s.phase).toBe('awaitingGoOutConsent')
+    expect(s.pendingGoOut).toEqual({ playerIndex: 0, discardId: null })
+    expect(tryApply(s, { kind: 'consentGoOut', accept: false }, 2)).toEqual({ ok: true })
+    expect(s.phase).toBe('roundEnd')
+    expect(s.wentOutPlayer).toBe(0)
+  })
 })
 
 describe('going out and scoring', () => {

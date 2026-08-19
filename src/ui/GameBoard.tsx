@@ -27,6 +27,7 @@ type Props = {
   onMenu: () => void
   onContinue: () => void
   onConsent: (accept: boolean) => void
+  onGoOut?: () => void
   coachTips?: boolean
   onCoachTips?: (on: boolean) => void
 }
@@ -50,6 +51,7 @@ export function GameBoard({
   onMenu,
   onContinue,
   onConsent,
+  onGoOut,
   coachTips = false,
   onCoachTips,
 }: Props) {
@@ -182,6 +184,18 @@ export function GameBoard({
         onClear={onClear}
         onDropGroup={onDropGroup}
       />
+
+      {myTurn && !aiThinking && me.hand.length === 0 && state.phase === 'awaitingPlay' && onGoOut ? (
+        <div className="banner-overlay">
+          <div className="banner-card">
+            <h2>Go out</h2>
+            <p>You have no cards left. That ends the hand if your team has a canasta (or the required books).</p>
+            <button type="button" className="btn primary" onClick={onGoOut}>
+              Go out
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {iAnswerGoOut && asker ? (
         <div className="banner-overlay">

@@ -169,7 +169,10 @@ export function maybePickupFoot(state: MatchState, playerIndex: number, viaDisca
   if (state.config.footSize === 0) return false
   if (player.footPickedUp) return false
   if (player.hand.length > 0) return false
-  if (player.foot.length === 0) return false
+  if (player.foot.length === 0) {
+    player.footPickedUp = true
+    return false
+  }
   player.hand = sortHand(player.foot)
   player.foot = []
   player.footPickedUp = true
