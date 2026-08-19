@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import './styles/parlor.css'
 import { AppChrome } from './ui/AppChrome'
 import { readCoachTips, writeCoachTips } from './ui/coachPref'
+import { readOppTray, writeOppTray } from './ui/oppTrayPref'
 import { GameBoard } from './ui/GameBoard'
 import { HowToPlay } from './ui/HowToPlay'
 import { HandAndFootHouseFields } from './ui/HouseFields'
@@ -41,6 +42,7 @@ function AppInner() {
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
   const [coachTips, setCoachTips] = useState(readCoachTips)
+  const [showOppTray, setShowOppTray] = useState(readOppTray)
   const [local, setLocal] = useState<LocalControllers | null>(null)
   const [peer, setPeer] = useState<PeerSession | null>(null)
   const [tick, setTick] = useState(0)
@@ -72,6 +74,11 @@ function AppInner() {
         slBoot={slBoot}
         parked={Boolean(slBoot?.parked)}
         roomCode={peer?.roomCode || slBoot?.room}
+        showOppTray={showOppTray}
+        onShowOppTray={(on) => {
+          writeOppTray(on)
+          setShowOppTray(on)
+        }}
         onStatus={(msg) => {
           setStatus(msg)
           push(msg)
@@ -390,6 +397,7 @@ function AppInner() {
       onContinue={() => submit({ kind: 'continue' })}
       onConsent={(accept) => submit({ kind: 'consentGoOut', accept })}
       onGoOut={() => submit({ kind: 'goOut' })}
+      showOppTray={showOppTray}
       coachTips={Boolean(local) && coachTips}
       onCoachTips={
         local

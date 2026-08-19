@@ -9,9 +9,11 @@ type Props = {
   parked?: boolean
   roomCode?: string
   onStatus?: (msg: string) => void
+  showOppTray?: boolean
+  onShowOppTray?: (on: boolean) => void
 }
 
-export function AppChrome({ slBoot, parked, roomCode, onStatus }: Props) {
+export function AppChrome({ slBoot, parked, roomCode, onStatus, showOppTray = true, onShowOppTray }: Props) {
   const [scale, setScale] = useState(() => defaultUiScale())
   const [helpOpen, setHelpOpen] = useState(false)
   const seated = Boolean(slBoot && slBoot.slCap && !parked)
@@ -43,6 +45,21 @@ export function AppChrome({ slBoot, parked, roomCode, onStatus }: Props) {
             +
           </button>
           <span className="scale-pct">{Math.round(scale * 100)}%</span>
+          {onShowOppTray ? (
+            <button
+              type="button"
+              className={`scale-btn tray-toggle ${showOppTray ? 'is-on' : ''}`}
+              onClick={() => onShowOppTray(!showOppTray)}
+              aria-pressed={showOppTray}
+              title={
+                showOppTray
+                  ? 'Hide their books on this HUD — watch them on the table top'
+                  : 'Show their books on this HUD'
+              }
+            >
+              {showOppTray ? 'Hide tray' : 'Show tray'}
+            </button>
+          ) : null}
         </div>
         <div className="chrome-actions">
           <button type="button" className="chrome-help-btn" onClick={() => setHelpOpen(true)}>

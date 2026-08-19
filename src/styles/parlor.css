@@ -89,6 +89,12 @@ body,
   font: inherit;
 }
 
+.scale-btn.is-on,
+.tray-toggle.is-on {
+  border-color: var(--brass);
+  color: var(--brass);
+}
+
 .scale-slider {
   width: 90px;
 }
@@ -633,6 +639,10 @@ select {
   flex: 1 0 auto;
   min-height: calc(var(--card-h-md) + 2.6 * var(--rem));
   align-items: flex-end;
+}
+
+.table-root.is-tray-hidden .rank-hand {
+  flex: 1 1 auto;
 }
 
 .rank-group {

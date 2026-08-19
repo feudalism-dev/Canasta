@@ -28,6 +28,7 @@ type Props = {
   onContinue: () => void
   onConsent: (accept: boolean) => void
   onGoOut?: () => void
+  showOppTray?: boolean
   coachTips?: boolean
   onCoachTips?: (on: boolean) => void
 }
@@ -52,6 +53,7 @@ export function GameBoard({
   onContinue,
   onConsent,
   onGoOut,
+  showOppTray = true,
   coachTips = false,
   onCoachTips,
 }: Props) {
@@ -73,7 +75,7 @@ export function GameBoard({
   const asker = pendingOut ? state.players[pendingOut.playerIndex] : null
 
   return (
-    <div className={`table-root ${myTurn ? 'is-my-turn' : ''}`}>
+    <div className={`table-root ${myTurn ? 'is-my-turn' : ''} ${showOppTray ? '' : 'is-tray-hidden'}`.trim()}>
       <div className="table-felt" />
       <div className="table-brass" />
 
@@ -146,12 +148,14 @@ export function GameBoard({
         ))}
       </div>
 
-      <MeldTray
-        title="Their books"
-        melds={state.teams[otherTeam]!.melds}
-        config={state.config}
-        redThrees={state.teams[otherTeam]!.redThrees.length}
-      />
+      {showOppTray ? (
+        <MeldTray
+          title="Their books"
+          melds={state.teams[otherTeam]!.melds}
+          config={state.config}
+          redThrees={state.teams[otherTeam]!.redThrees.length}
+        />
+      ) : null}
 
       <Piles state={state} localIndex={localIndex} selectedIds={selectedIds} onDraw={onDraw} onTakePile={onTakePile} />
 
