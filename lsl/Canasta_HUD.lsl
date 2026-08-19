@@ -7,7 +7,7 @@ integer USE_DEV = FALSE;
 string WEB_URL_PROD = "https://feudalism-dev.github.io/Canasta/";
 string WEB_URL_DEV = "https://feudalism-dev.github.io/Canasta/";
 // Bump when GitHub Pages deploys so MoAP reloads.
-integer HUD_PAGE_ASSET_REV = 26;
+integer HUD_PAGE_ASSET_REV = 27;
 
 integer HUD_FACE = 4;
 integer HUD_MEDIA_PIXELS = 1024;
