@@ -207,6 +207,12 @@ export function encodePublicBoard(board: PublicBoard): string {
   return `${head}^${players}^${teams}`
 }
 
+export function isIdleBoardPayload(raw: string): boolean {
+  const t = raw.trim()
+  if (!t) return false
+  return t.startsWith('1~0~') || t.startsWith('1|0|')
+}
+
 function parseMeldToken(tok: string): PublicMeld | null {
   if (tok.length < 3) return null
   const rank = parseRankChar(tok[0]!)

@@ -15,7 +15,7 @@ integer DISPLAY_CMD_NEED_CAP = 91006;
 // Change this if the table-top media is not face 0.
 integer DISPLAY_FACE = 0;
 integer DISPLAY_MEDIA_PIXELS = 1024;
-integer PAGE_ASSET_REV = 24;
+integer PAGE_ASSET_REV = 25;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 
 integer DEBUG = FALSE;
@@ -60,11 +60,10 @@ integer applyMoap(integer force)
     string home = sessionHome();
     if (!force && home == gLastHomeUrl) return FALSE;
 
-    string bust = (string)llGetUnixTime();
-    string cur = home + "&cb=" + bust;
+    string cur = home;
+    if (force) cur = home + "&cb=" + (string)llGetUnixTime();
 
-    list existing = llGetLinkMedia(LINK_THIS, DISPLAY_FACE, [PRIM_MEDIA_CURRENT_URL]);
-    if (llList2String(existing, 0) != cur)
+    if (force)
     {
         llClearPrimMedia(DISPLAY_FACE);
     }

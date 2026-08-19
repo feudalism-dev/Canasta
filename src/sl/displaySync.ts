@@ -7,6 +7,7 @@ import { tableEvent, tableSetBoard, tableSetNames } from './tableApi'
 let lastBoardPosted = ''
 let lastNamesPosted = ''
 let boardTimer: ReturnType<typeof setTimeout> | null = null
+let flushing = false
 let pending: { state: MatchState; slCap: string; uid: string; seat: number } | null = null
 
 function namesPipe(state: MatchState): string[] {
@@ -47,6 +48,21 @@ async function flushBoard(
   }
 }
 
+async function pumpBoard(): Promise<void> {
+  if (flushing) return
+  flushing = true
+  try {
+    while (pending) {
+      const job = pending
+      pending = null
+      await flushBoard(job.state, job.slCap, job.uid, job.seat)
+    }
+  } finally {
+    flushing = false
+  }
+  if (pending) void pumpBoard()
+}
+
 export function emitPublicBoard(
   state: MatchState,
   slCap: string,
@@ -57,10 +73,7 @@ export function emitPublicBoard(
   if (boardTimer) return
   boardTimer = setTimeout(() => {
     boardTimer = null
-    const job = pending
-    pending = null
-    if (!job) return
-    void flushBoard(job.state, job.slCap, job.uid, job.seat)
+    void pumpBoard()
   }, 280)
 }
 

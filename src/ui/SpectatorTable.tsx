@@ -3,6 +3,7 @@ import { isWild, rankLabel } from '../core/cards'
 import {
   decodePublicBoard,
   idlePublicBoard,
+  isIdleBoardPayload,
   publicMeldsAsEngine,
   spectatorConfig,
   type PublicBoard,
@@ -79,13 +80,18 @@ export function SpectatorTable({ slCap }: Props) {
     let alive = true
     let inflight = false
     const applyRaw = (raw: string | undefined) => {
-      if (!raw || !raw.trim()) {
+      if (!raw || !raw.trim()) return false
+      const text = raw.trim()
+      const next = decodePublicBoard(text)
+      if (next.live) {
+        setBoard(next)
+        return true
+      }
+      if (isIdleBoardPayload(text)) {
         setBoard(idlePublicBoard())
         return true
       }
-      const next = decodePublicBoard(raw)
-      setBoard(next.live ? next : idlePublicBoard())
-      return true
+      return false
     }
     const tick = async () => {
       if (inflight) return

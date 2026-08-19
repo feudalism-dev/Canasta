@@ -4,6 +4,7 @@ import {
   decodePublicBoard,
   encodePublicBoard,
   idlePublicBoard,
+  isIdleBoardPayload,
   publicBoardFromMatch,
   publicMeldsAsEngine,
 } from './publicBoard'
@@ -57,6 +58,9 @@ describe('public board snapshot', () => {
   it('decodes empty payload as idle attract', () => {
     expect(decodePublicBoard('')).toEqual(idlePublicBoard())
     expect(decodePublicBoard(encodePublicBoard(idlePublicBoard())).live).toBe(false)
+    expect(isIdleBoardPayload(encodePublicBoard(idlePublicBoard()))).toBe(true)
+    expect(isIdleBoardPayload('')).toBe(false)
+    expect(isIdleBoardPayload('BOARD leftover')).toBe(false)
   })
 
   it('synthesizes face-up meld cards for the tray', () => {

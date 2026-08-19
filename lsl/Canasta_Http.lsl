@@ -19,6 +19,8 @@ integer gCapRetry = 0;
 string gLastStatus = "{\"ok\":true,\"mode\":\"idle\",\"roster\":[]}";
 string gBoard = "";
 string gBoardAcc = "";
+integer gBoardNext = 0;
+integer gBoardTot = 0;
 
 string jsonEscape(string s)
 {
@@ -91,6 +93,8 @@ clearBoard()
 {
     gBoard = "";
     gBoardAcc = "";
+    gBoardNext = 0;
+    gBoardTot = 0;
 }
 
 integer takeBoardChunk(string payload)
@@ -107,13 +111,26 @@ integer takeBoardChunk(string payload)
         if (k > 3) chunk += "|";
         chunk += llList2String(bp, k);
     }
-    if (idx == 0) gBoardAcc = chunk;
-    else gBoardAcc += chunk;
     if (tot < 1) tot = 1;
-    if (idx >= tot - 1)
+    if (idx == 0)
+    {
+        gBoardAcc = chunk;
+        gBoardNext = 1;
+        gBoardTot = tot;
+    }
+    else
+    {
+        if (idx != gBoardNext) return TRUE;
+        if (tot != gBoardTot) return TRUE;
+        gBoardAcc += chunk;
+        gBoardNext += 1;
+    }
+    if (gBoardNext >= gBoardTot)
     {
         gBoard = gBoardAcc;
         gBoardAcc = "";
+        gBoardNext = 0;
+        gBoardTot = 0;
     }
     return TRUE;
 }
