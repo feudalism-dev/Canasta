@@ -10,7 +10,8 @@ const PAGES: Page[] = [
       <>
         <p>
           Pick <strong>Classic Canasta</strong> (play to 5,000) or <strong>Hand and Foot</strong> (four
-          rounds). Partnerships sit across the table — seats 1 &amp; 3 versus 2 &amp; 4.
+          rounds). Partnerships sit across the table — clockwise from player 1: seats 1, 2, 3, 4, with
+          1 opposite 3 and 2 opposite 4.
         </p>
         <p>Melds are sets of the same rank, never runs. Seven of a rank is a canasta (or a book).</p>
       </>

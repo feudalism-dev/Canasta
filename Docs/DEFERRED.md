@@ -6,6 +6,6 @@
 - 2 humans + 2 AI at a table
 - Private PeerServer if the public PeerJS broker is insufficient
 - Turn timeout / AFK forfeit
-- Prim book stacks and optional spectator MOAP (Furware seat scores are live; see `TABLE_DISPLAY.md`)
+- Prim book stacks (table-top MOAP and Furware seat scores are live; see `TABLE_DISPLAY.md`)
 
 Monetization today: sell the game in Second Life; web client hosts free on GitHub Pages.

@@ -5,8 +5,9 @@
 // Http ↔ Table: HTTP_CMD = 92001
 //   Http → Table: REQ|httpId|cb|action|uid|seat|name|players|p
 //   Http → Table: CAP|url
-//   Table → Http: RESP|httpId|cb|json
+//   Table → Http: RESP|httpId|cb|json   (one-shot JSONP; does not replace status cache)
 //   Table → Http: STATUS|json   (cached for action=status)
+// action=board GET (empty p) reads the public spectator snapshot; host/solo POST p writes it.
 
 integer HTTP_CMD = 92001;
 
@@ -143,7 +144,6 @@ default
             if (bar < 0) return;
             string cb = llGetSubString(rest, 0, bar - 1);
             string json = llGetSubString(rest, bar + 1, -1);
-            if (llSubStringIndex(json, "\"ok\"") >= 0) gLastStatus = json;
             sendJsonp(id, cb, json);
             return;
         }

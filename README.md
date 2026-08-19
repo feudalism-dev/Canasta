@@ -43,7 +43,7 @@ Site: `https://<you>.github.io/Canasta/`
 - [DESIGN.md](Docs/DESIGN.md)
 - [SECOND_LIFE.md](Docs/SECOND_LIFE.md) — MOAP HUD, table lock, Active / Create / Join
 - [MULTIPLAYER.md](Docs/MULTIPLAYER.md)
-- [TABLE_DISPLAY.md](Docs/TABLE_DISPLAY.md) — in-world Furware / prims / spectator MOAP (later)
+- [TABLE_DISPLAY.md](Docs/TABLE_DISPLAY.md) — chairs, Furware, table-top spectator MOAP
 - [ASSETS.md](Docs/ASSETS.md)
 - [DEFERRED.md](Docs/DEFERRED.md)
 

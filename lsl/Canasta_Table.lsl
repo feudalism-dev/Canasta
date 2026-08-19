@@ -13,6 +13,8 @@ integer DISPLAY_CMD_EVENT = 91001;
 integer DISPLAY_CMD_START = 91002;
 integer DISPLAY_CMD_RESET = 91003;
 integer DISPLAY_RSP_RESET_DONE = 91004;
+integer DISPLAY_CMD_CAP = 91005;
+integer DISPLAY_CMD_NEED_CAP = 91006;
 integer HTTP_CMD = 92001;
 
 integer MAX_SEATS = 4;
@@ -47,6 +49,7 @@ list gGraceSeat = [];
 list gGraceUntil = [];
 
 string gCapUrl = "";
+string gBoard = "";
 integer gReadyTick = 0;
 integer DEBUG = FALSE;
 
@@ -191,11 +194,22 @@ httpResp(key httpId, string cb, string json)
 {
     if (httpId == NULL_KEY) return;
     llMessageLinked(LINK_THIS, HTTP_CMD, "RESP|" + cb + "|" + json, httpId);
-    // Keep Http cache fresh
-    if (llSubStringIndex(json, "\"ok\"") >= 0)
+    if (llSubStringIndex(json, "\"tableId\"") >= 0)
     {
         llMessageLinked(LINK_THIS, HTTP_CMD, "STATUS|" + json, NULL_KEY);
     }
+}
+
+replyJson(key httpId, string cb, string json)
+{
+    if (httpId == NULL_KEY) return;
+    llMessageLinked(LINK_THIS, HTTP_CMD, "RESP|" + cb + "|" + json, httpId);
+}
+
+sendDisplayCap()
+{
+    if (gCapUrl == "") return;
+    llMessageLinked(LINK_SET, DISPLAY_CMD_CAP, gCapUrl, NULL_KEY);
 }
 
 clearPendingHttp()
@@ -218,6 +232,7 @@ integer beginTrackReset(integer clearLock)
     }
     gMode = MODE_RESETTING;
     gResetDeadline = llGetUnixTime() + RESET_TIMEOUT_SEC;
+    gBoard = "";
     llMessageLinked(LINK_SET, DISPLAY_CMD_RESET, "", NULL_KEY);
     pushStatus();
     debug("DISPLAY_CMD_RESET");
@@ -553,6 +568,7 @@ integer finishReset()
     gHostUid = NULL_KEY;
     gRoomCode = "";
     gJoined = [];
+    gBoard = "";
     pushStatus();
     return TRUE;
 }
@@ -568,6 +584,44 @@ integer requireSeatedActive(key uid, integer seatHint)
 
 handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, string pname, integer nPlayers, string payload)
 {
+    if (action == "board")
+    {
+        payload = llDumpList2String(llParseStringKeepNulls(payload, ["%7C"], []), "|");
+        if (payload == "")
+        {
+            replyJson(httpId, cb, "{\"ok\":true,\"board\":\"" + jsonEscape(gBoard) + "\"}");
+            return;
+        }
+        if (gMode == MODE_RESETTING)
+        {
+            replyJson(httpId, cb, "{\"ok\":false,\"error\":\"table resetting\"}");
+            return;
+        }
+        if (gMode == MODE_SOLO)
+        {
+            if (uid != gSoloUid)
+            {
+                replyJson(httpId, cb, "{\"ok\":false,\"error\":\"only solo player emits\"}");
+                return;
+            }
+        }
+        else if (gMode == MODE_MATCH)
+        {
+            if (uid != gHostUid)
+            {
+                replyJson(httpId, cb, "{\"ok\":false,\"error\":\"only host emits\"}");
+                return;
+            }
+        }
+        else
+        {
+            replyJson(httpId, cb, "{\"ok\":false,\"error\":\"no active match\"}");
+            return;
+        }
+        gBoard = payload;
+        replyJson(httpId, cb, "{\"ok\":true}");
+        return;
+    }
     if (action == "enter")
     {
         integer seat = seatOf(uid);
@@ -758,7 +812,7 @@ handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, s
             return;
         }
         llMessageLinked(LINK_SET, DISPLAY_CMD_EVENT, payload, NULL_KEY);
-        httpResp(httpId, cb, "{\"ok\":true}");
+        replyJson(httpId, cb, "{\"ok\":true}");
         return;
     }
     httpResp(httpId, cb, statusJson(FALSE, "unknown action"));
@@ -775,6 +829,7 @@ default
         gHostUid = NULL_KEY;
         gRoomCode = "";
         gJoined = [];
+        gBoard = "";
         llListen(tableChannel(), "", NULL_KEY, "");
         llSetTimerEvent(2.0);
         pushStatus();
@@ -793,11 +848,17 @@ default
             if (gMode == MODE_RESETTING) finishReset();
             return;
         }
+        if (num == DISPLAY_CMD_NEED_CAP)
+        {
+            sendDisplayCap();
+            return;
+        }
         if (num == HTTP_CMD)
         {
             if (llGetSubString(str, 0, 3) == "CAP|")
             {
                 gCapUrl = llGetSubString(str, 4, -1);
+                sendDisplayCap();
                 announceAllSeated();
                 pushStatus();
                 return;
@@ -822,7 +883,7 @@ default
                     if (i > 8) payload += "|";
                     payload += llList2String(parts, i);
                 }
-                if (uid == NULL_KEY && action != "status")
+                if (uid == NULL_KEY && action != "status" && action != "board")
                 {
                     httpResp(httpId, cb, statusJson(FALSE, "uid required"));
                     return;

@@ -1,7 +1,22 @@
+import { encodePublicBoard, publicBoardFromMatch } from '../core/publicBoard'
 import { cloneState } from '../core/state'
 import { eventsForMove } from '../core/displayEvents'
 import type { GameMove, MatchState } from '../core/types'
-import { tableEvent } from './tableApi'
+import { tableEvent, tableSetBoard } from './tableApi'
+
+export async function emitPublicBoard(
+  state: MatchState,
+  slCap: string,
+  uid: string,
+  seat: number,
+): Promise<void> {
+  const compact = encodePublicBoard(publicBoardFromMatch(state))
+  try {
+    await tableSetBoard(slCap, uid, seat, compact)
+  } catch {
+    /* CEF / cap blip */
+  }
+}
 
 export async function emitDisplayPipes(
   prev: MatchState | null,

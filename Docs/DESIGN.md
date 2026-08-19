@@ -20,4 +20,4 @@ Physical Canasta players sort by rank. The HUD does that automatically. Tap a ra
 
 ## Table (v1 vs later)
 
-v1 seated play **claims** the table (one game at a time) and drives the HUD. In-world spectator display (Furware, prim book stacks, optional MOAP) is specified in `Docs/TABLE_DISPLAY.md` and stubbed in `lsl/Canasta_Display.lsl`.
+v1 seated play **claims** the table (one game at a time) and drives the HUD. In-world spectator display (Furware + table-top MOAP) is specified in `Docs/TABLE_DISPLAY.md`.

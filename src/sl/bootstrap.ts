@@ -11,6 +11,7 @@ export type SlBootstrap = {
   client: 'hud' | 'browser' | ''
   room: string
   action: string
+  view: 'table' | ''
 }
 
 function paramsFrom(raw: string): URLSearchParams {
@@ -31,7 +32,9 @@ export function readSlBootstrap(href = window.location.href): SlBootstrap | null
   paramsFrom(url.hash).forEach((v, k) => merged.set(k, v))
   const tableId = (merged.get('tableId') || merged.get('table') || '').trim()
   const uid = (merged.get('uid') || '').trim()
-  if (!tableId || !uid) return null
+  const viewRaw = (merged.get('view') || '').trim().toLowerCase()
+  const view = viewRaw === 'table' ? 'table' : ''
+  if (view !== 'table' && (!tableId || !uid)) return null
   const seatRaw = merged.get('seat')
   const seat = seatRaw != null && seatRaw !== '' ? Number(seatRaw) : -1
   const clientRaw = (merged.get('client') || '').trim().toLowerCase()
@@ -39,7 +42,7 @@ export function readSlBootstrap(href = window.location.href): SlBootstrap | null
   const parked = merged.get('parked') === '1' || merged.get('parked') === 'true' || clientRaw === 'parked'
   return {
     tableId,
-    uid,
+    uid: uid || 'spec',
     seat: Number.isFinite(seat) ? seat : -1,
     slCap: (merged.get('sl_cap') || merged.get('slCap') || '').trim(),
     name: (merged.get('name') || '').trim(),
@@ -48,5 +51,6 @@ export function readSlBootstrap(href = window.location.href): SlBootstrap | null
     client,
     room: (merged.get('room') || '').trim().toUpperCase(),
     action: (merged.get('action') || '').trim().toLowerCase(),
+    view,
   }
 }

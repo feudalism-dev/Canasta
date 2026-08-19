@@ -7,6 +7,7 @@ import { HowToPlay } from './ui/HowToPlay'
 import { HandAndFootHouseFields } from './ui/HouseFields'
 import { ParkedHud } from './ui/ParkedHud'
 import { SlTableScreens } from './ui/SlTableScreens'
+import { SpectatorTable } from './ui/SpectatorTable'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
 import { startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
@@ -17,7 +18,7 @@ import type { HouseRules, MatchState, Variant } from './core/types'
 import { DEFAULT_HOUSE } from './core/types'
 import { createPeerHost, joinPeerRoom, type PeerSession } from './net/peerSession'
 import { readSlBootstrap } from './sl/bootstrap'
-import { emitDisplayPipes } from './sl/displaySync'
+import { emitDisplayPipes, emitPublicBoard } from './sl/displaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 
 type Screen = 'menu' | 'setup' | 'game' | 'help' | 'sl'
@@ -96,19 +97,22 @@ function AppInner() {
   useEffect(() => {
     if (!state || !slBoot?.slCap) return
     const isEmitter = Boolean(local) || peer?.isHost === true
-    if (!isEmitter || !lastMoveRef.current) {
+    if (!isEmitter) {
       prevMatchRef.current = cloneState(state)
       return
     }
-    void emitDisplayPipes(
-      prevMatchRef.current,
-      state,
-      lastMoveRef.current.move,
-      lastMoveRef.current.index,
-      slBoot.slCap,
-      slBoot.uid,
-      slBoot.seat,
-    )
+    void emitPublicBoard(state, slBoot.slCap, slBoot.uid, slBoot.seat)
+    if (lastMoveRef.current) {
+      void emitDisplayPipes(
+        prevMatchRef.current,
+        state,
+        lastMoveRef.current.move,
+        lastMoveRef.current.index,
+        slBoot.slCap,
+        slBoot.uid,
+        slBoot.seat,
+      )
+    }
     prevMatchRef.current = cloneState(state)
   }, [tick, state, local, peer, slBoot])
 
@@ -162,6 +166,10 @@ function AppInner() {
     }
     slMatchKind.current = 'none'
     setScreen(slBoot ? 'sl' : 'menu')
+  }
+
+  if (slBoot?.view === 'table') {
+    return <SpectatorTable slCap={slBoot.slCap} />
   }
 
   if (slBoot?.parked) return wrap(<ParkedHud boot={slBoot} />)

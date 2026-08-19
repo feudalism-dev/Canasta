@@ -7,7 +7,7 @@
 | **AVsitter** | Sit poses only (`90070` / `90065`). Does **not** attach the HUD. |
 | **Table LSL** | Roster, **rezzes HUD**, one-game lock, display reset handshake |
 | **Http LSL** | HTTP-IN JSONP (same root prim as Table) |
-| **Display LSL** | Furware seat lines (`text0`–`text3`); prim books / spectator MOAP later |
+| **Display LSL** | Furware seat lines (`text0`–`text3`) + table-top spectator MOAP |
 | **HUD LSL** | Experience **temp-attach** → set MOAP URL (Pages) |
 | **MOAP (React)** | Seated HUD always claims the table; public URL is solo-only |
 | **PeerJS** | Browser↔browser match traffic (not via the table) |
@@ -87,6 +87,8 @@ Response shape: `callback({ ok, ... });`
 | `91002` `DISPLAY_CMD_START` | Table → Display | solo/match start pipe |
 | `91003` `DISPLAY_CMD_RESET` | Table → Display | Idle / attract |
 | `91004` `DISPLAY_RSP_RESET_DONE` | Display → Table | Reset complete |
+| `91005` `DISPLAY_CMD_CAP` | Table → Display | HTTP-IN URL for spectator MOAP |
+| `91006` `DISPLAY_CMD_NEED_CAP` | Display → Table | Ask for HTTP-IN URL |
 | `92001` `HTTP_CMD` | Http ↔ Table | `REQ` / `RESP` / `STATUS` / `CAP` |
 
 `claim_solo`, `create`, and `start` put the table in mode `resetting`, send Display `91003`, and hold the JSONP response until Display replies `91004` or a short timeout.

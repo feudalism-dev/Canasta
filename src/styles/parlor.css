@@ -1011,3 +1011,128 @@ select {
 ul {
   padding-left: calc(1.1 * var(--rem));
 }
+
+.spectator-root {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: calc(0.28 * var(--rem)) calc(0.4 * var(--rem)) calc(0.35 * var(--rem));
+  display: flex;
+  flex-direction: column;
+}
+
+.spec-banner,
+.spec-turn,
+.spec-msg,
+.spec-grid {
+  position: relative;
+  z-index: 1;
+}
+
+.spec-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(0.4 * var(--rem));
+}
+
+.spec-turn {
+  margin: calc(0.12 * var(--rem)) 0 0;
+  text-align: center;
+  font-size: calc(0.82 * var(--rem));
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.spec-msg {
+  margin: 0.05rem 0 0.15rem;
+  text-align: center;
+  font-size: calc(0.7 * var(--rem));
+  opacity: 0.85;
+}
+
+.spec-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 18%) 1fr minmax(6.5rem, 18%);
+  grid-template-rows: auto auto 1fr auto auto;
+  grid-template-areas:
+    '. north .'
+    'them them them'
+    'west mid east'
+    'us us us'
+    '. south .';
+  gap: calc(0.18 * var(--rem)) calc(0.3 * var(--rem));
+  align-items: stretch;
+}
+
+.spec-north {
+  grid-area: north;
+}
+.spec-them {
+  grid-area: them;
+}
+.spec-west {
+  grid-area: west;
+  align-self: center;
+}
+.spec-mid {
+  grid-area: mid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.spec-east {
+  grid-area: east;
+  align-self: center;
+}
+.spec-us {
+  grid-area: us;
+}
+.spec-south {
+  grid-area: south;
+}
+
+.spec-piles {
+  margin: 0;
+}
+
+.spec-seat {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(201, 162, 39, 0.22);
+  padding: calc(0.2 * var(--rem)) calc(0.35 * var(--rem));
+  font-size: calc(0.68 * var(--rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.04rem;
+}
+
+.spec-seat.is-turn {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 1px var(--brass);
+}
+
+.spec-seat.is-vacant {
+  opacity: 0.55;
+}
+
+.spec-seat-num {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  font-size: 0.85em;
+}
+
+.spectator-root .book {
+  cursor: default;
+}
+
+.spectator-root .meld-tray {
+  margin: 0;
+}
+
+.spectator-root .meld-tray h3 {
+  font-size: calc(0.64 * var(--rem));
+}

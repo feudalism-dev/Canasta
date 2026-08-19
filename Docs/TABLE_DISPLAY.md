@@ -1,8 +1,23 @@
 # In-world table display
 
-The HUD is the rules engine. The table is a **spectator parlor**. `lsl/Canasta_Display.lsl` drives **Furware** seat lines. Prim book stacks and spectator MOAP are still later.
+The HUD is the rules engine. The table is a **spectator parlor**. `lsl/Canasta_Display.lsl` drives **Furware** seat lines and the **table-top MOAP** (public board, never hole cards).
 
 Seated play still **claims** the table so two matches cannot overlap.
+
+## Chairs (AVsitter)
+
+Partnerships sit **across** the table. Play is clockwise from Player 1:
+
+| Clockwise | Seat index | Partners with |
+|-----------|------------|----------------|
+| Player 1 (this side of the table-top) | 0 | Player 3 |
+| Player 2 (Player 1's right) | 1 | Player 4 |
+| Player 3 (opposite Player 1) | 2 | Player 1 |
+| Player 4 (Player 1's left) | 3 | Player 2 |
+
+Teams: **1+3** vs **2+4** (engine: even seats vs odd seats). If AVsitter was ordered 1, 3, 2, 4 clockwise, swap the Player 2 and Player 3 poses so 1 faces 3.
+
+The spectator MOAP is drawn from **Player 1's viewpoint** (Player 1 at the near edge). Match AVpos to that.
 
 ## Furware
 
@@ -22,6 +37,18 @@ One Furware text script in the **linkset**. Four root sets, one per AVsitter sea
 Prim names: `FURWARE text mesh:text0:0:0` … `text0:0:3` (and the same for `text1`–`text3`). Put `Canasta_Display.lsl` on the display child. It sends `fw_data` / `fw_conf` to those set names.
 
 Idle line: `1 P1`. During a game: `1 Alice 50`, with a leading `*` and brass color on whose turn it is. Empty CPU seats show `CPU`. Partnership scores are shared (seats 0+2 vs 1+3).
+
+## Table-top MOAP
+
+The display child is the **game table top** for people who are not playing. `Canasta_Display.lsl` sets media on **face 0** (`DISPLAY_FACE` — change it if your mesh uses another face) to:
+
+`https://feudalism-dev.github.io/Canasta/?view=table&tableId=…&uid=spec&sl_cap=…&rev=N`
+
+The page polls JSONP `action=board` (~2s). Host or solo HUD posts a compact **public** snapshot after each state change (names, hand counts, foot sealed/open, team scores, books, stock, discard top/size/freeze, whose turn). Hole cards are never sent.
+
+Idle / between games shows the four empty seats and the felt.
+
+Recompile **Display → Http → Table** after dropping the new scripts. Bump `HUD_PAGE_ASSET_REV` / `PAGE_ASSET_REV` together when Pages deploys.
 
 ## Event bus
 
@@ -49,11 +76,6 @@ EVENT|player|team|rank|value|extra
 
 `player` is 1–4 (seat + 1). `team` is 0 or 1. `rank` is `4`–`A`, `2`, `3R`, `3B`, `JOKER`, or `NONE`.
 
-## Planned physical layout
+HTTP `action=board`: empty `p` reads the stored snapshot (anyone). Host/solo posts `p` to replace it.
 
-- Center: stock height (prim Z or sculpt) + discard top texture
-- Two team trays: rising red/black book stacks
-- Furware Text: team scores, whose turn, meld minimum, round
-- Optional spectator MOAP mirroring the **public** board (never hands)
-
-Start payload (`91002`): `solo|nPlayers|humanSeat|uid0|uid1|uid2|uid3|name0|name1|name2|name3` or `match|uid0|uid1|uid2|uid3|name0|name1|name2|name3`.
+Start payload (`91002`): `solo|nPlayers|humanSeat|uid0|uid1|uid2|uid3|name0|name1|name2|name3` or `match|uid0|uid1|uid2|uid3|name0|name1|name2|name3`. Table sends the HTTP-IN URL to Display on `91005`.

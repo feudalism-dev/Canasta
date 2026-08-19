@@ -1,13 +1,22 @@
-// Canasta — In-world display (Furware per-seat lines)
+// Canasta — In-world display (Furware per-seat lines + table-top MOAP)
 // Drop on the display child prim (same linkset as Table). Compile: Mono.
 // Mesh names: FURWARE text mesh:text0:0:0 … text0:0:3 (and text1–text3).
 // Also drop ONE script named "FURWARE text" in this linkset (from the Furware kit).
 // The table prim (Table+Http+AVsitter) must be the linkset root, not a letter.
+// This prim's media face is the spectator table top, oriented for Player 1.
 
 integer DISPLAY_CMD_EVENT = 91001;
 integer DISPLAY_CMD_START = 91002;
 integer DISPLAY_CMD_RESET = 91003;
 integer DISPLAY_RSP_RESET_DONE = 91004;
+integer DISPLAY_CMD_CAP = 91005;
+integer DISPLAY_CMD_NEED_CAP = 91006;
+
+// Change this if the table-top media is not face 0.
+integer DISPLAY_FACE = 0;
+integer DISPLAY_MEDIA_PIXELS = 1024;
+integer PAGE_ASSET_REV = 20;
+string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 
 integer DEBUG = FALSE;
 integer MAX_SEATS = 4;
@@ -18,10 +27,66 @@ integer gLive = FALSE;
 integer gTurnSeat = -1;
 integer gScoreA = 0;
 integer gScoreB = 0;
+string gSlCap = "";
+string gLastHomeUrl = "";
 
 integer debug(string m)
 {
     if (DEBUG) llOwnerSay("CN DISPLAY: " + m);
+    return TRUE;
+}
+
+string tableIdOf()
+{
+    key rootId = llGetLinkKey(LINK_ROOT);
+    if (rootId == NULL_KEY) return (string)llGetKey();
+    return (string)rootId;
+}
+
+string sessionHome()
+{
+    string home = WEB_URL
+        + "?view=table"
+        + "&tableId=" + llEscapeURL(tableIdOf())
+        + "&uid=spec"
+        + "&rev=" + (string)PAGE_ASSET_REV;
+    if (gSlCap != "") home += "&sl_cap=" + llEscapeURL(gSlCap);
+    return home;
+}
+
+integer applyMoap(integer force)
+{
+    string home = sessionHome();
+    if (!force && home == gLastHomeUrl) return FALSE;
+
+    string bust = (string)llGetUnixTime();
+    string cur = home + "&cb=" + bust;
+
+    list existing = llGetLinkMedia(LINK_THIS, DISPLAY_FACE, [PRIM_MEDIA_CURRENT_URL]);
+    if (llList2String(existing, 0) != cur)
+    {
+        llClearPrimMedia(DISPLAY_FACE);
+    }
+    llSetPrimMediaParams(DISPLAY_FACE, [
+        PRIM_MEDIA_AUTO_PLAY, TRUE,
+        PRIM_MEDIA_AUTO_SCALE, TRUE,
+        PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
+        PRIM_MEDIA_CURRENT_URL, cur,
+        PRIM_MEDIA_HOME_URL, home,
+        PRIM_MEDIA_FIRST_CLICK_INTERACT, FALSE,
+        PRIM_MEDIA_WIDTH_PIXELS, DISPLAY_MEDIA_PIXELS,
+        PRIM_MEDIA_HEIGHT_PIXELS, DISPLAY_MEDIA_PIXELS,
+        PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_NONE,
+        PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_NONE
+    ]);
+    gLastHomeUrl = home;
+    debug("MoAP " + llGetSubString(cur, 0, 180));
+    return TRUE;
+}
+
+integer askForCap()
+{
+    llMessageLinked(LINK_SET, DISPLAY_CMD_NEED_CAP, "", NULL_KEY);
     return TRUE;
 }
 
@@ -193,7 +258,9 @@ default
     {
         clearState();
         llMessageLinked(LINK_SET, 0, "", "fw_reset");
-        llOwnerSay("Canasta display: Furware text0–text3.");
+        askForCap();
+        applyMoap(TRUE);
+        llOwnerSay("Canasta display: Furware text0–text3 + table-top MOAP face " + (string)DISPLAY_FACE + ".");
     }
 
     on_rez(integer p)
@@ -217,6 +284,12 @@ default
         if (num == DISPLAY_CMD_EVENT)
         {
             handleEvent(str);
+            return;
+        }
+        if (num == DISPLAY_CMD_CAP)
+        {
+            gSlCap = str;
+            applyMoap(FALSE);
             return;
         }
         if ((string)id == "fw_ready")

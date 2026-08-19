@@ -19,6 +19,7 @@ export type TableStatus = {
   soloUid?: string
   roster?: TableRosterEntry[]
   error?: string
+  board?: string
 }
 
 type JsonpParams = Record<string, string | number | boolean | undefined | null>
@@ -116,4 +117,17 @@ export async function tableEvent(
   pipePayload: string,
 ): Promise<TableStatus> {
   return jsonpTable(slCap, { action: 'event', uid, seat, p: pipePayload })
+}
+
+export async function tableGetBoard(slCap: string): Promise<TableStatus> {
+  return jsonpTable(slCap, { action: 'board', uid: 'spec' })
+}
+
+export async function tableSetBoard(
+  slCap: string,
+  uid: string,
+  seat: number,
+  compact: string,
+): Promise<TableStatus> {
+  return jsonpTable(slCap, { action: 'board', uid, seat, p: compact })
 }
