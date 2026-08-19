@@ -48,12 +48,12 @@ export type PublicBoard = {
 const SUITS_CYCLE: Suit[] = ['H', 'D', 'S', 'C']
 
 function clipName(raw: string): string {
-  const s = raw.replace(/[|,:^]/g, ' ').replace(/\s+/g, ' ').trim()
-  return s.length <= 12 ? s : s.slice(0, 12)
+  const s = raw.replace(/[|,:^~&?#]/g, ' ').replace(/\s+/g, ' ').trim()
+  return s.length <= 16 ? s : s.slice(0, 16)
 }
 
 function clipMsg(raw: string): string {
-  const s = raw.replace(/\|/g, '/').trim()
+  const s = raw.replace(/[|&?#]/g, '/').replace(/~/g, '-').trim()
   return s.length <= 72 ? s : s.slice(0, 72)
 }
 
@@ -193,7 +193,7 @@ export function encodePublicBoard(board: PublicBoard): string {
     frozen,
     top,
     clipMsg(board.lastMessage),
-  ].join('|')
+  ].join('~')
   const players = board.players
     .map((p) => `${clipName(p.name)}:${p.seat}:${p.handCount}:${p.foot}`)
     .join(',')
@@ -255,7 +255,8 @@ export function decodePublicBoard(raw: string): PublicBoard {
   const text = raw.trim()
   if (!text) return idlePublicBoard()
   const lines = text.split('^')
-  const head = (lines[0] || '').split('|')
+  const rawHead = lines[0] || ''
+  const head = rawHead.includes('~') ? rawHead.split('~') : rawHead.split('|')
   if (head[0] !== '1' || head.length < 11) return idlePublicBoard()
   const live = head[1] === '1'
   const variant: Variant = head[2] === 'h' ? 'handAndFoot' : 'canasta'

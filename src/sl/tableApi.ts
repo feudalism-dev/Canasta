@@ -119,6 +119,8 @@ export async function tableEvent(
   return jsonpTable(slCap, { action: 'event', uid, seat, p: pipePayload })
 }
 
+const BOARD_CHUNK = 160
+
 export async function tableGetBoard(slCap: string): Promise<TableStatus> {
   return jsonpTable(slCap, { action: 'board', uid: 'spec' })
 }
@@ -129,5 +131,23 @@ export async function tableSetBoard(
   seat: number,
   compact: string,
 ): Promise<TableStatus> {
-  return jsonpTable(slCap, { action: 'board', uid, seat, p: compact })
+  const body = compact || ''
+  const n = Math.max(1, Math.ceil(body.length / BOARD_CHUNK))
+  let last: TableStatus = { ok: true }
+  for (let i = 0; i < n; i++) {
+    const chunk = body.slice(i * BOARD_CHUNK, (i + 1) * BOARD_CHUNK)
+    last = await tableEvent(slCap, uid, seat, `BOARD|${i}|${n}|${chunk}`)
+    if (!last.ok) return last
+  }
+  return last
+}
+
+export async function tableSetNames(
+  slCap: string,
+  uid: string,
+  seat: number,
+  names: string[],
+): Promise<TableStatus> {
+  const slots = [0, 1, 2, 3].map((i) => (names[i] || '').replace(/\|/g, ' '))
+  return tableEvent(slCap, uid, seat, `NAMES|${slots.join('|')}`)
 }

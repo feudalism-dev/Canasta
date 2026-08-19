@@ -8,7 +8,7 @@ import {
   type PublicBoard,
   type PublicPlayer,
 } from '../core/publicBoard'
-import { tableGetBoard } from '../sl/tableApi'
+import { tableGetBoard, tableStatus } from '../sl/tableApi'
 import { CardView } from './CardView'
 import { MeldTray } from './MeldTray'
 import { applyUiScale } from './uiScale'
@@ -21,6 +21,12 @@ function playerAt(board: PublicBoard, seat: number): PublicPlayer | undefined {
   return board.players.find((p) => p.seat === seat)
 }
 
+function whoLabel(board: PublicBoard, seat: number): string {
+  const p = playerAt(board, seat)
+  if (p?.name) return `${p.name} (Player ${seat + 1})`
+  return `Player ${seat + 1}`
+}
+
 function SeatChip({ board, seat, label }: { board: PublicBoard; seat: number; label: string }) {
   const p = playerAt(board, seat)
   const vacant = !p
@@ -29,14 +35,14 @@ function SeatChip({ board, seat, label }: { board: PublicBoard; seat: number; la
   return (
     <div className={`spec-seat ${isTurn ? 'is-turn' : ''} ${vacant ? 'is-vacant' : ''}`}>
       <span className="spec-seat-num">
-        P{seat + 1} · {label}
+        Player {seat + 1} · {label}
       </span>
       <strong>{vacant ? '—' : p.name}</strong>
       {vacant ? (
         <span className="muted tiny">Empty</span>
       ) : (
         <>
-          <span>{p.handCount} in hand</span>
+          <span>{p.handCount} in hand (hidden)</span>
           {p.foot === 0 ? <span>Foot sealed</span> : null}
           {p.foot === 1 ? <span>Foot open</span> : null}
           <em>{partnerNote}</em>
@@ -49,18 +55,18 @@ function SeatChip({ board, seat, label }: { board: PublicBoard; seat: number; la
 
 function phaseLine(board: PublicBoard): string {
   if (!board.live) return 'Waiting for a deal'
-  const who = playerAt(board, board.currentSeat)
-  const name = who?.name ?? `Player ${board.currentSeat + 1}`
-  if (board.phase === 'awaitingDraw') return `${name} to draw`
-  if (board.phase === 'awaitingPlay') return `${name} to meld or discard`
-  if (board.phase === 'awaitingGoOutConsent') return `${name} — may I go out?`
-  if (board.phase === 'roundEnd') return 'Hand over'
+  const who = whoLabel(board, board.currentSeat)
+  if (board.phase === 'awaitingDraw') return `${who} is drawing…`
+  if (board.phase === 'awaitingPlay') return `${who} is playing — meld or discard`
+  if (board.phase === 'awaitingGoOutConsent') return `${who} asked to go out — waiting on partner`
+  if (board.phase === 'roundEnd') return 'Hand over — scoring'
   if (board.phase === 'matchEnd') return 'Match over'
   return board.lastMessage || 'Canasta'
 }
 
 export function SpectatorTable({ slCap }: Props) {
   const [board, setBoard] = useState<PublicBoard>(idlePublicBoard)
+  const [linkOk, setLinkOk] = useState(true)
 
   useEffect(() => {
     applyUiScale(0.78)
@@ -70,20 +76,32 @@ export function SpectatorTable({ slCap }: Props) {
     if (!slCap) return
     let alive = true
     let inflight = false
+    const applyRaw = (raw: string | undefined) => {
+      if (!raw || !raw.trim()) return false
+      setBoard(decodePublicBoard(raw))
+      return true
+    }
     const tick = async () => {
       if (inflight) return
       inflight = true
       try {
+        const st = await tableStatus(slCap, 'spec', 0)
+        if (!alive) return
+        setLinkOk(true)
+        if (applyRaw(st.board)) {
+          inflight = false
+          return
+        }
         const res = await tableGetBoard(slCap)
         if (!alive) return
-        setBoard(decodePublicBoard(res.board || ''))
+        applyRaw(res.board)
       } catch {
-        /* CEF / cap blip */
+        if (alive) setLinkOk(false)
       }
       inflight = false
     }
     void tick()
-    const id = window.setInterval(() => void tick(), 2000)
+    const id = window.setInterval(() => void tick(), 1000)
     return () => {
       alive = false
       window.clearInterval(id)
@@ -121,6 +139,7 @@ export function SpectatorTable({ slCap }: Props) {
 
       <p className="spec-turn">{phaseLine(board)}</p>
       {board.lastMessage ? <p className="spec-msg">{board.lastMessage}</p> : null}
+      {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
 
       <div className="spec-grid">
         <div className="spec-north">
@@ -128,7 +147,7 @@ export function SpectatorTable({ slCap }: Props) {
         </div>
         <div className="spec-them">
           <MeldTray
-            title="Players 2 & 4"
+            title="Players 2 & 4 — books"
             melds={publicMeldsAsEngine(board.teams[1]!.melds)}
             config={config}
             redThrees={board.teams[1]!.redThrees}
@@ -164,7 +183,7 @@ export function SpectatorTable({ slCap }: Props) {
         </div>
         <div className="spec-us">
           <MeldTray
-            title="Players 1 & 3"
+            title="Players 1 & 3 — books"
             melds={publicMeldsAsEngine(board.teams[0]!.melds)}
             config={config}
             redThrees={board.teams[0]!.redThrees}

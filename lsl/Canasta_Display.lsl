@@ -15,7 +15,7 @@ integer DISPLAY_CMD_NEED_CAP = 91006;
 // Change this if the table-top media is not face 0.
 integer DISPLAY_FACE = 0;
 integer DISPLAY_MEDIA_PIXELS = 1024;
-integer PAGE_ASSET_REV = 20;
+integer PAGE_ASSET_REV = 21;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 
 integer DEBUG = FALSE;
@@ -56,6 +56,7 @@ string sessionHome()
 
 integer applyMoap(integer force)
 {
+    if (gSlCap == "") return FALSE;
     string home = sessionHome();
     if (!force && home == gLastHomeUrl) return FALSE;
 
@@ -112,7 +113,6 @@ string labelFor(integer seat)
 {
     string nm = llList2String(gName, seat);
     if (nm != "") return nm;
-    if (gLive && seat < gPlayers) return "CPU";
     return "P" + (string)(seat + 1);
 }
 
@@ -125,7 +125,7 @@ integer scoreFor(integer seat)
 integer paintSeat(integer seat)
 {
     string conf = "a=left; w=none; t=on; force=on";
-    string body = (string)(seat + 1) + " " + clip(labelFor(seat), 12);
+    string body = (string)(seat + 1) + " " + clip(labelFor(seat), 16);
     if (!gLive || seat >= gPlayers)
     {
         conf += "; c=0.85,0.78,0.55";
@@ -203,13 +203,14 @@ integer handleStart(string payload)
         if (gPlayers < 2) gPlayers = 2;
         if (gPlayers > MAX_SEATS) gPlayers = MAX_SEATS;
         gTurnSeat = 0;
-        if (n > 7) takeNames(parts, 7);
+        if (n > 2) gTurnSeat = (integer)llList2String(parts, 2);
+        if (n >= 5) takeNames(parts, n - MAX_SEATS);
     }
     else
     {
         gPlayers = MAX_SEATS;
         gTurnSeat = 0;
-        if (n > 5) takeNames(parts, 5);
+        if (n >= 5) takeNames(parts, n - MAX_SEATS);
     }
     if (gTurnSeat < 0 || gTurnSeat >= gPlayers) gTurnSeat = 0;
     paintAll();
@@ -229,6 +230,12 @@ integer handleEvent(string pipe)
     integer team = 0;
     if (n > 2) team = (integer)llList2String(parts, 2);
     integer seat = player - 1;
+    if (kind == "NAMES")
+    {
+        takeNames(parts, 1);
+        paintAll();
+        return TRUE;
+    }
     if (kind == "TURN")
     {
         if (seat >= 0 && seat < MAX_SEATS) gTurnSeat = seat;

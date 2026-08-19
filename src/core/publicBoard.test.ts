@@ -43,6 +43,7 @@ describe('public board snapshot', () => {
     expect(board.top).toEqual({ rank: '9', suit: 'H' })
     expect(board.frozen).toBe(true)
     expect(encodePublicBoard(board)).not.toMatch(/secret-/)
+    expect(encodePublicBoard(board)).not.toMatch(/\|/)
     const again = decodePublicBoard(encodePublicBoard(board))
     expect(again.live).toBe(true)
     expect(again.variant).toBe('handAndFoot')

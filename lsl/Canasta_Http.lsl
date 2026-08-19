@@ -46,7 +46,7 @@ list parseQuery(string qs)
         {
             out += [
                 llUnescapeURL(llGetSubString(pair, 0, eq - 1)),
-                llUnescapeURL(llGetSubString(pair, eq + 1, -1))
+                llDumpList2String(llParseStringKeepNulls(llUnescapeURL(llGetSubString(pair, eq + 1, -1)), ["+"], []), " ")
             ];
         }
     }

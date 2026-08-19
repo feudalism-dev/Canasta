@@ -50,6 +50,7 @@ list gGraceUntil = [];
 
 string gCapUrl = "";
 string gBoard = "";
+string gBoardAcc = "";
 integer gReadyTick = 0;
 integer DEBUG = FALSE;
 
@@ -179,7 +180,8 @@ string statusJson(integer ok, string err)
         + "\"roomCode\":\"" + jsonEscape(gRoomCode) + "\","
         + "\"hostUid\":\"" + (string)gHostUid + "\","
         + "\"soloUid\":\"" + (string)gSoloUid + "\","
-        + "\"roster\":" + rosterJson();
+        + "\"roster\":" + rosterJson() + ","
+        + "\"board\":\"" + jsonEscape(gBoard) + "\"";
     if (err != "") j += ",\"error\":\"" + jsonEscape(err) + "\"";
     j += "}";
     return j;
@@ -233,6 +235,7 @@ integer beginTrackReset(integer clearLock)
     gMode = MODE_RESETTING;
     gResetDeadline = llGetUnixTime() + RESET_TIMEOUT_SEC;
     gBoard = "";
+    gBoardAcc = "";
     llMessageLinked(LINK_SET, DISPLAY_CMD_RESET, "", NULL_KEY);
     pushStatus();
     debug("DISPLAY_CMD_RESET");
@@ -433,8 +436,8 @@ integer onSit(key av, integer seat)
     if (prev >= 0 && prev != seat) clearSeat(prev);
     if (old != NULL_KEY && old != av) clearSeat(seat);
 
-    string nm = llGetDisplayName(av);
-    if (nm == "") nm = llKey2Name(av);
+    string nm = llKey2Name(av);
+    if (nm == "") nm = llGetDisplayName(av);
     gSeatAv = llListReplaceList(gSeatAv, [av], seat, seat);
     gSeatName = llListReplaceList(gSeatName, [nm], seat, seat);
     gActive = llListReplaceList(gActive, [FALSE], seat, seat);
@@ -498,7 +501,13 @@ string seatNamePipe()
     for (i = 0; i < MAX_SEATS; i++)
     {
         if (i) s += "|";
-        s += pipeSafe(llList2String(gSeatName, i));
+        string nm = pipeSafe(llList2String(gSeatName, i));
+        if (nm == "")
+        {
+            key av = llList2Key(gSeatAv, i);
+            if (av != NULL_KEY) nm = pipeSafe(llKey2Name(av));
+        }
+        s += nm;
     }
     return s;
 }
@@ -569,7 +578,48 @@ integer finishReset()
     gRoomCode = "";
     gJoined = [];
     gBoard = "";
+    gBoardAcc = "";
     pushStatus();
+    return TRUE;
+}
+
+integer takeBoardChunk(string payload)
+{
+    list bp = llParseStringKeepNulls(payload, ["|"], []);
+    if (llList2String(bp, 0) != "BOARD") return FALSE;
+    integer idx = (integer)llList2String(bp, 1);
+    integer tot = (integer)llList2String(bp, 2);
+    string chunk = "";
+    integer k;
+    integer n = llGetListLength(bp);
+    for (k = 3; k < n; k++)
+    {
+        if (k > 3) chunk += "|";
+        chunk += llList2String(bp, k);
+    }
+    if (idx == 0) gBoardAcc = chunk;
+    else gBoardAcc += chunk;
+    if (tot < 1) tot = 1;
+    if (idx >= tot - 1)
+    {
+        gBoard = gBoardAcc;
+        gBoardAcc = "";
+        pushStatus();
+    }
+    return TRUE;
+}
+
+integer takeNamesEvent(string payload)
+{
+    list bp = llParseStringKeepNulls(payload, ["|"], []);
+    if (llList2String(bp, 0) != "NAMES") return FALSE;
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        string nm = "";
+        if (i + 1 < llGetListLength(bp)) nm = llStringTrim(llList2String(bp, i + 1), STRING_TRIM);
+        if (nm != "") gSeatName = llListReplaceList(gSeatName, [nm], i, i);
+    }
     return TRUE;
 }
 
@@ -809,6 +859,17 @@ handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, s
         else
         {
             httpResp(httpId, cb, "{\"ok\":false,\"error\":\"no active match\"}");
+            return;
+        }
+        if (takeBoardChunk(payload))
+        {
+            replyJson(httpId, cb, "{\"ok\":true}");
+            return;
+        }
+        if (takeNamesEvent(payload))
+        {
+            llMessageLinked(LINK_SET, DISPLAY_CMD_EVENT, payload, NULL_KEY);
+            replyJson(httpId, cb, "{\"ok\":true}");
             return;
         }
         llMessageLinked(LINK_SET, DISPLAY_CMD_EVENT, payload, NULL_KEY);

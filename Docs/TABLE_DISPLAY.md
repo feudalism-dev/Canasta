@@ -44,7 +44,7 @@ The display child is the **game table top** for people who are not playing. `Can
 
 `https://feudalism-dev.github.io/Canasta/?view=table&tableId=…&uid=spec&sl_cap=…&rev=N`
 
-The page polls JSONP `action=board` (~2s). Host or solo HUD posts a compact **public** snapshot after each state change (names, hand counts, foot sealed/open, team scores, books, stock, discard top/size/freeze, whose turn). Hole cards are never sent.
+The page polls JSONP `action=status` / `action=board` (~1s). The seated HUD sends **short** `NAMES|…` and chunked `BOARD|i|n|…` events (a full snapshot in one query string was too large for MOAP JSONP, so the table top never updated). Public snapshot: names, hand counts, foot sealed/open, team scores, books, stock, discard top/size/freeze, whose turn, and a call-out like “Player 2 is drawing…”. Hole cards are never sent.
 
 Idle / between games shows the four empty seats and the felt.
 
@@ -73,9 +73,11 @@ EVENT|player|team|rank|value|extra
 | `SCORE` | Round scored | team0 in `player`, team1 in `team` as scores via extra `t0|t1` in extra |
 | `GAME_OVER` | Match over | winning team in `team` |
 | `FREEZE` | Pile freeze changed | `value` 1=frozen 0=clear |
+| `NAMES` | Roster labels | name0–name3 (AI included) |
+| `BOARD` | Spectator snapshot chunk | `i|n|chunk` — Table concatenates into `gBoard` |
 
 `player` is 1–4 (seat + 1). `team` is 0 or 1. `rank` is `4`–`A`, `2`, `3R`, `3B`, `JOKER`, or `NONE`.
 
-HTTP `action=board`: empty `p` reads the stored snapshot (anyone). Host/solo posts `p` to replace it.
+HTTP `action=board` GET reads the stored snapshot. Host/solo writes it via `BOARD` chunks (also copied onto `action=status` as `board`).
 
-Start payload (`91002`): `solo|nPlayers|humanSeat|uid0|uid1|uid2|uid3|name0|name1|name2|name3` or `match|uid0|uid1|uid2|uid3|name0|name1|name2|name3`. Table sends the HTTP-IN URL to Display on `91005`.
+Start payload (`91002`): `solo|nPlayers|humanSeat|uid0|uid1|uid2|uid3|name0|name1|name2|name3` or `match|uid0|uid1|uid2|uid3|name0|name1|name2|name3`. Names are the last four fields. Table sends the HTTP-IN URL to Display on `91005`.
