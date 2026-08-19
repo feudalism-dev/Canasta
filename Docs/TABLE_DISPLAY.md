@@ -19,6 +19,8 @@ Teams: **1+3** vs **2+4** (engine: even seats vs odd seats). If AVsitter was ord
 
 The spectator MOAP is drawn from **Player 1's viewpoint** (Player 1 at the near edge). Match AVpos to that.
 
+Linked prims named **`bot1`–`bot4`** (optional) are computer stand-ins. `Canasta_Bots.lsl` shows a bot for each computer-occupied chair at Start and hides all four on Reset and Game Over. Hide uses Blinn-Phong alpha 0 plus PBR base-color alpha 0 in blend mode, so both material paths go transparent.
+
 ## Furware
 
 The letter meshes do nothing by themselves. Drop **one** script named **`FURWARE text`** (from the Furware kit) into the same linkset as the table. On reset you should hear `FURWARE text started with 4 set(s).`

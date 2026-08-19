@@ -8,6 +8,7 @@
 | **Table LSL** | Roster, **rezzes HUD**, one-game lock, display reset handshake |
 | **Http LSL** | HTTP-IN JSONP + spectator board snapshot (same root prim as Table) |
 | **Display LSL** | Furware seat lines (`text0`–`text3`) + table-top spectator MOAP |
+| **Bots LSL** | Linked prims `bot1`–`bot4`: show computer seats, hide the rest |
 | **HUD LSL** | Experience **temp-attach** → set MOAP URL (Pages) |
 | **MOAP (React)** | Seated HUD always claims the table; public URL is solo-only |
 | **PeerJS** | Browser↔browser match traffic (not via the table) |
@@ -22,7 +23,7 @@ Browsers → PeerJS for multiplayer moves
 
 **Inventory**
 
-- **Table root:** `Canasta_Table.lsl` + `Canasta_Http.lsl` + AVsitter; HUD object **`Canasta HUD`** in table inventory. Compile Table + HUD with the **same Experience**.
+- **Table root:** `Canasta_Table.lsl` + `Canasta_Http.lsl` + `Canasta_Bots.lsl` + AVsitter; HUD object **`Canasta HUD`** in table inventory. Compile Table + HUD with the **same Experience**. Linked seat props **`bot1`–`bot4`** (Player 1–4): shown for computer chairs at Start, hidden on Reset / game over (Blinn-Phong alpha and PBR base alpha).
 - **Display child:** `Canasta_Display.lsl` (Mono). Furware sets `text0`–`text3` plus **one** `FURWARE text` script in the same linkset. Table prim must stay the linkset root.
 - Root description contains `canasta-table`.
 

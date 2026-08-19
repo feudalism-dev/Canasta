@@ -49,7 +49,7 @@ Site: `https://<you>.github.io/Canasta/`
 
 ## Second Life (in-world)
 
-1. Put `lsl/Canasta_Table.lsl` and `lsl/Canasta_Http.lsl` on the game table root (with AVsitter; seats 0–3). Put `lsl/Canasta_Display.lsl` on the **display child** (Furware sets `text0`–`text3`). Compile Table + HUD with your **Experience**.
+1. Put `lsl/Canasta_Table.lsl`, `lsl/Canasta_Http.lsl`, and `lsl/Canasta_Bots.lsl` on the game table root (with AVsitter; seats 0–3; linked prims named `bot1`–`bot4`). Put `lsl/Canasta_Display.lsl` on the **display child** (Furware sets `text0`–`text3`). Compile Table + HUD with your **Experience**.
 2. Build HUD object named **`Canasta HUD`** (square, media face **4**), put `lsl/Canasta_HUD.lsl` in it (same Experience), then put that object in the **table** inventory.
 3. Whitelist `feudalism-dev.github.io` for media; bump `HUD_PAGE_ASSET_REV` after Pages deploys.
 4. Sit → table rezzes/attaches HUD → lobby (auto-enter).
