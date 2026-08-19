@@ -79,8 +79,8 @@ export function GameBoard({
 
       <header className="board-top">
         <div className="brand-mark">
-          <span>CANASTA</span>
-          <small>& HAND AND FOOT</small>
+          <span>HAND &amp; FOOT</span>
+          <small>/ CANASTA</small>
         </div>
         <div className="score-ticker">
           <div>

@@ -178,7 +178,7 @@ export function SlTableScreens({
     <div className="shell-menu">
       <div className="menu-card">
         <p className="brand-kicker">Seat {youSeat + 1} · {mode}</p>
-        <h1>Canasta &amp; Hand and Foot</h1>
+        <h1>Hand &amp; Foot / Canasta</h1>
         <label>
           Name
           <input value={displayName} onChange={(e) => onNameChange(e.target.value)} />

@@ -1,4 +1,4 @@
-# Canasta & Hand and Foot
+# Hand & Foot / Canasta
 
 Classic Canasta and popular American Hand and Foot — solo vs computer in any browser, and table-only multiplayer in Second Life.
 

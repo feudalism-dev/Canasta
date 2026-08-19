@@ -1,4 +1,4 @@
-# Canasta & Hand and Foot — Design
+# Hand & Foot / Canasta — Design
 
 Art Deco card parlor. Emerald felt, brass rails, warm lamp light. Custom basket-motif card backs (*canasta* = basket). 1950s boom-era glamour — not a Bicycle clone.
 

@@ -134,7 +134,7 @@ export function SpectatorTable({ slCap }: Props) {
       <header className="spec-banner">
         <div className="brand-mark">
           <span>CANASTA</span>
-          <small>{board.live ? 'TABLE TOP · PLAYER 1 VIEW' : '& HAND AND FOOT'}</small>
+          <small>{board.live ? 'TABLE TOP · PLAYER 1 VIEW' : 'HAND & FOOT / CANASTA'}</small>
         </div>
         {board.live ? (
           <div className="score-ticker">

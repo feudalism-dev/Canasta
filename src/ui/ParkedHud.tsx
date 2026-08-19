@@ -8,7 +8,7 @@ export function ParkedHud({ boot }: { boot: SlBootstrap }) {
         <p className="brand-kicker">Second Life table</p>
         <h1>HUD parked</h1>
         <p>
-          You are playing Canasta &amp; Hand and Foot in your web browser. This HUD is on standby so
+          You are playing Hand &amp; Foot / Canasta in your web browser. This HUD is on standby so
           you do not run two clients for the same seat.
         </p>
         <p className="muted">Seat {boot.seat >= 0 ? boot.seat + 1 : '?'} stays yours while you remain seated.</p>

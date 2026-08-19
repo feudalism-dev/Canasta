@@ -259,7 +259,7 @@ function AppInner() {
       <div className="shell-menu">
         <div className="menu-card">
           <p className="brand-kicker">Art Deco parlor</p>
-          <h1>Canasta &amp; Hand and Foot</h1>
+          <h1>Hand &amp; Foot / Canasta</h1>
           <p>The table that teaches itself. Rank-grouped hands, a live meld meter, and books that snap shut in gold.</p>
           <button type="button" className="btn primary" onClick={() => setScreen('setup')}>
             Play Solo vs Computer

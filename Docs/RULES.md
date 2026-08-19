@@ -1,4 +1,4 @@
-# Canasta & Hand and Foot — Rules (v1)
+# Hand & Foot / Canasta — Rules (v1)
 
 Two variants share one meld engine. House toggles are listed at the end.
 
