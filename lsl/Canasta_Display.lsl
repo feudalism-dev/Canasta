@@ -11,7 +11,6 @@ integer DISPLAY_RSP_RESET_DONE = 91004;
 
 integer DEBUG = FALSE;
 integer MAX_SEATS = 4;
-float FW_WAIT_SEC = 10.0;
 
 list gName = [];
 integer gPlayers = 4;
@@ -19,7 +18,6 @@ integer gLive = FALSE;
 integer gTurnSeat = -1;
 integer gScoreA = 0;
 integer gScoreB = 0;
-integer gFwUp = FALSE;
 
 integer debug(string m)
 {
@@ -61,11 +59,11 @@ integer scoreFor(integer seat)
 
 integer paintSeat(integer seat)
 {
-    string conf = "a=left; w=none; t=on";
+    string conf = "a=left; w=none; t=on; force=on";
     string body = (string)(seat + 1) + " " + clip(labelFor(seat), 12);
     if (!gLive || seat >= gPlayers)
     {
-        conf += "; c=0.45,0.40,0.32";
+        conf += "; c=0.85,0.78,0.55";
     }
     else
     {
@@ -73,7 +71,7 @@ integer paintSeat(integer seat)
         if (gTurnSeat == seat)
         {
             body = "*" + body;
-            conf += "; c=0.83,0.67,0.22";
+            conf += "; c=1.0,0.85,0.25";
         }
         else
         {
@@ -86,7 +84,6 @@ integer paintSeat(integer seat)
 
 integer paintAll()
 {
-    if (!gFwUp) return FALSE;
     integer i;
     for (i = 0; i < MAX_SEATS; i++)
     {
@@ -152,6 +149,7 @@ integer handleStart(string payload)
     }
     if (gTurnSeat < 0 || gTurnSeat >= gPlayers) gTurnSeat = 0;
     paintAll();
+    llOwnerSay("Canasta display: deal painted (" + kind + ").");
     debug("START " + payload);
     return TRUE;
 }
@@ -190,41 +188,18 @@ integer handleEvent(string pipe)
     return TRUE;
 }
 
-integer waitForFurware(integer resetScript)
-{
-    gFwUp = FALSE;
-    llSetTimerEvent(FW_WAIT_SEC);
-    if (resetScript) llMessageLinked(LINK_SET, 0, "", "fw_reset");
-    return TRUE;
-}
-
 default
 {
     state_entry()
     {
         clearState();
-        waitForFurware(TRUE);
-        llOwnerSay("Canasta display: waiting for FURWARE text (sets text0–text3).");
+        llMessageLinked(LINK_SET, 0, "", "fw_reset");
+        llOwnerSay("Canasta display: Furware text0–text3.");
     }
 
     on_rez(integer p)
     {
         llResetScript();
-    }
-
-    changed(integer change)
-    {
-        if (change & CHANGED_LINK)
-        {
-            waitForFurware(FALSE);
-        }
-    }
-
-    timer()
-    {
-        llSetTimerEvent(0.0);
-        if (gFwUp) return;
-        llOwnerSay("Canasta display: Furware did not answer. Drop ONE script named FURWARE text from the Furware kit into this linkset. Mesh prims alone stay blank. After reset you should hear 'FURWARE text started with 4 set(s).'");
     }
 
     link_message(integer sender, integer num, string str, key id)
@@ -247,10 +222,8 @@ default
         }
         if ((string)id == "fw_ready")
         {
-            gFwUp = TRUE;
-            llSetTimerEvent(0.0);
             paintAll();
-            llOwnerSay("Canasta display: Furware ready — painted text0–text3.");
+            llOwnerSay("Canasta display: Furware ready — painted idle lines.");
         }
     }
 }
