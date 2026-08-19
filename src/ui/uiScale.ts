@@ -2,7 +2,7 @@
 
 export const UI_SCALE_KEY = 'cn_ui_scale'
 export const UI_SCALE_MIN = 0.7
-export const UI_SCALE_MAX = 1.45
+export const UI_SCALE_MAX = 2.2
 export const UI_SCALE_STEP = 0.05
 
 export function clampUiScale(n: number): number {
