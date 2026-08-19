@@ -1,4 +1,4 @@
-import { encodePublicBoard, publicBoardFromMatch } from '../core/publicBoard'
+import { encodePublicBoard, idlePublicBoard, publicBoardFromMatch } from '../core/publicBoard'
 import { cloneState } from '../core/state'
 import { eventsForMove } from '../core/displayEvents'
 import type { GameMove, MatchState } from '../core/types'
@@ -33,7 +33,11 @@ async function flushBoard(
       lastNamesPosted = ''
     }
   }
-  const compact = encodePublicBoard(publicBoardFromMatch(state))
+  const compact =
+    state.phase === 'matchEnd'
+      ? encodePublicBoard(idlePublicBoard())
+      : encodePublicBoard(publicBoardFromMatch(state))
+  if (state.phase === 'matchEnd') lastNamesPosted = ''
   if (compact === lastBoardPosted) return
   try {
     await tableSetBoard(slCap, uid, seat, compact)

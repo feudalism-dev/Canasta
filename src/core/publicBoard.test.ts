@@ -56,6 +56,7 @@ describe('public board snapshot', () => {
 
   it('decodes empty payload as idle attract', () => {
     expect(decodePublicBoard('')).toEqual(idlePublicBoard())
+    expect(decodePublicBoard(encodePublicBoard(idlePublicBoard())).live).toBe(false)
   })
 
   it('synthesizes face-up meld cards for the tray', () => {

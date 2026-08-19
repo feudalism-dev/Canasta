@@ -54,7 +54,7 @@ function SeatChip({ board, seat, label }: { board: PublicBoard; seat: number; la
 }
 
 function phaseLine(board: PublicBoard): string {
-  if (!board.live) return 'Waiting for a deal'
+  if (!board.live) return 'The parlor is open — waiting for a deal'
   const who = whoLabel(board, board.currentSeat)
   if (board.phase === 'awaitingDraw') return `${who} is drawing…`
   if (board.phase === 'awaitingPlay') return `${who} is playing — meld or discard`
@@ -77,8 +77,12 @@ export function SpectatorTable({ slCap }: Props) {
     let alive = true
     let inflight = false
     const applyRaw = (raw: string | undefined) => {
-      if (!raw || !raw.trim()) return false
-      setBoard(decodePublicBoard(raw))
+      if (!raw || !raw.trim()) {
+        setBoard(idlePublicBoard())
+        return true
+      }
+      const next = decodePublicBoard(raw)
+      setBoard(next.live ? next : idlePublicBoard())
       return true
     }
     const tick = async () => {
@@ -88,6 +92,11 @@ export function SpectatorTable({ slCap }: Props) {
         const st = await tableStatus(slCap, 'spec', 0)
         if (!alive) return
         setLinkOk(true)
+        if (st.mode === 'idle' || st.mode === 'resetting') {
+          setBoard(idlePublicBoard())
+          inflight = false
+          return
+        }
         if (applyRaw(st.board)) {
           inflight = false
           return
@@ -122,78 +131,88 @@ export function SpectatorTable({ slCap }: Props) {
       <header className="spec-banner">
         <div className="brand-mark">
           <span>CANASTA</span>
-          <small>TABLE TOP · PLAYER 1 VIEW</small>
+          <small>{board.live ? 'TABLE TOP · PLAYER 1 VIEW' : '& HAND AND FOOT'}</small>
         </div>
-        <div className="score-ticker">
-          <div>
-            <em>1+3</em> {board.teams[0]!.score}
+        {board.live ? (
+          <div className="score-ticker">
+            <div>
+              <em>1+3</em> {board.teams[0]!.score}
+            </div>
+            <div>
+              <em>2+4</em> {board.teams[1]!.score}
+            </div>
+            <div>
+              <em>{variant}</em> {roundLine}
+            </div>
           </div>
-          <div>
-            <em>2+4</em> {board.teams[1]!.score}
-          </div>
-          <div>
-            <em>{variant}</em> {roundLine}
-          </div>
-        </div>
+        ) : null}
       </header>
 
       <p className="spec-turn">{phaseLine(board)}</p>
-      {board.lastMessage ? <p className="spec-msg">{board.lastMessage}</p> : null}
+      {board.live && board.lastMessage ? <p className="spec-msg">{board.lastMessage}</p> : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
 
-      <div className="spec-grid">
-        <div className="spec-north">
-          <SeatChip board={board} seat={2} label="opposite" />
-        </div>
-        <div className="spec-them">
-          <MeldTray
-            title="Players 2 & 4 — books"
-            melds={publicMeldsAsEngine(board.teams[1]!.melds)}
-            config={config}
-            redThrees={board.teams[1]!.redThrees}
-          />
-        </div>
-        <div className="spec-west">
-          <SeatChip board={board} seat={3} label="left" />
-        </div>
-        <div className="spec-mid">
-          <div className="piles spec-piles">
-            <div className="pile-slot">
-              <span className="pile-label">Stock · {board.stock}</span>
-              <CardView facedown size="lg" />
-            </div>
-            <div className={`pile-slot discard ${board.frozen ? 'is-frozen' : ''}`}>
-              <span className="pile-label">
-                Discard · {board.discardCount}
-                {board.frozen ? ' · frozen' : ''}
-              </span>
-              {top ? (
-                <div className={sideways ? 'side-wrap' : undefined}>
-                  <CardView card={top} size="lg" sideways={sideways} />
-                </div>
-              ) : (
-                <div className="pile-empty">Empty</div>
-              )}
-              {top ? <span className="preview">{rankLabel(top.rank)}</span> : null}
+      {board.live ? (
+        <div className="spec-grid">
+          <div className="spec-north">
+            <SeatChip board={board} seat={2} label="opposite" />
+          </div>
+          <div className="spec-them">
+            <MeldTray
+              title="Players 2 & 4 — books"
+              melds={publicMeldsAsEngine(board.teams[1]!.melds)}
+              config={config}
+              redThrees={board.teams[1]!.redThrees}
+            />
+          </div>
+          <div className="spec-west">
+            <SeatChip board={board} seat={3} label="left" />
+          </div>
+          <div className="spec-mid">
+            <div className="piles spec-piles">
+              <div className="pile-slot">
+                <span className="pile-label">Stock · {board.stock}</span>
+                <CardView facedown size="lg" />
+              </div>
+              <div className={`pile-slot discard ${board.frozen ? 'is-frozen' : ''}`}>
+                <span className="pile-label">
+                  Discard · {board.discardCount}
+                  {board.frozen ? ' · frozen' : ''}
+                </span>
+                {top ? (
+                  <div className={sideways ? 'side-wrap' : undefined}>
+                    <CardView card={top} size="lg" sideways={sideways} />
+                  </div>
+                ) : (
+                  <div className="pile-empty">Empty</div>
+                )}
+                {top ? <span className="preview">{rankLabel(top.rank)}</span> : null}
+              </div>
             </div>
           </div>
+          <div className="spec-east">
+            <SeatChip board={board} seat={1} label="right" />
+          </div>
+          <div className="spec-us">
+            <MeldTray
+              title="Players 1 & 3 — books"
+              melds={publicMeldsAsEngine(board.teams[0]!.melds)}
+              config={config}
+              redThrees={board.teams[0]!.redThrees}
+              highlight
+            />
+          </div>
+          <div className="spec-south">
+            <SeatChip board={board} seat={0} label="this side" />
+          </div>
         </div>
-        <div className="spec-east">
-          <SeatChip board={board} seat={1} label="right" />
+      ) : (
+        <div className="spec-parlor">
+          <p className="brand-kicker">Art Deco parlor</p>
+          <h2>Sit to play</h2>
+          <p>Partners sit across: 1 with 3, 2 with 4. The felt waits for the next deal.</p>
         </div>
-        <div className="spec-us">
-          <MeldTray
-            title="Players 1 & 3 — books"
-            melds={publicMeldsAsEngine(board.teams[0]!.melds)}
-            config={config}
-            redThrees={board.teams[0]!.redThrees}
-            highlight
-          />
-        </div>
-        <div className="spec-south">
-          <SeatChip board={board} seat={0} label="this side" />
-        </div>
-      </div>
+      )}
     </div>
   )
 }
