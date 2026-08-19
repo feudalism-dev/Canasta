@@ -21,7 +21,7 @@ Solo can be 1v1 vs one computer, or you + a computer partner vs two computers.
 
 ## Classic Canasta
 
-Play to **5,000**. Multiple hands. Dealer rotates conceptually (v1: player 0 deals first, then the next index).
+Play to **5,000**. Multiple hands. First lead is random (left of a random dealer); the dealer then rotates each hand.
 
 **Deck:** 2 standard decks + 4 jokers = 108 cards.  
 **Deal:** 11 cards each (4 players) or 15 each (2 players). Turn one upcard. If it is wild or a red three, the pile is frozen and another card is turned until a natural or black three shows.

@@ -28,6 +28,8 @@ export function createMatch(opts: CreateMatchOpts): MatchState {
   while (padded.length < n) padded.push(`Computer ${padded.length + 1}`)
   const config = variantConfig(opts.variant, n, opts.house)
   const seed = opts.seed ?? Date.now()
+  const firstPlayer = Math.floor(mulberry32(seed ^ 0x9e3779b9)() * n)
+  const dealer = (firstPlayer + n - 1) % n
   const players: PlayerState[] = padded.map((displayName, seat) => ({
     displayName,
     isHuman: humans[seat] ?? false,
@@ -47,8 +49,8 @@ export function createMatch(opts: CreateMatchOpts): MatchState {
     stock: [],
     discard: [],
     discardFrozen: false,
-    currentPlayer: 0,
-    dealer: 0,
+    currentPlayer: firstPlayer,
+    dealer,
     round: 1,
     lastMessage: '',
     winnerTeam: -1,

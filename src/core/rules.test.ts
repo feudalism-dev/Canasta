@@ -82,6 +82,21 @@ describe('deal', () => {
     expect(s.config.stockDraw).toBe(2)
   })
 
+  it('picks who draws first from the seed, left of the dealer', () => {
+    const seats = new Set<number>()
+    for (let seed = 1; seed <= 48; seed++) {
+      const s = createMatch({
+        variant: 'canasta',
+        names: ['A', 'B', 'C', 'D'],
+        humans: [true, true, true, true],
+        seed,
+      })
+      expect(s.currentPlayer).toBe((s.dealer + 1) % 4)
+      seats.add(s.currentPlayer)
+    }
+    expect(seats.size).toBeGreaterThan(1)
+  })
+
   it('lays red threes out of the hand', () => {
     const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 1 })
     for (const p of s.players) {
@@ -319,6 +334,8 @@ describe('discard pile', () => {
 describe('Hand and Foot', () => {
   it('draws two from stock', () => {
     const s = createMatch({ variant: 'handAndFoot', names: ['A', 'B'], humans: [true, true], seed: 4 })
+    s.currentPlayer = 0
+    s.phase = 'awaitingDraw'
     const before = s.players[0]!.hand.length
     const stock = s.stock.length
     tryApply(s, { kind: 'drawStock' }, 0)
