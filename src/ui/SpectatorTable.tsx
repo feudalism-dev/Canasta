@@ -137,28 +137,29 @@ export function SpectatorTable({ slCap }: Props) {
       <div className="table-brass" />
       <TableFlyLayer board={board} rootRef={rootRef} />
 
-      <header className="spec-banner">
-        <div className="brand-mark">
-          <span>CANASTA</span>
-          <small>{board.live ? 'TABLE TOP · PLAYER 1 VIEW' : 'HAND & FOOT / CANASTA'}</small>
-        </div>
-        {board.live ? (
-          <div className="score-ticker">
-            <div>
-              <em>1+3</em> {board.teams[0]!.score}
+      {board.live ? (
+        <>
+          <header className="spec-banner">
+            <div className="brand-mark">
+              <span>HAND &amp; FOOT</span>
+              <small>TABLE TOP · PLAYER 1 VIEW</small>
             </div>
-            <div>
-              <em>2+4</em> {board.teams[1]!.score}
+            <div className="score-ticker">
+              <div>
+                <em>1+3</em> {board.teams[0]!.score}
+              </div>
+              <div>
+                <em>2+4</em> {board.teams[1]!.score}
+              </div>
+              <div>
+                <em>{variant}</em> {roundLine}
+              </div>
             </div>
-            <div>
-              <em>{variant}</em> {roundLine}
-            </div>
-          </div>
-        ) : null}
-      </header>
-
-      <p className="spec-turn">{phaseLine(board)}</p>
-      {board.live && board.lastMessage ? <p className="spec-msg">{board.lastMessage}</p> : null}
+          </header>
+          <p className="spec-turn">{phaseLine(board)}</p>
+          {board.lastMessage ? <p className="spec-msg">{board.lastMessage}</p> : null}
+        </>
+      ) : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
 
       {board.live ? (
@@ -217,9 +218,11 @@ export function SpectatorTable({ slCap }: Props) {
         </div>
       ) : (
         <div className="spec-parlor">
-          <p className="brand-kicker">Art Deco parlor</p>
-          <h2>Sit to play</h2>
-          <p>Partners sit across: 1 with 3, 2 with 4. The felt waits for the next deal.</p>
+          <h2 className="spec-parlor-title">
+            HAND &amp; FOOT
+            <em>/ CANASTA</em>
+          </h2>
+          <p>Sit to play · partners sit across</p>
         </div>
       )}
     </div>

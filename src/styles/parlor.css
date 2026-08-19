@@ -1126,13 +1126,35 @@ ul {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: calc(0.8 * var(--rem));
+  padding: calc(0.4 * var(--rem));
 }
 
-.spec-parlor h2 {
-  margin: 0.2rem 0 0.5rem;
+.spec-parlor-title {
+  margin: 0;
   font-family: var(--font-display);
-  letter-spacing: 0.12em;
+  font-weight: 700;
+  font-size: clamp(2.4rem, 14vw, 7rem);
+  line-height: 0.92;
+  letter-spacing: 0.06em;
+  color: var(--brass);
+  text-shadow: 0 0.06em 0.18em var(--shadow), 0 0 1.4rem rgba(201, 162, 39, 0.35);
+}
+
+.spec-parlor-title em {
+  display: block;
+  margin-top: 0.12em;
+  font-style: normal;
+  font-size: 0.58em;
+  letter-spacing: 0.14em;
+  color: var(--cream);
+}
+
+.spec-parlor p {
+  margin: calc(0.7 * var(--rem)) 0 0;
+  font-size: clamp(0.85rem, 2.8vw, 1.35rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.78;
 }
 
 .spec-piles {
