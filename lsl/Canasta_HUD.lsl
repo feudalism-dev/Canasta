@@ -209,6 +209,11 @@ integer storeReadyFields(string msg)
     key uid = (key)llList2String(p, 3);
     string cap = llList2String(p, 4);
     string nm = llList2String(p, 5);
+    if (uid != NULL_KEY)
+    {
+        string dn = llGetDisplayName(uid);
+        if (dn != "") nm = dn;
+    }
 
     integer dirty = FALSE;
     if (uid != NULL_KEY && uid != gTargetAvatar)

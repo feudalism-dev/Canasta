@@ -402,8 +402,8 @@ integer onSit(key av, integer seat)
     }
     if (prev >= 0 && prev != seat) clearSeat(prev);
     if (old != NULL_KEY && old != av) clearSeat(seat);
-    string nm = llKey2Name(av);
-    if (nm == "") nm = llGetDisplayName(av);
+    string nm = llGetDisplayName(av);
+    if (nm == "") nm = llKey2Name(av);
     gSeatAv = llListReplaceList(gSeatAv, [av], seat, seat);
     gSeatName = llListReplaceList(gSeatName, [nm], seat, seat);
     gActive = llListReplaceList(gActive, [FALSE], seat, seat);
@@ -451,7 +451,7 @@ string seatPipe(integer uids)
         else
         {
             string nm = pipeSafe(llList2String(gSeatName, i));
-            if (nm == "" && av != NULL_KEY) nm = pipeSafe(llKey2Name(av));
+            if (nm == "" && av != NULL_KEY) nm = pipeSafe(llGetDisplayName(av));
             s += nm;
         }
     }

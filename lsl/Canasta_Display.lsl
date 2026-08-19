@@ -22,6 +22,7 @@ integer DEBUG = FALSE;
 integer MAX_SEATS = 4;
 
 list gName = [];
+list gAv = [];
 integer gPlayers = 4;
 integer gLive = FALSE;
 integer gTurnSeat = -1;
@@ -110,6 +111,12 @@ string clip(string s, integer maxLen)
 
 string labelFor(integer seat)
 {
+    key av = llList2Key(gAv, seat);
+    if (av != NULL_KEY)
+    {
+        string dn = llGetDisplayName(av);
+        if (dn != "") return dn;
+    }
     string nm = llList2String(gName, seat);
     if (nm != "") return nm;
     return "P" + (string)(seat + 1);
@@ -159,6 +166,7 @@ integer paintAll()
 integer clearState()
 {
     gName = ["", "", "", ""];
+    gAv = [NULL_KEY, NULL_KEY, NULL_KEY, NULL_KEY];
     gPlayers = 4;
     gLive = FALSE;
     gTurnSeat = -1;
@@ -188,6 +196,23 @@ integer takeNames(list parts, integer startAt)
     return TRUE;
 }
 
+integer takeAvatars(list parts, integer startAt)
+{
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        key av = NULL_KEY;
+        integer idx = startAt + i;
+        if (idx < llGetListLength(parts))
+        {
+            string raw = llStringTrim(llList2String(parts, idx), STRING_TRIM);
+            if (raw != "") av = (key)raw;
+        }
+        gAv = llListReplaceList(gAv, [av], i, i);
+    }
+    return TRUE;
+}
+
 integer handleStart(string payload)
 {
     list parts = llParseStringKeepNulls(payload, ["|"], []);
@@ -203,13 +228,29 @@ integer handleStart(string payload)
         if (gPlayers > MAX_SEATS) gPlayers = MAX_SEATS;
         gTurnSeat = 0;
         if (n > 2) gTurnSeat = (integer)llList2String(parts, 2);
-        if (n >= 5) takeNames(parts, n - MAX_SEATS);
+        if (n >= 3 + MAX_SEATS * 2)
+        {
+            takeAvatars(parts, 3);
+            takeNames(parts, 3 + MAX_SEATS);
+        }
+        else if (n >= 5)
+        {
+            takeNames(parts, n - MAX_SEATS);
+        }
     }
     else
     {
         gPlayers = MAX_SEATS;
         gTurnSeat = 0;
-        if (n >= 5) takeNames(parts, n - MAX_SEATS);
+        if (n >= 1 + MAX_SEATS * 2)
+        {
+            takeAvatars(parts, 1);
+            takeNames(parts, 1 + MAX_SEATS);
+        }
+        else if (n >= 5)
+        {
+            takeNames(parts, n - MAX_SEATS);
+        }
     }
     if (gTurnSeat < 0 || gTurnSeat >= gPlayers) gTurnSeat = 0;
     paintAll();
