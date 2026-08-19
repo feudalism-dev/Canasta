@@ -137,7 +137,7 @@ export function GameBoard({
             key={p.seat}
             className={`seat ${state.currentPlayer === i ? 'is-turn' : ''} ${p.team === myTeam ? 'is-partner' : ''} ${i === localIndex ? 'is-you' : ''}`}
           >
-            <strong>{i === localIndex ? 'You' : p.displayName}</strong>
+            <strong>{i === localIndex ? `You · ${p.seat + 1}` : p.displayName}</strong>
             {state.currentPlayer === i ? <span className="turn-pill">Turn</span> : null}
             <span>{p.hand.length} in hand</span>
             {state.config.footSize > 0 ? <span>{p.footPickedUp ? 'Foot open' : 'Foot sealed'}</span> : null}

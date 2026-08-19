@@ -138,7 +138,6 @@ integer handleStart(string payload)
         if (gPlayers < 2) gPlayers = 2;
         if (gPlayers > MAX_SEATS) gPlayers = MAX_SEATS;
         gTurnSeat = 0;
-        if (n > 2) gTurnSeat = (integer)llList2String(parts, 2);
         if (n > 7) takeNames(parts, 7);
     }
     else

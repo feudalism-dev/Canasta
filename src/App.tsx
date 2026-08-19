@@ -9,7 +9,7 @@ import { ParkedHud } from './ui/ParkedHud'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
-import { startSolo, type LocalControllers } from './ui/localSession'
+import { startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
 import type { AiDifficulty } from './ai/heuristic'
 import { planPileTake } from './core/rules'
 import { cloneState } from './core/state'
@@ -130,14 +130,16 @@ function AppInner() {
   const startLocal = async () => {
     local?.destroy()
     peer?.destroy()
+    const humanSeat = slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
+    const playerCount = soloSeatCount(partnership, humanSeat)
     if (slBoot?.slCap) {
       try {
-        await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, partnership ? 4 : 2)
+        await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, playerCount)
       } catch (e) {
         push(e instanceof Error ? e.message : 'Could not claim table')
       }
     }
-    const ctrl = startSolo(name, variant, partnership, difficulty, house)
+    const ctrl = startSolo(name, variant, partnership, difficulty, house, humanSeat)
     prevMatchRef.current = null
     setLocal(ctrl)
     setPeer(null)
