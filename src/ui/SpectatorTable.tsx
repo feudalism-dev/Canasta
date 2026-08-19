@@ -163,6 +163,7 @@ export function SpectatorTable({ slCap }: Props) {
               melds={publicMeldsAsEngine(board.teams[1]!.melds)}
               config={config}
               redThrees={board.teams[1]!.redThrees}
+              flyCards={false}
             />
           </div>
           <div className="spec-west">
@@ -200,6 +201,7 @@ export function SpectatorTable({ slCap }: Props) {
               config={config}
               redThrees={board.teams[0]!.redThrees}
               highlight
+              flyCards={false}
             />
           </div>
           <div className="spec-south">

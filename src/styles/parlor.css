@@ -561,6 +561,15 @@ select {
   z-index: 1;
 }
 
+.book-fly {
+  position: absolute;
+  inset: 0;
+}
+
+.book-fly.is-under .cn-card {
+  pointer-events: none;
+}
+
 .book.is-natural .cn-card,
 .book.is-clean .cn-card {
   box-shadow: 0 0 0 3px #c23b3b, 0 8px 16px var(--shadow);
