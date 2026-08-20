@@ -85,55 +85,57 @@ export function Scoreboard({ slCap }: Props) {
 
   return (
     <div className="scoreboard-root">
-      <div className="table-felt" />
-      <div className="table-brass" />
-      <header className="scoreboard-head">
-        <p className="brand-kicker">Hand &amp; Foot / Canasta</p>
-        <h1>High scores</h1>
-        <p className="scoreboard-sub">
-          {gameLabel(game)} · {scopeLabel} · {periodLabel(period)} · {sub}
-        </p>
-      </header>
-      <div className="scoreboard-tabs" role="tablist" aria-label="Game">
-        <button type="button" className={game === 'c' ? 'is-on' : ''} onClick={() => setGame('c')}>
-          Canasta
-        </button>
-        <button type="button" className={game === 'h' ? 'is-on' : ''} onClick={() => setGame('h')}>
-          Hand &amp; Foot
-        </button>
+      <div className="scoreboard-panel">
+        <div className="table-felt" />
+        <div className="table-brass" />
+        <header className="scoreboard-head">
+          <p className="brand-kicker">Hand &amp; Foot / Canasta</p>
+          <h1>High scores</h1>
+          <p className="scoreboard-sub">
+            {gameLabel(game)} · {scopeLabel} · {periodLabel(period)} · {sub}
+          </p>
+        </header>
+        <div className="scoreboard-tabs" role="tablist" aria-label="Game">
+          <button type="button" className={game === 'c' ? 'is-on' : ''} onClick={() => setGame('c')}>
+            Canasta
+          </button>
+          <button type="button" className={game === 'h' ? 'is-on' : ''} onClick={() => setGame('h')}>
+            Hand &amp; Foot
+          </button>
+        </div>
+        <div className="scoreboard-tabs" role="tablist" aria-label="Scoreboard range">
+          <button type="button" className={scope === 'local' ? 'is-on' : ''} onClick={() => setScope('local')}>
+            This parlor
+          </button>
+          <button type="button" className={scope === 'net' ? 'is-on' : ''} onClick={() => setScope('net')}>
+            Network
+          </button>
+        </div>
+        <div className="scoreboard-tabs" role="tablist" aria-label="Scoreboard period">
+          <button type="button" className={period === 'w' ? 'is-on' : ''} onClick={() => setPeriod('w')}>
+            Weekly
+          </button>
+          <button type="button" className={period === 'm' ? 'is-on' : ''} onClick={() => setPeriod('m')}>
+            Monthly
+          </button>
+          <button type="button" className={period === 'l' ? 'is-on' : ''} onClick={() => setPeriod('l')}>
+            Lifetime
+          </button>
+        </div>
+        {err ? <p className="scoreboard-err">{err}</p> : null}
+        <ol className="scoreboard-list">
+          {Array.from({ length: 10 }, (_, i) => {
+            const row = rows[i]
+            return (
+              <li key={i} className={row ? '' : 'is-empty'}>
+                <span className="scoreboard-rank">{i + 1}</span>
+                <span className="scoreboard-name">{row ? row.n : '—'}</span>
+                <span className="scoreboard-pts">{row ? formatScore(row.s) : ''}</span>
+              </li>
+            )
+          })}
+        </ol>
       </div>
-      <div className="scoreboard-tabs" role="tablist" aria-label="Scoreboard range">
-        <button type="button" className={scope === 'local' ? 'is-on' : ''} onClick={() => setScope('local')}>
-          This parlor
-        </button>
-        <button type="button" className={scope === 'net' ? 'is-on' : ''} onClick={() => setScope('net')}>
-          Network
-        </button>
-      </div>
-      <div className="scoreboard-tabs" role="tablist" aria-label="Scoreboard period">
-        <button type="button" className={period === 'w' ? 'is-on' : ''} onClick={() => setPeriod('w')}>
-          Weekly
-        </button>
-        <button type="button" className={period === 'm' ? 'is-on' : ''} onClick={() => setPeriod('m')}>
-          Monthly
-        </button>
-        <button type="button" className={period === 'l' ? 'is-on' : ''} onClick={() => setPeriod('l')}>
-          Lifetime
-        </button>
-      </div>
-      {err ? <p className="scoreboard-err">{err}</p> : null}
-      <ol className="scoreboard-list">
-        {Array.from({ length: 10 }, (_, i) => {
-          const row = rows[i]
-          return (
-            <li key={i} className={row ? '' : 'is-empty'}>
-              <span className="scoreboard-rank">{i + 1}</span>
-              <span className="scoreboard-name">{row ? row.n : '—'}</span>
-              <span className="scoreboard-pts">{row ? formatScore(row.s) : ''}</span>
-            </li>
-          )
-        })}
-      </ol>
     </div>
   )
 }

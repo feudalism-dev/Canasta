@@ -30,7 +30,7 @@ Recompile order on the table is still Display → Http → Table; Scores can com
 ## Scoreboard object
 
 1. Rez a **flat panel** (picture frame / wall sign). Linkset root = the media prim.
-2. Media on **face 0** (`MEDIA_FACE` in the script — change it if your mesh uses another face).
+2. Media on **face 0** (`MEDIA_FACE`). Default media size is **1024×720** (landscape) so the brass frame hugs the top-10 list — reshape the prim to roughly that aspect (wider than tall), then reset the core script so media reapplies.
 3. Drop **`lsl/Canasta_Scoreboard.lsl`** (core) and **`lsl/Canasta_Scoreboard_Admin.lsl`** (touch menus) on the same prim. Compile core **Mono + the same Experience as the table**; Admin needs Mono only.
 4. Parcel must allow that Experience (needed for Network). Local parlor scores still work without it.
 5. Whitelist `feudalism-dev.github.io` for media on the parcel.
@@ -45,9 +45,9 @@ Touching the prim is optional for spectators; the page polls JSONP. Network numb
 
 Bump `PAGE_ASSET_REV` in `Canasta_Scoreboard.lsl` (and `HUD_PAGE_ASSET_REV` in the HUD) when Pages deploys so the panel reloads.
 
-## Admin (touch the scoreboard)
+## Admin (touch the scoreboard prim — not the MOAP)
 
-Menus are in `Canasta_Scoreboard_Admin.lsl` (same prim as the core). Core handles storage over link `93001`/`93002`.
+There is **no gear on the web display**. Touch the scoreboard object (owner or super-user). `Canasta_Scoreboard_Admin.lsl` opens `llDialog` menus and talks to the core over link `93001`/`93002`.
 
 | Who | Local (this parlor LSD) | Network (Experience) |
 |-----|-------------------------|----------------------|

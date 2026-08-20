@@ -4,8 +4,10 @@
 
 integer SCORE_CH = -18475021;
 integer MEDIA_FACE = 0;
-integer MEDIA_PIXELS = 1024;
-integer PAGE_ASSET_REV = 2;
+// Landscape plaque: match prim face to ~1024×720 so the brass frame hugs the top-10 list.
+integer MEDIA_W = 1024;
+integer MEDIA_H = 720;
+integer PAGE_ASSET_REV = 3;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
 integer ADMIN_CMD = 93001;
@@ -419,8 +421,8 @@ integer applyMoap(integer force)
         PRIM_MEDIA_CURRENT_URL, cur,
         PRIM_MEDIA_HOME_URL, home,
         PRIM_MEDIA_FIRST_CLICK_INTERACT, TRUE,
-        PRIM_MEDIA_WIDTH_PIXELS, MEDIA_PIXELS,
-        PRIM_MEDIA_HEIGHT_PIXELS, MEDIA_PIXELS,
+        PRIM_MEDIA_WIDTH_PIXELS, MEDIA_W,
+        PRIM_MEDIA_HEIGHT_PIXELS, MEDIA_H,
         PRIM_MEDIA_WHITELIST_ENABLE, FALSE,
         PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_NONE,
         PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_ANYONE
