@@ -13,6 +13,8 @@ float TIMER_SEC = 12.0;
 integer gListen = 0;
 string gCapUrl = "";
 string gLastHome = "";
+integer gMoapPending = FALSE;
+integer gMoapKick = 0;
 string gNetW = "";
 string gNetM = "";
 string gNetL = "";
@@ -324,21 +326,19 @@ string sessionHome()
 
 integer applyMoap(integer force)
 {
-    if (gCapUrl == "") return FALSE;
     string home = sessionHome();
-    if (!force && home == gLastHome) return FALSE;
+    if (!force && home != "" && home == gLastHome) return FALSE;
     string cur = home;
     if (force) cur = home + "&cb=" + (string)llGetUnixTime();
-    if (force) llClearPrimMedia(MEDIA_FACE);
     llSetPrimMediaParams(MEDIA_FACE, [
         PRIM_MEDIA_AUTO_PLAY, TRUE,
-        PRIM_MEDIA_AUTO_SCALE, TRUE,
         PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
         PRIM_MEDIA_CURRENT_URL, cur,
         PRIM_MEDIA_HOME_URL, home,
         PRIM_MEDIA_FIRST_CLICK_INTERACT, TRUE,
         PRIM_MEDIA_WIDTH_PIXELS, MEDIA_PIXELS,
         PRIM_MEDIA_HEIGHT_PIXELS, MEDIA_PIXELS,
+        PRIM_MEDIA_WHITELIST_ENABLE, FALSE,
         PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_NONE,
         PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_ANYONE
     ]);
@@ -391,7 +391,9 @@ default
         enqueueXp("Rm", "", "", 0);
         enqueueXp("Rl", "", "", 0);
         kickXp();
-        llSetTimerEvent(TIMER_SEC);
+        gMoapPending = TRUE;
+        gMoapKick = 1;
+        llSetTimerEvent(0.5);
         llOwnerSay("Canasta scoreboard: MOAP face " + (string)MEDIA_FACE + ", listen " + (string)SCORE_CH + ".");
     }
 
@@ -407,6 +409,19 @@ default
 
     timer()
     {
+        if (gMoapPending)
+        {
+            gMoapPending = FALSE;
+            applyMoap(TRUE);
+            if (gMoapKick > 0)
+            {
+                gMoapKick = 0;
+                gMoapPending = TRUE;
+                llSetTimerEvent(1.5);
+                return;
+            }
+            llSetTimerEvent(TIMER_SEC);
+        }
         if (gXpOp == "" && llGetListLength(gXpQ) == 0)
         {
             enqueueXp("Rw", "", "", 0);
@@ -426,7 +441,9 @@ default
         if (method == URL_REQUEST_GRANTED)
         {
             gCapUrl = body;
-            applyMoap(TRUE);
+            gMoapPending = TRUE;
+            gMoapKick = 1;
+            llSetTimerEvent(0.5);
             llOwnerSay("Canasta scoreboard: HTTP-IN ready.");
             return;
         }
