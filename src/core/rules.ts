@@ -437,7 +437,9 @@ function applyTakePile(state: MatchState, playerIndex: number, cardIds: string[]
   }
   const buried = pile.filter((c) => c.id !== top.id)
   player.hand.push(...buried)
-  flushRedThrees(state, playerIndex, false)
+  // Classic Canasta: no replace from the pile. Hand and Foot: replace when configured.
+  const replaceFromPile = state.config.variant === 'handAndFoot' && state.config.redThreeReplacement
+  flushRedThrees(state, playerIndex, replaceFromPile)
   player.hand = sortHand(player.hand)
   state.phase = 'awaitingPlay'
   state.lastMessage = `${player.displayName} takes the pile (${pileSize}).`

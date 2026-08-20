@@ -1,4 +1,4 @@
-import { cardPoints, isRedThree } from './cards'
+import { cardPoints } from './cards'
 import { canastaKind, meldPoints } from './melds'
 import type { MatchState, PlayerState, TeamState } from './types'
 
@@ -50,14 +50,9 @@ export function scoreTeamHand(
   let handPenalty = 0
   for (const p of state.players) {
     if (p.team !== teamIndex) continue
-    for (const c of p.hand) {
-      if (isRedThree(c) && cfg.variant === 'handAndFoot') handPenalty += 100
-      else handPenalty += cardPoints(c)
-    }
-    for (const c of p.foot) {
-      if (isRedThree(c) && cfg.variant === 'handAndFoot') handPenalty += 100
-      else handPenalty += cardPoints(c)
-    }
+    for (const c of p.hand) handPenalty += cardPoints(c)
+    // Sealed Foot only: red 3s still here are −100 each (cardPoints). Opened Foot is empty.
+    for (const c of p.foot) handPenalty += cardPoints(c)
   }
   const total = cardPts + canastaBonus + red + goingOut - handPenalty
   return { cardPoints: cardPts, canastaBonus, redThreeScore: red, goingOut, handPenalty, total }

@@ -97,7 +97,6 @@ export function dealHand(state: MatchState, forcedStock?: Card[]): void {
   startDiscard(state)
   for (let i = 0; i < state.players.length; i++) {
     flushRedThrees(state, i, state.config.redThreeReplacement)
-    if (state.config.footSize > 0) flushRedThreesFromFoot(state, i)
   }
   const variantName = state.config.variant === 'canasta' ? 'Canasta' : 'Hand and Foot'
   state.phase = 'awaitingDraw'
@@ -156,16 +155,6 @@ export function flushRedThrees(state: MatchState, playerIndex: number, replace: 
   return laid
 }
 
-export function flushRedThreesFromFoot(state: MatchState, playerIndex: number): number {
-  const player = state.players[playerIndex]!
-  const team = state.teams[player.team]!
-  const { kept, reds } = extractReds(player.foot)
-  if (reds.length === 0) return 0
-  team.redThrees.push(...reds)
-  player.foot = kept
-  return reds.length
-}
-
 export function maybePickupFoot(state: MatchState, playerIndex: number, viaDiscard: boolean): boolean {
   const player = state.players[playerIndex]!
   if (state.config.footSize === 0) return false
@@ -178,7 +167,7 @@ export function maybePickupFoot(state: MatchState, playerIndex: number, viaDisca
   player.hand = sortHand(player.foot)
   player.foot = []
   player.footPickedUp = true
-  flushRedThrees(state, playerIndex, false)
+  flushRedThrees(state, playerIndex, state.config.redThreeReplacement)
   state.lastMessage = `${player.displayName} picks up the Foot.`
   return viaDiscard
 }

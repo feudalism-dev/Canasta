@@ -67,7 +67,7 @@ Four rounds, then highest total wins. Round initial-meld minimums: **50 / 90 / 1
 
 **Turn:** Draw **two** from stock, or take the **entire** discard pile. By default that pickup needs **two naturals** of the top rank (the pile is treated as frozen). Uncheck the house toggle to allow Canasta-style pickup onto an existing meld. Then meld, then discard one. Going out requires that final discard unless the house toggle is off.
 
-**Red threes:** Auto-laid whenever they enter Hand or Foot. No replacement draw. +100 if laid; **−100** if still in Hand or Foot when the round ends.
+**Red threes:** Auto-laid from Hand (and when the Foot is picked up), with a replacement draw from stock. They stay face-down in a sealed Foot until pickup. +100 if laid; **−100** each if still in an unopened Foot when the round ends.
 
 **Black threes:** Stop discards. Not melded. Worth 5 (against you if left in hand).
 

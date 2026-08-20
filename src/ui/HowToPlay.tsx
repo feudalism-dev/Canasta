@@ -38,7 +38,10 @@ const PAGES: Page[] = [
             Those cards plus the top discard must also meet the <strong>initial meld</strong> (usually 50).
             Clicking the pile lays extra sets from your hand if needed.
           </li>
-          <li>Red threes fly to the bonus tray automatically.</li>
+          <li>
+            Red threes fly to the bonus tray automatically (Hand and Foot also replaces them from stock). A red
+            left in an unopened Foot scores −100 when the round ends.
+          </li>
         </ul>
       </>
     ),

@@ -4,6 +4,7 @@ import { createMatch } from './state'
 import { claimCardsForPile, getLegalMoves, initialMeldMinimum, peekDiscard, tryApply, type MatchState } from './rules'
 import { sortMeldsForDisplay, teamCanastaCounts } from './melds'
 import { eventsForMove } from './displayEvents'
+import { scoreTeamHand } from './score'
 import { DEFAULT_HOUSE } from './types'
 
 function kings(n: number, start = 0): Card[] {
@@ -431,6 +432,41 @@ describe('Hand and Foot', () => {
     expect(s.players[0]!.hand.length).toBe(foot.length)
     expect(s.phase).toBe('awaitingDraw')
     expect(s.currentPlayer).toBe(1)
+  })
+
+  it('keeps red threes in a sealed Foot and replaces them on pickup', () => {
+    const s = createMatch({ variant: 'handAndFoot', names: ['A', 'B'], humans: [true, true], seed: 4 })
+    expect(s.config.redThreeReplacement).toBe(true)
+    const red = makeCard(50, 'H', '3', 0)
+    const foot = [red, ...fillLow(12, 300)]
+    const replacement = makeCard(51, 'S', '9', 0)
+    forceHands(s, [fillLow(1, 1), fillLow(13, 20)], [makeCard(99, 'H', '9', 0)], [replacement, ...fillLow(40, 80)])
+    s.players[0]!.foot = foot
+    s.players[0]!.footPickedUp = false
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.redThrees = []
+    s.phase = 'awaitingPlay'
+    expect(s.players[0]!.foot.some(isRedThree)).toBe(true)
+    const last = s.players[0]!.hand[0]!
+    tryApply(s, { kind: 'discard', cardId: last.id }, 0)
+    expect(s.players[0]!.footPickedUp).toBe(true)
+    expect(s.players[0]!.foot).toEqual([])
+    expect(s.teams[0]!.redThrees).toEqual([red])
+    expect(s.players[0]!.hand.some(isRedThree)).toBe(false)
+    expect(s.players[0]!.hand.some((c) => c.id === replacement.id)).toBe(true)
+  })
+
+  it('penalizes red threes left in an unopened Foot at round end', () => {
+    const s = createMatch({ variant: 'handAndFoot', names: ['A', 'B'], humans: [true, true], seed: 4 })
+    const red = makeCard(50, 'H', '3', 0)
+    s.players[0]!.hand = []
+    s.players[0]!.foot = [red]
+    s.players[0]!.footPickedUp = false
+    s.teams[0]!.melds = []
+    s.teams[0]!.redThrees = []
+    const break_ = scoreTeamHand(s, 0, 1)
+    expect(break_.handPenalty).toBe(100)
+    expect(break_.redThreeScore).toBe(0)
   })
 
   it('closes a dirty book at seven with four naturals', () => {
