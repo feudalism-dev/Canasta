@@ -1,6 +1,6 @@
-// Canasta — shout final scores for nearby scoreboards.
+// Canasta — shout final scores for a nearby (unlinked) scoreboard.
 // Drop in the table linkset (root is fine). Compile: Mono.
-// On GAME_OVER, region-says each seated human: CN_SCORE|1|uid|name|score
+// On GAME_OVER, llShout (100 m): player:="Display Name", Score=8441
 // Channel SCORE_CH must match Canasta_Scoreboard.lsl.
 
 integer DISPLAY_CMD_EVENT = 91001;
@@ -18,13 +18,9 @@ integer gScoreB = 0;
 
 string cleanName(string s)
 {
-    s = llDumpList2String(llParseStringKeepNulls(s, ["~"], []), " ");
-    s = llDumpList2String(llParseStringKeepNulls(s, ["^"], []), " ");
-    s = llDumpList2String(llParseStringKeepNulls(s, ["|"], []), " ");
-    s = llDumpList2String(llParseStringKeepNulls(s, [","], []), " ");
     s = llDumpList2String(llParseStringKeepNulls(s, ["\""], []), "'");
     s = llStringTrim(s, STRING_TRIM);
-    if (llStringLength(s) > 18) s = llGetSubString(s, 0, 17);
+    if (llStringLength(s) > 24) s = llGetSubString(s, 0, 23);
     if (s == "") s = "Player";
     return s;
 }
@@ -115,7 +111,7 @@ integer shoutFinal()
         nm = cleanName(nm);
         integer sc = gScoreB;
         if (i % 2 == 0) sc = gScoreA;
-        llRegionSay(SCORE_CH, "CN_SCORE|1|" + (string)av + "|" + nm + "|" + (string)sc);
+        llShout(SCORE_CH, "player:=\"" + nm + "\", Score=" + (string)sc);
         @nextseat;
     }
     return TRUE;
@@ -150,7 +146,7 @@ default
     state_entry()
     {
         clearState();
-        llOwnerSay("Canasta scores: shouts finals on " + (string)SCORE_CH + ".");
+        llOwnerSay("Canasta scores: llShout finals on " + (string)SCORE_CH + ".");
     }
 
     on_rez(integer p)

@@ -13,13 +13,13 @@ Each seated **human**’s team score at **match end** (not after every hand). Co
 
 ## Table side (shout)
 
-Drop `lsl/Canasta_Scores.lsl` in the **game table** linkset (root is fine). Compile **Mono**. It listens for `GAME_OVER` and region-says:
+Drop `lsl/Canasta_Scores.lsl` in the **game table** linkset (root is fine). Compile **Mono**. The scoreboard is a **separate, unlinked** object. At `GAME_OVER` the table **`llShout`s** (100 m) one line per seated human:
 
 ```
-CN_SCORE|1|<avatar-uuid>|<display-name>|<team-score>
+player:="Bandor Tyrell", Score=8441
 ```
 
-on channel **`-18475021`**. Same channel is hard-coded in the scoreboard script.
+on channel **`-18475021`**. Same channel is hard-coded in the scoreboard script. Place the panel within shout range of the table.
 
 Recompile order on the table is still Display → Http → Table; Scores can compile anytime.
 
@@ -42,4 +42,4 @@ Bump `PAGE_ASSET_REV` in `Canasta_Scoreboard.lsl` when Pages deploys so the pane
 
 ## Placement
 
-Keep the scoreboard in the **same region** as the tables (the table uses `llRegionSay`). One panel can hear every table in the region.
+Keep the scoreboard **within shout range (100 m)** of the tables. It is not linked to the table.

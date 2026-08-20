@@ -1,7 +1,7 @@
 // Canasta — parlor scoreboard (LSD local + Experience network + MOAP UI).
 // Drop this script on its OWN object (not the game table). Compile: Mono + same Experience as the table.
 // Media face 0 shows GitHub Pages ?view=scores. No Furware. Tabs are on the web page.
-// Listens for CN_SCORE shouts from Canasta_Scores.lsl on the table.
+// Listens for llShout from Canasta_Scores.lsl: player:="Name", Score=8441
 
 integer SCORE_CH = -18475021;
 integer MEDIA_FACE = 0;
@@ -348,13 +348,34 @@ integer applyMoap(integer force)
 
 integer takeScoreChat(string msg)
 {
+    string uid = "";
+    string nm = "";
+    integer sc = 0;
+    integer p = llSubStringIndex(msg, "player:=\"");
+    if (p >= 0)
+    {
+        integer start = p + 9;
+        string rest = llGetSubString(msg, start, -1);
+        integer q = llSubStringIndex(rest, "\"");
+        if (q < 0) return FALSE;
+        nm = llGetSubString(rest, 0, q - 1);
+        integer s = llSubStringIndex(llToLower(msg), "score=");
+        if (s < 0) return FALSE;
+        sc = (integer)llGetSubString(msg, s + 6, -1);
+        nm = llStringTrim(nm, STRING_TRIM);
+        if (nm == "") return FALSE;
+        uid = llToLower(nm);
+        ingest(uid, nm, sc);
+        return TRUE;
+    }
     if (llGetSubString(msg, 0, 8) != "CN_SCORE|") return FALSE;
-    list p = llParseStringKeepNulls(msg, ["|"], []);
-    if (llGetListLength(p) < 5) return FALSE;
-    string uid = llList2String(p, 2);
-    string nm = llList2String(p, 3);
-    integer sc = (integer)llList2String(p, 4);
-    if (llStringLength(uid) < 36) return FALSE;
+    list parts = llParseStringKeepNulls(msg, ["|"], []);
+    if (llGetListLength(parts) < 5) return FALSE;
+    uid = llList2String(parts, 2);
+    nm = llList2String(parts, 3);
+    sc = (integer)llList2String(parts, 4);
+    if (nm == "") return FALSE;
+    if (uid == "") uid = llToLower(nm);
     ingest(uid, nm, sc);
     return TRUE;
 }
