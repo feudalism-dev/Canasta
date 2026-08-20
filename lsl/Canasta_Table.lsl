@@ -50,18 +50,6 @@ string gCapUrl = "";
 
 list gRezQueue = [];
 list gHudReadyQueue = [];
-integer DEBUG = TRUE;
-
-integer dbg(key av, string m)
-{
-    if (!DEBUG) return FALSE;
-    llOwnerSay("CN TBL: " + m);
-    if (av != NULL_KEY && av != llGetOwner())
-    {
-        llRegionSayTo(av, 0, "CN TBL: " + m);
-    }
-    return TRUE;
-}
 
 integer tableChannel()
 {
@@ -292,8 +280,6 @@ string sendReady(key av, integer seat)
     string nm = llDumpList2String(llParseStringKeepNulls(llList2String(gSeatName, seat), ["|"], []), " ");
     string msg = "CN_READY|" + (string)llGetKey() + "|" + (string)seat + "|"
         + (string)av + "|" + gCapUrl + "|" + nm;
-    dbg(av, "sendReady seat=" + (string)seat + " caplen=" + (string)llStringLength(gCapUrl)
-        + " ch=" + (string)commandChannel(av));
     llRegionSayTo(av, commandChannel(av), msg);
     return msg;
 }
@@ -305,14 +291,10 @@ integer rezHudFor(key av, integer seat)
     {
         llRegionSayTo(av, 0, "Canasta: HUD object missing from table inventory.");
         llOwnerSay("CRITICAL: Put \"" + HUD_OBJECT_NAME + "\" in the table inventory.");
-        dbg(av, "rez FAIL — no inventory object named " + HUD_OBJECT_NAME);
         return FALSE;
     }
     integer ch = commandChannel(av);
-    vector p = llGetPos() + <0.0, 0.0, 1.5>;
-    dbg(av, "rezHudFor seat=" + (string)seat + " ch=" + (string)ch + " pos=" + (string)p
-        + " q=" + (string)llGetListLength(gRezQueue));
-    llRezObject(HUD_OBJECT_NAME, p, ZERO_VECTOR, ZERO_ROTATION, ch);
+    llRezObject(HUD_OBJECT_NAME, llGetPos() + <0.0, 0.0, 1.5>, ZERO_VECTOR, ZERO_ROTATION, ch);
     gRezQueue += [ch, av, seat];
     return TRUE;
 }
@@ -325,7 +307,6 @@ integer pumpHudReadyQueue()
         integer ch = llList2Integer(gHudReadyQueue, 1);
         string msg = llList2String(gHudReadyQueue, 2);
         gHudReadyQueue = llDeleteSubList(gHudReadyQueue, 0, 2);
-        dbg(NULL_KEY, "pump READY to hud=" + (string)hudId + " ch=" + (string)ch);
         llRegionSayTo(hudId, ch, msg);
     }
     return TRUE;
@@ -416,7 +397,6 @@ integer onSit(key av, integer seat)
     key old = llList2Key(gSeatAv, seat);
     if (prev == seat && old == av)
     {
-        dbg(av, "onSit already seated seat=" + (string)seat + " hud=" + (string)llList2Key(gHudObj, seat));
         sendReady(av, seat);
         if (llList2Key(gHudObj, seat) == NULL_KEY) rezHudFor(av, seat);
         return TRUE;
@@ -431,7 +411,6 @@ integer onSit(key av, integer seat)
     if (gCapUrl == "") llMessageLinked(LINK_THIS, HTTP_CMD, "NEEDCAP", NULL_KEY);
     rezHudFor(av, seat);
     llRegionSayTo(av, 0, "Canasta: HUD attaching — wait for table lobby.");
-    dbg(av, "onSit seat=" + (string)seat + " name=" + nm + " caplen=" + (string)llStringLength(gCapUrl));
     pushStatus();
     return TRUE;
 }
@@ -781,10 +760,7 @@ default
         llSetTimerEvent(2.0);
         llMessageLinked(LINK_THIS, HTTP_CMD, "NEEDCAP", NULL_KEY);
         pushStatus();
-        llOwnerSay("Canasta table ready. Free=" + (string)llGetFreeMemory()
-            + " HUD inv=" + (string)llGetInventoryType(HUD_OBJECT_NAME)
-            + " tch=" + (string)tableChannel());
-        dbg(NULL_KEY, "DEBUG on — sit to trace HUD rez/attach");
+        llOwnerSay("Canasta table ready. Free=" + (string)llGetFreeMemory());
     }
 
     on_rez(integer p)
@@ -809,7 +785,6 @@ default
             if (llGetSubString(str, 0, 3) == "CAP|")
             {
                 gCapUrl = llGetSubString(str, 4, -1);
-                dbg(NULL_KEY, "got CAP len=" + (string)llStringLength(gCapUrl));
                 sendDisplayCap();
                 announceAllSeated();
                 pushStatus();
@@ -845,7 +820,6 @@ default
         }
         if (num == AVSITTER_SITTER)
         {
-            dbg(id, "AVSITTER sit seatArg=" + str);
             onSit(id, (integer)str);
             return;
         }
@@ -889,22 +863,13 @@ default
 
     object_rez(key objId)
     {
-        if (llGetListLength(gRezQueue) < 3)
-        {
-            dbg(NULL_KEY, "object_rez ignored queue=" + (string)llGetListLength(gRezQueue)
-                + " id=" + (string)objId);
-            return;
-        }
+        if (llGetListLength(gRezQueue) < 3) return;
         integer ch = llList2Integer(gRezQueue, 0);
         key av = llList2Key(gRezQueue, 1);
         integer seat = llList2Integer(gRezQueue, 2);
         gRezQueue = llDeleteSubList(gRezQueue, 0, 2);
         string msg = sendReady(av, seat);
-        if (msg == "")
-        {
-            dbg(av, "object_rez sendReady empty seat=" + (string)seat);
-            return;
-        }
+        if (msg == "") return;
         llRegionSayTo(objId, ch, msg);
         integer wasEmpty = (llGetListLength(gHudReadyQueue) == 0);
         gHudReadyQueue += [objId, ch, msg];
@@ -913,8 +878,6 @@ default
         {
             gHudObj = llListReplaceList(gHudObj, [objId], seat, seat);
         }
-        dbg(av, "object_rez hud=" + (string)objId + " seat=" + (string)seat + " ch=" + (string)ch
-            + " retryQ=" + (string)llGetListLength(gHudReadyQueue));
     }
 
     listen(integer channel, string name, key id, string msg)
@@ -925,7 +888,6 @@ default
         key uid = (key)llList2String(parts, 1);
         if (uid == NULL_KEY) uid = id;
         integer seat = seatOf(uid);
-        dbg(uid, "CN_HELLO seat=" + (string)seat + " from=" + (string)id);
         if (seat < 0) return;
         sendReady(uid, seat);
     }

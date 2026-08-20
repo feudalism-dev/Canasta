@@ -12,7 +12,6 @@ integer HUD_PAGE_ASSET_REV = 34;
 integer HUD_FACE = 4;
 integer HUD_MEDIA_PIXELS = 1024;
 integer ATTACH_WAIT_SEC = 90;
-integer DEBUG = TRUE;
 
 integer gHsChan = 0;
 integer gHsListen = 0;
@@ -35,17 +34,6 @@ integer gDetachTries = 0;
 integer gResyncLeft = 0;
 string gLastHomeUrl = "";
 integer gHelloTicks = 0;
-
-integer debug(string m)
-{
-    if (!DEBUG) return FALSE;
-    llOwnerSay("CN HUD: " + m);
-    if (gTargetAvatar != NULL_KEY && gTargetAvatar != llGetOwner())
-    {
-        llRegionSayTo(gTargetAvatar, 0, "CN HUD: " + m);
-    }
-    return TRUE;
-}
 
 integer commandChannel(key av)
 {
@@ -135,16 +123,8 @@ string standalonePlayUrl()
 
 integer applyMoap(integer force)
 {
-    if (gWearer == NULL_KEY)
-    {
-        debug("MoAP skip — no wearer");
-        return FALSE;
-    }
-    if (gTableId == "")
-    {
-        debug("MoAP skip — no tableId");
-        return FALSE;
-    }
+    if (gWearer == NULL_KEY) return FALSE;
+    if (gTableId == "") return FALSE;
 
     string client = "hud";
     if (gParked) client = "";
@@ -160,18 +140,11 @@ integer applyMoap(integer force)
     if (home == gLastHomeUrl) sameHome = TRUE;
 
     // Do not ClearPrimMedia here — clear+set in one event often returns OK
-    // while the HUD CEF never starts. Just set the URL.
-    if (!firstPaint && sameHome && hasMedia && !force)
-    {
-        debug("MoAP skip — same session already painted");
-        return FALSE;
-    }
+    // while the HUD CEF never starts.
+    if (!firstPaint && sameHome && hasMedia && !force) return FALSE;
 
     string cur = home + "&cb=" + (string)llGetUnixTime();
-    debug("MoAP set face=" + (string)HUD_FACE + " caplen=" + (string)llStringLength(gSlCap)
-        + " parked=" + (string)gParked + " " + llGetSubString(cur, 0, 140));
-
-    integer st = llSetPrimMediaParams(HUD_FACE, [
+    llSetPrimMediaParams(HUD_FACE, [
         PRIM_MEDIA_AUTO_PLAY, TRUE,
         PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
         PRIM_MEDIA_CURRENT_URL, cur,
@@ -183,15 +156,12 @@ integer applyMoap(integer force)
         PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_OWNER,
         PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_OWNER
     ]);
-    list check = llGetLinkMedia(LINK_THIS, HUD_FACE, [PRIM_MEDIA_CURRENT_URL]);
-    debug("MoAP status=" + (string)st + " now=" + llGetSubString(llList2String(check, 0), 0, 80));
     gLastHomeUrl = home;
     return TRUE;
 }
 
 integer pollMediaHandoff()
 {
-    // Ignore leftover inventory media until this attach has painted a session.
     if (gLastHomeUrl == "") return FALSE;
     list existing = llGetLinkMedia(LINK_THIS, HUD_FACE, [PRIM_MEDIA_CURRENT_URL]);
     string cur = llList2String(existing, 0);
@@ -224,7 +194,6 @@ integer pollMediaHandoff()
 integer storeReadyFields(string msg)
 {
     // CN_READY|tableId|seat|uid|slCap|displayName
-    // Returns TRUE if session fields changed (MoAP should reload).
     list p = llParseStringKeepNulls(msg, ["|"], []);
     if (llList2String(p, 0) != "CN_READY") return FALSE;
     string tableId = llList2String(p, 1);
@@ -269,15 +238,7 @@ integer handleReadyWhileWorn(string msg)
 {
     integer dirty = storeReadyFields(msg);
     if (gWearer == NULL_KEY) gWearer = llGetOwner();
-    if (gTargetAvatar != NULL_KEY && gWearer != gTargetAvatar)
-    {
-        debug("CN_READY uid mismatch wearer=" + (string)gWearer + " uid=" + (string)gTargetAvatar);
-        return FALSE;
-    }
-    debug("READY worn dirty=" + (string)dirty + " parked=" + (string)gParked
-        + " home=" + (string)(gLastHomeUrl != "") + " caplen=" + (string)llStringLength(gSlCap));
-    // First paint always — a saved Play-in-Browser park flag on the inventory
-    // object must not skip llSetPrimMediaParams.
+    if (gTargetAvatar != NULL_KEY && gWearer != gTargetAvatar) return FALSE;
     if (gLastHomeUrl == "")
     {
         applyMoap(TRUE);
@@ -290,34 +251,20 @@ integer handleReadyWhileWorn(string msg)
 integer beginAttachFromHandshake(string msg)
 {
     storeReadyFields(msg);
-    debug("handshake table=" + llGetSubString(gTableId, 0, 7) + " seat=" + (string)gSeat
-        + " caplen=" + (string)llStringLength(gSlCap) + " target=" + (string)gTargetAvatar
-        + " attached=" + (string)llGetAttached());
-    if (gTargetAvatar == NULL_KEY)
-    {
-        debug("handshake abort — no target uid");
-        return FALSE;
-    }
+    if (gTargetAvatar == NULL_KEY) return FALSE;
 
-    // Already on the right avatar (manual wear / re-handshake).
     if (llGetAttached() && llGetOwner() == gTargetAvatar)
     {
         gPendingAttach = FALSE;
         gWearer = gTargetAvatar;
         dropHsListen();
-        debug("already attached — paint");
         applyMoap(TRUE);
         return TRUE;
     }
 
-    if (gPendingAttach)
-    {
-        debug("handshake ignore — attach already pending");
-        return TRUE;
-    }
+    if (gPendingAttach) return TRUE;
 
     gPendingAttach = TRUE;
-    debug("request Experience attach");
     llSetTimerEvent((float)ATTACH_WAIT_SEC);
     llRequestExperiencePermissions(gTargetAvatar, "");
     return TRUE;
@@ -335,8 +282,6 @@ integer initiateDetach()
         llDie();
         return TRUE;
     }
-    // Do not wait for a second Experience grant — that event often does not fire
-    // when permission is already held from temp-attach.
     llDetachFromAvatar();
     llRequestPermissions(llGetOwner(), PERMISSION_ATTACH);
     llRequestExperiencePermissions(llGetOwner(), "");
@@ -348,7 +293,6 @@ default
 {
     state_entry()
     {
-        // Manual wear fallback (already attached from inventory).
         if (llGetAttached())
         {
             gWearer = llGetOwner();
@@ -358,13 +302,10 @@ default
             gMoapPending = TRUE;
             llSetTimerEvent(3.0);
             llOwnerSay("Canasta HUD: waiting for table handshake…");
-            debug("state_entry attached");
         }
         else
         {
-            if (!DEBUG) llSetLinkAlpha(LINK_SET, 0.0, ALL_SIDES);
-            else llSetLinkAlpha(LINK_SET, 1.0, ALL_SIDES);
-            debug("state_entry unattached id=" + (string)llGetKey());
+            llSetLinkAlpha(LINK_SET, 0.0, ALL_SIDES);
         }
     }
 
@@ -372,7 +313,6 @@ default
     {
         if (startParam == 0)
         {
-            debug("on_rez startParam=0 attached=" + (string)llGetAttached());
             llSetPrimitiveParams([PRIM_TEMP_ON_REZ, FALSE]);
             if (!llGetAttached()) llResetScript();
             return;
@@ -394,14 +334,10 @@ default
         gParked = FALSE;
         gMoapPending = FALSE;
         gWearer = NULL_KEY;
-        // Listen before any delay (ClearPrimMedia / SetPrimitiveParams). Missing
-        // CN_READY means no attach, and TEMP_ON_REZ then silently dies.
         gHsListen = llListen(gHsChan, "", NULL_KEY, "");
         llSetPrimitiveParams([PRIM_TEMP_ON_REZ, TRUE]);
         llSetLinkAlpha(LINK_SET, 1.0, ALL_SIDES);
         llSetTimerEvent((float)ATTACH_WAIT_SEC);
-        debug("on_rez param=" + (string)startParam + " listen=" + (string)gHsListen
-            + " id=" + (string)llGetKey() + " mem=" + (string)llGetFreeMemory());
     }
 
     listen(integer channel, string name, key id, string msg)
@@ -425,51 +361,27 @@ default
             return;
         }
 
-        if (llGetSubString(msg, 0, 7) != "CN_READY")
-        {
-            debug("ignore ch=" + (string)channel + " " + llGetSubString(msg, 0, 40));
-            return;
-        }
-        debug("CN_READY ch=" + (string)channel + " hs=" + (string)gHsChan
-            + " attached=" + (string)llGetAttached() + " " + llGetSubString(msg, 0, 96));
+        if (llGetSubString(msg, 0, 7) != "CN_READY") return;
 
-        // Rez handshake channel (before / during attach).
         if (gHsListen && channel == gHsChan)
         {
             beginAttachFromHandshake(msg);
             return;
         }
 
-        // Command / table channel while worn.
-        if (llGetAttached())
-        {
-            handleReadyWhileWorn(msg);
-            return;
-        }
-        debug("CN_READY dropped — ch=" + (string)channel + " hsListen=" + (string)gHsListen);
+        if (llGetAttached()) handleReadyWhileWorn(msg);
     }
 
     experience_permissions(key avId)
     {
-        debug("xp grant av=" + (string)avId + " pendingAttach=" + (string)gPendingAttach
-            + " pendingDetach=" + (string)gPendingDetach);
         if (gPendingDetach)
         {
             llDetachFromAvatar();
             gPendingDetach = FALSE;
             return;
         }
-        if (!gPendingAttach)
-        {
-            debug("xp grant ignored — not pending attach");
-            return;
-        }
-        if (avId != gTargetAvatar)
-        {
-            debug("xp grant ignored — wrong av");
-            return;
-        }
-        debug("llAttachToAvatarTemp");
+        if (!gPendingAttach) return;
+        if (avId != gTargetAvatar) return;
         llAttachToAvatarTemp(0);
     }
 
@@ -480,8 +392,6 @@ default
             llRequestPermissions(llGetOwner(), PERMISSION_ATTACH);
             return;
         }
-        debug("xp denied av=" + (string)avId + " reason=" + (string)reason
-            + " pendingAttach=" + (string)gPendingAttach);
         if (!gPendingAttach) return;
         llRegionSayTo(avId, 0, "Canasta HUD auto-attach failed. Please accept attachment permissions.");
         llRequestPermissions(avId, PERMISSION_ATTACH);
@@ -496,7 +406,6 @@ default
             return;
         }
         if (!gPendingAttach) return;
-        debug("runtime perm=" + (string)perm);
         if (perm & PERMISSION_ATTACH)
         {
             llAttachToAvatarTemp(0);
@@ -512,7 +421,6 @@ default
     {
         if (id == NULL_KEY)
         {
-            debug("detach fromTable=" + (string)gFromTableRez);
             clearListens();
             gWearer = NULL_KEY;
             gPendingAttach = FALSE;
@@ -542,9 +450,6 @@ default
         gResyncLeft = 1;
         llSetTimerEvent(0.5);
         llOwnerSay("Canasta HUD attached — click Enter Table when ready.");
-        debug("attached table=" + llGetSubString(gTableId, 0, 7) + " seat=" + (string)gSeat
-            + " caplen=" + (string)llStringLength(gSlCap) + " parked=" + (string)gParked
-            + " — media on next timer");
         if (gTableId != "") sayHello();
     }
 
@@ -572,7 +477,6 @@ default
 
         if (gPendingAttach && llGetAttached() == 0)
         {
-            debug("attach timed out");
             llRegionSayTo(gTargetAvatar, 0, "Canasta HUD attach timed out. Stand and sit again.");
             llDie();
             return;
@@ -584,7 +488,6 @@ default
             return;
         }
 
-        // Hello until we have sl_cap, then a few extras. Do not spam forever.
         if (gSlCap == "" && gTableId != "")
         {
             if (gHelloTicks < 8)
