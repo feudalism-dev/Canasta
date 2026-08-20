@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react'
-import { fetchScores, refreshScores, type ScoreBundle, type ScoreRow } from '../sl/scoresApi'
+import {
+  fetchScores,
+  normalizeGames,
+  refreshScores,
+  type ScoreGame,
+  type ScoreGames,
+  type ScoreRow,
+} from '../sl/scoresApi'
 import { applyUiScale } from './uiScale'
 
 type Scope = 'local' | 'net'
@@ -9,8 +16,8 @@ type Props = {
   slCap: string
 }
 
-function emptyBundle(): ScoreBundle {
-  return { w: [], m: [], l: [] }
+function emptyGames(): ScoreGames {
+  return normalizeGames(null)
 }
 
 function periodLabel(period: Period): string {
@@ -19,15 +26,20 @@ function periodLabel(period: Period): string {
   return 'Lifetime'
 }
 
+function gameLabel(game: ScoreGame): string {
+  return game === 'h' ? 'Hand & Foot' : 'Canasta'
+}
+
 function formatScore(n: number): string {
   return n.toLocaleString()
 }
 
 export function Scoreboard({ slCap }: Props) {
+  const [game, setGame] = useState<ScoreGame>('c')
   const [scope, setScope] = useState<Scope>('local')
   const [period, setPeriod] = useState<Period>('w')
-  const [local, setLocal] = useState<ScoreBundle>(emptyBundle)
-  const [net, setNet] = useState<ScoreBundle>(emptyBundle)
+  const [local, setLocal] = useState<ScoreGames>(emptyGames)
+  const [net, setNet] = useState<ScoreGames>(emptyGames)
   const [err, setErr] = useState('')
   const [month, setMonth] = useState('')
 
@@ -47,8 +59,8 @@ export function Scoreboard({ slCap }: Props) {
           return
         }
         setErr('')
-        if (data.local) setLocal(data.local)
-        if (data.net) setNet(data.net)
+        if (data.local) setLocal(normalizeGames(data.local))
+        if (data.net) setNet(normalizeGames(data.net))
         if (data.month) setMonth(data.month)
       } catch (e) {
         if (alive) setErr(e instanceof Error ? e.message : 'Cannot reach scoreboard')
@@ -62,7 +74,7 @@ export function Scoreboard({ slCap }: Props) {
     }
   }, [slCap])
 
-  const rows: ScoreRow[] = (scope === 'local' ? local : net)[period] || []
+  const rows: ScoreRow[] = (scope === 'local' ? local : net)[game][period] || []
   const scopeLabel = scope === 'local' ? 'This parlor' : 'Network'
   const sub =
     period === 'm' && month
@@ -79,9 +91,17 @@ export function Scoreboard({ slCap }: Props) {
         <p className="brand-kicker">Hand &amp; Foot / Canasta</p>
         <h1>High scores</h1>
         <p className="scoreboard-sub">
-          {scopeLabel} · {periodLabel(period)} · {sub}
+          {gameLabel(game)} · {scopeLabel} · {periodLabel(period)} · {sub}
         </p>
       </header>
+      <div className="scoreboard-tabs" role="tablist" aria-label="Game">
+        <button type="button" className={game === 'c' ? 'is-on' : ''} onClick={() => setGame('c')}>
+          Canasta
+        </button>
+        <button type="button" className={game === 'h' ? 'is-on' : ''} onClick={() => setGame('h')}>
+          Hand &amp; Foot
+        </button>
+      </div>
       <div className="scoreboard-tabs" role="tablist" aria-label="Scoreboard range">
         <button type="button" className={scope === 'local' ? 'is-on' : ''} onClick={() => setScope('local')}>
           This parlor

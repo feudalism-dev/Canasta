@@ -71,7 +71,8 @@ export function eventsForMove(
     out.push(`SCORE|${next.teams[0]!.score}|${next.teams[1]!.score}|NONE|0|`)
   }
   if (next.phase === 'matchEnd') {
-    out.push(`GAME_OVER|${seat}|${next.winnerTeam}|NONE|0|`)
+    const game = next.config.variant === 'handAndFoot' ? 'h' : 'c'
+    out.push(`GAME_OVER|${seat}|${next.winnerTeam}|NONE|0|${game}`)
   }
   return out
 }

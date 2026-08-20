@@ -1,6 +1,6 @@
 // Canasta — shout final scores for a nearby (unlinked) scoreboard.
 // Drop in the table linkset (root is fine). Compile: Mono.
-// On GAME_OVER, llShout (100 m): player:="Display Name", Score=8441
+// On GAME_OVER, llShout (100 m): CN_SCORE|c|uuid|Name|8441  (c=Canasta, h=Hand&Foot)
 // Channel SCORE_CH must match Canasta_Scoreboard.lsl.
 
 integer DISPLAY_CMD_EVENT = 91001;
@@ -15,14 +15,23 @@ list gAv = [];
 integer gPlayers = 4;
 integer gScoreA = 0;
 integer gScoreB = 0;
+string gGame = "c";
 
 string cleanName(string s)
 {
     s = llDumpList2String(llParseStringKeepNulls(s, ["\""], []), "'");
+    s = llDumpList2String(llParseStringKeepNulls(s, ["|"], []), " ");
     s = llStringTrim(s, STRING_TRIM);
     if (llStringLength(s) > 24) s = llGetSubString(s, 0, 23);
     if (s == "") s = "Player";
     return s;
+}
+
+string normGame(string g)
+{
+    g = llToLower(llStringTrim(g, STRING_TRIM));
+    if (g == "h" || g == "hf" || g == "hand" || g == "handandfoot") return "h";
+    return "c";
 }
 
 integer clearState()
@@ -32,6 +41,7 @@ integer clearState()
     gPlayers = 4;
     gScoreA = 0;
     gScoreB = 0;
+    gGame = "c";
     return TRUE;
 }
 
@@ -111,7 +121,7 @@ integer shoutFinal()
         nm = cleanName(nm);
         integer sc = gScoreB;
         if (i % 2 == 0) sc = gScoreA;
-        llShout(SCORE_CH, "player:=\"" + nm + "\", Score=" + (string)sc);
+        llShout(SCORE_CH, "CN_SCORE|" + gGame + "|" + (string)av + "|" + nm + "|" + (string)sc);
         @nextseat;
     }
     return TRUE;
@@ -135,6 +145,7 @@ integer handleEvent(string pipe)
     }
     if (kind == "GAME_OVER")
     {
+        if (llGetListLength(parts) > 5) gGame = normGame(llList2String(parts, 5));
         shoutFinal();
         return TRUE;
     }
@@ -146,7 +157,7 @@ default
     state_entry()
     {
         clearState();
-        llOwnerSay("Canasta scores: llShout finals on " + (string)SCORE_CH + ".");
+        llOwnerSay("Canasta scores: llShout CN_SCORE on " + (string)SCORE_CH + ".");
     }
 
     on_rez(integer p)

@@ -1,12 +1,12 @@
 // Canasta — parlor scoreboard (LSD local + Experience network + MOAP UI).
 // Drop this script on its OWN object (not the game table). Compile: Mono + same Experience as the table.
 // Media face 0 shows GitHub Pages ?view=scores. No Furware. Tabs are on the web page.
-// Listens for llShout from Canasta_Scores.lsl: player:="Name", Score=8441
+// Listens for llShout from Canasta_Scores.lsl: CN_SCORE|c|uuid|Name|8441  (c=Canasta, h=Hand&Foot)
 
 integer SCORE_CH = -18475021;
 integer MEDIA_FACE = 0;
 integer MEDIA_PIXELS = 1024;
-integer PAGE_ASSET_REV = 1;
+integer PAGE_ASSET_REV = 2;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
 
@@ -15,9 +15,12 @@ string gCapUrl = "";
 string gLastHome = "";
 integer gMoapPending = FALSE;
 integer gMoapKick = 0;
-string gNetW = "";
-string gNetM = "";
-string gNetL = "";
+string gNetCW = "";
+string gNetCM = "";
+string gNetCL = "";
+string gNetHW = "";
+string gNetHM = "";
+string gNetHL = "";
 string gInUid = "";
 string gInName = "";
 integer gInScore = 0;
@@ -47,6 +50,13 @@ string cleanName(string s)
     return s;
 }
 
+string normGame(string g)
+{
+    g = llToLower(llStringTrim(g, STRING_TRIM));
+    if (g == "h" || g == "hf" || g == "hand" || g == "handandfoot") return "h";
+    return "c";
+}
+
 string weekId()
 {
     integer days = llGetUnixTime() / 86400;
@@ -58,11 +68,16 @@ string monthId()
     return llGetSubString(llGetTimestamp(), 0, 6);
 }
 
-string xpKey(string period)
+string xpKey(string game, string period)
 {
-    if (period == "w") return "cn.sc.w." + weekId();
-    if (period == "m") return "cn.sc.m." + monthId();
-    return "cn.sc.l";
+    if (period == "w") return "cn.sc." + game + ".w." + weekId();
+    if (period == "m") return "cn.sc." + game + ".m." + monthId();
+    return "cn.sc." + game + ".l";
+}
+
+string lsdKey(string game, string period)
+{
+    return "l" + game + period;
 }
 
 integer hasXp()
@@ -169,15 +184,42 @@ integer rotateLocal()
     string mk = monthId();
     if (llLinksetDataRead("lwk") != wk)
     {
-        llLinksetDataWrite("lw", "");
+        llLinksetDataWrite("lcw", "");
+        llLinksetDataWrite("lhw", "");
         llLinksetDataWrite("lwk", wk);
     }
     if (llLinksetDataRead("lmk") != mk)
     {
-        llLinksetDataWrite("lm", "");
+        llLinksetDataWrite("lcm", "");
+        llLinksetDataWrite("lhm", "");
         llLinksetDataWrite("lmk", mk);
     }
     return TRUE;
+}
+
+string bundleJson(string game)
+{
+    return "{\"w\":" + rowsToJson(llLinksetDataRead(lsdKey(game, "w")))
+        + ",\"m\":" + rowsToJson(llLinksetDataRead(lsdKey(game, "m")))
+        + ",\"l\":" + rowsToJson(llLinksetDataRead(lsdKey(game, "l")))
+        + "}";
+}
+
+string netBundleJson(string game)
+{
+    string w = gNetCW;
+    string m = gNetCM;
+    string l = gNetCL;
+    if (game == "h")
+    {
+        w = gNetHW;
+        m = gNetHM;
+        l = gNetHL;
+    }
+    return "{\"w\":" + rowsToJson(w)
+        + ",\"m\":" + rowsToJson(m)
+        + ",\"l\":" + rowsToJson(l)
+        + "}";
 }
 
 string scoresJson()
@@ -185,35 +227,36 @@ string scoresJson()
     rotateLocal();
     return "{\"ok\":true,\"week\":\"" + weekId()
         + "\",\"month\":\"" + monthId()
-        + "\",\"local\":{\"w\":" + rowsToJson(llLinksetDataRead("lw"))
-        + ",\"m\":" + rowsToJson(llLinksetDataRead("lm"))
-        + ",\"l\":" + rowsToJson(llLinksetDataRead("ll"))
-        + "},\"net\":{\"w\":" + rowsToJson(gNetW)
-        + ",\"m\":" + rowsToJson(gNetM)
-        + ",\"l\":" + rowsToJson(gNetL)
+        + "\",\"local\":{\"c\":" + bundleJson("c")
+        + ",\"h\":" + bundleJson("h")
+        + "},\"net\":{\"c\":" + netBundleJson("c")
+        + ",\"h\":" + netBundleJson("h")
         + "}}";
 }
 
-integer saveLocalPeriod(string period, string packed)
+integer saveLocalPeriod(string game, string period, string packed)
 {
-    if (period == "w") llLinksetDataWrite("lw", packed);
-    else if (period == "m") llLinksetDataWrite("lm", packed);
-    else llLinksetDataWrite("ll", packed);
+    llLinksetDataWrite(lsdKey(game, period), packed);
     return TRUE;
 }
 
-string loadLocalPeriod(string period)
+string loadLocalPeriod(string game, string period)
 {
-    if (period == "w") return llLinksetDataRead("lw");
-    if (period == "m") return llLinksetDataRead("lm");
-    return llLinksetDataRead("ll");
+    return llLinksetDataRead(lsdKey(game, period));
 }
 
-integer setNetCache(string period, string packed)
+integer setNetCache(string game, string period, string packed)
 {
-    if (period == "w") gNetW = packed;
-    else if (period == "m") gNetM = packed;
-    else gNetL = packed;
+    if (game == "h")
+    {
+        if (period == "w") gNetHW = packed;
+        else if (period == "m") gNetHM = packed;
+        else gNetHL = packed;
+        return TRUE;
+    }
+    if (period == "w") gNetCW = packed;
+    else if (period == "m") gNetCM = packed;
+    else gNetCL = packed;
     return TRUE;
 }
 
@@ -222,6 +265,17 @@ integer enqueueXp(string op, string uid, string nm, integer score)
     if (llListFindList(gXpQ, [op, uid, nm, score]) >= 0) return FALSE;
     if (gXpOp == op && gInUid == uid && gInName == nm && gInScore == score) return FALSE;
     gXpQ += [op, uid, nm, score];
+    return TRUE;
+}
+
+integer enqueueReads()
+{
+    enqueueXp("Rcw", "", "", 0);
+    enqueueXp("Rcm", "", "", 0);
+    enqueueXp("Rcl", "", "", 0);
+    enqueueXp("Rhw", "", "", 0);
+    enqueueXp("Rhm", "", "", 0);
+    enqueueXp("Rhl", "", "", 0);
     return TRUE;
 }
 
@@ -247,22 +301,24 @@ integer kickXp()
         gXpStep = 0;
     }
     if (gXpOp == "") return FALSE;
-    string period = llGetSubString(gXpOp, 1, 1);
-    gXpReq = llReadKeyValue(xpKey(period));
+    string game = llGetSubString(gXpOp, 1, 1);
+    string period = llGetSubString(gXpOp, 2, 2);
+    gXpReq = llReadKeyValue(xpKey(game, period));
     return TRUE;
 }
 
-integer ingest(string uid, string nm, integer score)
+integer ingest(string game, string uid, string nm, integer score)
 {
+    game = normGame(game);
     rotateLocal();
     string who = uid;
     string label = cleanName(nm);
-    saveLocalPeriod("w", insertPacked(loadLocalPeriod("w"), who, label, score));
-    saveLocalPeriod("m", insertPacked(loadLocalPeriod("m"), who, label, score));
-    saveLocalPeriod("l", insertPacked(loadLocalPeriod("l"), who, label, score));
-    enqueueXp("Mw", who, label, score);
-    enqueueXp("Mm", who, label, score);
-    enqueueXp("Ml", who, label, score);
+    saveLocalPeriod(game, "w", insertPacked(loadLocalPeriod(game, "w"), who, label, score));
+    saveLocalPeriod(game, "m", insertPacked(loadLocalPeriod(game, "m"), who, label, score));
+    saveLocalPeriod(game, "l", insertPacked(loadLocalPeriod(game, "l"), who, label, score));
+    enqueueXp("M" + game + "w", who, label, score);
+    enqueueXp("M" + game + "m", who, label, score);
+    enqueueXp("M" + game + "l", who, label, score);
     kickXp();
     return TRUE;
 }
@@ -351,32 +407,36 @@ integer takeScoreChat(string msg)
     string uid = "";
     string nm = "";
     integer sc = 0;
-    integer p = llSubStringIndex(msg, "player:=\"");
-    if (p >= 0)
+    string game = "c";
+    if (llGetSubString(msg, 0, 8) == "CN_SCORE|")
     {
-        integer start = p + 9;
-        string rest = llGetSubString(msg, start, -1);
-        integer q = llSubStringIndex(rest, "\"");
-        if (q < 0) return FALSE;
-        nm = llGetSubString(rest, 0, q - 1);
-        integer s = llSubStringIndex(llToLower(msg), "score=");
-        if (s < 0) return FALSE;
-        sc = (integer)llGetSubString(msg, s + 6, -1);
-        nm = llStringTrim(nm, STRING_TRIM);
+        list parts = llParseStringKeepNulls(msg, ["|"], []);
+        if (llGetListLength(parts) < 5) return FALSE;
+        game = normGame(llList2String(parts, 1));
+        uid = llList2String(parts, 2);
+        nm = llList2String(parts, 3);
+        sc = (integer)llList2String(parts, 4);
         if (nm == "") return FALSE;
-        uid = llToLower(nm);
-        ingest(uid, nm, sc);
+        if (uid == "") uid = llToLower(nm);
+        ingest(game, uid, nm, sc);
         return TRUE;
     }
-    if (llGetSubString(msg, 0, 8) != "CN_SCORE|") return FALSE;
-    list parts = llParseStringKeepNulls(msg, ["|"], []);
-    if (llGetListLength(parts) < 5) return FALSE;
-    uid = llList2String(parts, 2);
-    nm = llList2String(parts, 3);
-    sc = (integer)llList2String(parts, 4);
+    integer p = llSubStringIndex(msg, "player:=\"");
+    if (p < 0) return FALSE;
+    integer start = p + 9;
+    string rest = llGetSubString(msg, start, -1);
+    integer q = llSubStringIndex(rest, "\"");
+    if (q < 0) return FALSE;
+    nm = llGetSubString(rest, 0, q - 1);
+    integer s = llSubStringIndex(llToLower(msg), "score=");
+    if (s < 0) return FALSE;
+    sc = (integer)llGetSubString(msg, s + 6, -1);
+    integer g = llSubStringIndex(llToLower(msg), "game=");
+    if (g >= 0) game = normGame(llGetSubString(msg, g + 5, -1));
+    nm = llStringTrim(nm, STRING_TRIM);
     if (nm == "") return FALSE;
-    if (uid == "") uid = llToLower(nm);
-    ingest(uid, nm, sc);
+    uid = llToLower(nm);
+    ingest(game, uid, nm, sc);
     return TRUE;
 }
 
@@ -387,9 +447,7 @@ default
         rotateLocal();
         gListen = llListen(SCORE_CH, "", NULL_KEY, "");
         llRequestSecureURL();
-        enqueueXp("Rw", "", "", 0);
-        enqueueXp("Rm", "", "", 0);
-        enqueueXp("Rl", "", "", 0);
+        enqueueReads();
         kickXp();
         gMoapPending = TRUE;
         gMoapKick = 1;
@@ -422,12 +480,7 @@ default
             }
             llSetTimerEvent(TIMER_SEC);
         }
-        if (gXpOp == "" && llGetListLength(gXpQ) == 0)
-        {
-            enqueueXp("Rw", "", "", 0);
-            enqueueXp("Rm", "", "", 0);
-            enqueueXp("Rl", "", "", 0);
-        }
+        if (gXpOp == "" && llGetListLength(gXpQ) == 0) enqueueReads();
         kickXp();
     }
 
@@ -458,9 +511,7 @@ default
         string cb = qget(q, "cb");
         if (action == "refresh")
         {
-            enqueueXp("Rw", "", "", 0);
-            enqueueXp("Rm", "", "", 0);
-            enqueueXp("Rl", "", "", 0);
+            enqueueReads();
             kickXp();
         }
         sendJsonp(id, cb, scoresJson());
@@ -478,10 +529,11 @@ default
         if (ok && llGetListLength(res) > 1) payload = llList2String(res, 1);
         if (!ok && llGetListLength(res) > 1) err = (integer)llList2String(res, 1);
         string kind = llGetSubString(gXpOp, 0, 0);
-        string period = llGetSubString(gXpOp, 1, 1);
+        string game = llGetSubString(gXpOp, 1, 1);
+        string period = llGetSubString(gXpOp, 2, 2);
         if (kind == "R")
         {
-            if (ok) setNetCache(period, payload);
+            if (ok) setNetCache(game, period, payload);
             gXpOp = "";
             gXpStep = 0;
             kickXp();
@@ -498,17 +550,17 @@ default
             string base = "";
             if (ok) base = payload;
             string merged = insertPacked(base, gInUid, gInName, gInScore);
-            setNetCache(period, merged);
+            setNetCache(game, period, merged);
             if (!ok && err == XP_ERROR_KEY_NOT_FOUND)
             {
                 gXpStep = 1;
-                gXpReq = llCreateKeyValue(xpKey(period), merged);
+                gXpReq = llCreateKeyValue(xpKey(game, period), merged);
                 return;
             }
             if (ok)
             {
                 gXpStep = 1;
-                gXpReq = llUpdateKeyValue(xpKey(period), merged, TRUE, payload);
+                gXpReq = llUpdateKeyValue(xpKey(game, period), merged, TRUE, payload);
                 return;
             }
             gXpOp = "";

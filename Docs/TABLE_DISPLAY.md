@@ -73,14 +73,14 @@ EVENT|player|team|rank|value|extra
 | `FOOT` | Picked up Foot | player |
 | `THREES` | Laid red threes | team, count in `value` |
 | `SCORE` | Round scored | team0 in `player`, team1 in `team` as scores via extra `t0|t1` in extra |
-| `GAME_OVER` | Match over | winning team in `team` |
+| `GAME_OVER` | Match over | winning team in `team`; `extra` is `c` (Canasta) or `h` (Hand & Foot) for the scoreboard |
 | `FREEZE` | Pile freeze changed | `value` 1=frozen 0=clear |
 | `NAMES` | Roster labels | name0–name3 (AI included) |
 | `BOARD` | Spectator snapshot chunk | `i|n|chunk` — Http concatenates (not Table, to stay under Mono heap) |
 
 `player` is 1–4 (seat + 1). `team` is 0 or 1. `rank` is `4`–`A`, `2`, `3R`, `3B`, `JOKER`, or `NONE`.
 
-At match end, `Canasta_Scores.lsl` **llShout**s (100 m, channel `-18475021`) `player:="Name", Score=1234` for each seated human. See [SCOREBOARD.md](SCOREBOARD.md).
+At match end, `Canasta_Scores.lsl` **llShout**s (100 m, channel `-18475021`) `CN_SCORE|c|uuid|Name|1234` (or `h` for Hand & Foot) for each seated human. See [SCOREBOARD.md](SCOREBOARD.md).
 
 HTTP `action=board` GET is answered by **Http** from the stored snapshot. Host/solo writes it via `BOARD` chunks. Table reset sends `BCLR|` so the snapshot clears. Status JSONP also includes `board`.
 

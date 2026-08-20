@@ -12,12 +12,20 @@ export type ScoreBundle = {
   l: ScoreRow[]
 }
 
+/** c = classic Canasta, h = Hand & Foot */
+export type ScoreGame = 'c' | 'h'
+
+export type ScoreGames = {
+  c: ScoreBundle
+  h: ScoreBundle
+}
+
 export type ScorePayload = {
   ok: boolean
   week?: string
   month?: string
-  local?: ScoreBundle
-  net?: ScoreBundle
+  local?: ScoreGames
+  net?: ScoreGames
   error?: string
 }
 
@@ -34,6 +42,27 @@ function nextCallback(): string {
 function ensureTrailingSlash(url: string): string {
   if (!url) return url
   return url.endsWith('/') ? url : `${url}/`
+}
+
+function emptyBundle(): ScoreBundle {
+  return { w: [], m: [], l: [] }
+}
+
+function emptyGames(): ScoreGames {
+  return { c: emptyBundle(), h: emptyBundle() }
+}
+
+/** Accept nested {c,h} payloads; ignore flat legacy boards. */
+export function normalizeGames(raw: unknown): ScoreGames {
+  if (!raw || typeof raw !== 'object') return emptyGames()
+  const o = raw as Record<string, unknown>
+  if (o.c || o.h) {
+    return {
+      c: (o.c as ScoreBundle) || emptyBundle(),
+      h: (o.h as ScoreBundle) || emptyBundle(),
+    }
+  }
+  return emptyGames()
 }
 
 export function jsonpScores(apiBase: string, params: JsonpParams = {}, timeoutMs = 8000): Promise<ScorePayload> {

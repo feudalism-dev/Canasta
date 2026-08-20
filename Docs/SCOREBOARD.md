@@ -6,20 +6,24 @@ A wall panel near the table. It **hears** finished games, stores high scores, an
 
 Each seated **human**’s team score at **match end** (not after every hand). Computers are skipped. If you already have an entry, only a **higher** score replaces it. Top **10** per board.
 
+**Canasta** and **Hand & Foot** are stored separately (different score scales). The page has a game tab for each.
+
 | Board | Where | Window |
 |--------|--------|---------|
 | This parlor · Weekly / Monthly / Lifetime | Linkset Data on the scoreboard prim | Calendar week (Mon-aligned Unix week) / calendar month / forever |
 | Network · Weekly / Monthly / Lifetime | Experience Key-Value | Same windows, shared by every scoreboard compiled with that Experience |
+
+Experience keys are `cn.sc.c.*` (Canasta) and `cn.sc.h.*` (Hand & Foot). Older unscoped `cn.sc.w.*` / `cn.sc.m.*` / `cn.sc.l` keys are left alone (not shown).
 
 ## Table side (shout)
 
 Drop `lsl/Canasta_Scores.lsl` in the **game table** linkset (root is fine). Compile **Mono**. The scoreboard is a **separate, unlinked** object. At `GAME_OVER` the table **`llShout`s** (100 m) one line per seated human:
 
 ```
-player:="Bandor Tyrell", Score=8441
+CN_SCORE|c|<avatar-uuid>|Bandor Tyrell|8441
 ```
 
-on channel **`-18475021`**. Same channel is hard-coded in the scoreboard script. Place the panel within shout range of the table.
+on channel **`-18475021`**. Game code is `c` (Canasta) or `h` (Hand & Foot), taken from the HUD’s `GAME_OVER|…|c` / `|h` pipe. Same channel is hard-coded in the scoreboard script. Place the panel within shout range of the table.
 
 Recompile order on the table is still Display → Http → Table; Scores can compile anytime.
 
@@ -33,12 +37,13 @@ Recompile order on the table is still Display → Http → Table; Scores can com
 
 There are **no extra buttons and no Furware meshes**. The page has:
 
+- **Canasta** / **Hand & Foot**
 - **This parlor** / **Network**
 - **Weekly** / **Monthly** / **Lifetime**
 
 Touching the prim is optional; the page polls JSONP. Network numbers refresh from Experience every few seconds.
 
-Bump `PAGE_ASSET_REV` in `Canasta_Scoreboard.lsl` when Pages deploys so the panel reloads.
+Bump `PAGE_ASSET_REV` in `Canasta_Scoreboard.lsl` (and `HUD_PAGE_ASSET_REV` in the HUD) when Pages deploys so the panel reloads.
 
 ## Placement
 
