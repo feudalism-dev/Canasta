@@ -184,8 +184,8 @@ https://feudalism-dev.github.io/Canasta/
 
 ### B. Host vs guest
 
+- **Host:** always stays on HUD MoAP. **No** `mint_browser` for `uid == hostUid`. PeerJS host peer never moves.
 - **Guest:** after claim, `joinPeerRoom(room)` (same as HUD Join peer step). If table Join already done on HUD, skip duplicate `tableJoin` or make Join idempotent.
-- **Host:** after claim, must **recreate PeerJS host** with same room code (`createPeerHost({ roomCode })`). **Critical:** PeerJS host id is `canasta-{CODE}-host`. If HUD host peer is destroyed on park, browser must become the new host **before** guests connect — or guests must reconnect. See open question C.
 
 ### C. Failure messaging
 
@@ -193,22 +193,13 @@ If PeerJS still fails in external browser: show clear error + “network/VPN” 
 
 ---
 
-## 9. PeerJS host handoff (hardest part)
+## 9. PeerJS host (no handoff)
 
-Today the **HUD that Create’d** owns PeerJS host peer id `canasta-{CODE}-host`.
+The **HUD that Create’d** owns PeerJS host peer id `canasta-{CODE}-host` for the whole lobby/match.
 
-If host parks HUD and opens browser:
+Because **the host must play in the HUD**, we do **not** destroy or migrate that peer for a browser session. Guests may leave MoAP PeerJS and reconnect from an external browser to the **same** host peer; the host MoAP connection stays up.
 
-1. Destroy HUD PeerJS host → **all guest connections drop**.
-2. Browser must `new Peer('canasta-{CODE}-host')` and guests must **re-join** peer room.
-
-**v1 recommendation:**
-
-- Mint/open browser **before** guests depend on stable peer, **or**
-- On host browser claim: broadcast table status flag `peerRestart=1`; guests auto `joinPeerRoom` again; show “Host moved to browser — reconnecting…”
-- Document: prefer guests open browser first if only one person needs it; host browser move is supported but causes a short reconnect.
-
-Alternative v1.1: only allow **non-host** browser play first (smaller handoff); host stays in MoAP. That may fix the original “one flaky guest” case with less risk.
+If a guest’s HUD had already joined PeerJS, parking the HUD should `destroy()` that guest peer before the browser joins (one peer per avatar).
 
 ---
 
@@ -216,7 +207,7 @@ Alternative v1.1: only allow **non-host** browser play first (smaller handoff); 
 
 ### Phase 0 — decisions (review)
 
-Resolve open questions in §12. Pick **guest-only browser** vs **host+guest**.
+**Resolved:** host HUD-only; guest browser mint after Join; one-time ~10 min token; stay seated.
 
 ### Phase 1 — Table mint/claim (LSL + API)
 
@@ -236,13 +227,13 @@ Resolve open questions in §12. Pick **guest-only browser** vs **host+guest**.
 
 **Exit:** minted URL opens lobby UI and claims; fake peer optional.
 
-### Phase 3 — Peer attach + reconnect
+### Phase 3 — Peer attach
 
-- Guest: `joinPeerRoom` after claim.
-- Host (if in scope): host peer recreate + guest reconnect signal.
+- Guest browser: `joinPeerRoom` after claim (HUD peer destroyed on park).
+- Host PeerJS stays on HUD — no handoff.
 - Ready toggle / Leave lobby work from browser (already table-aware).
 
-**Exit:** 2–4 humans, one on browser, complete a hand.
+**Exit:** 2–4 humans, one **guest** on browser, complete a hand.
 
 ### Phase 4 — UX polish + docs
 
@@ -272,26 +263,19 @@ No Experience DB required for v1 (tokens live on the **table object**).
 
 ---
 
-## 12. Open questions for you
+## 12. Decisions
 
-**A. When can you mint?**  
-- (A1) Anytime Active in lobby/match  
-- (A2) Only after table Join (host after Create) ← **recommended**
+| ID | Question | Decision |
+|----|----------|----------|
+| **A** | When can you mint? | **After table Join** (host has Create; guests mint only once Joined) |
+| **B** | Token lifetime? | **10 min, one-time claim**; remint from HUD anytime while still Joined |
+| **C** | Host in browser? | **No — host must play in the HUD.** Only **guests** get minted browser URLs. Avoids PeerJS host handoff. |
+| **D** | Solo vs match browser buttons? | **Separate actions** (solo `client=web` stays as today; match mint is different) |
+| **E** | Must remain seated? | **Yes** for v1 (stand / leave / lobby dissolve revokes token) |
 
-**B. Token lifetime?**  
-- (B1) 10 min one-time claim, remint from HUD anytime ← **recommended**  
-- (B2) Valid for whole match after claim  
+### Locked product rule
 
-**C. Host browser?**  
-- (C1) **Guest-only in v1** (fixes flaky joiner; simplest) ← **recommended start**  
-- (C2) Host+guest with reconnect protocol  
-
-**D. Chrome button today**  
-- Keep solo “Play in Browser” separate from “Play **match** in browser”? ← **yes, two actions**
-
-**E. Must they stay sat?**  
-- Yes for v1 (stand = revoke). No “walk away with browser.”
-
+**The multiplayer host always uses the in-world HUD MoAP.** Browser play is a **guest fallback** for PeerJS/MoAP problems (or preference), not a host path.
 ---
 
 ## 13. Effort estimate (rough)
@@ -300,12 +284,10 @@ No Experience DB required for v1 (tokens live on the **table object**).
 |-------|--------------------|
 | Phase 1 table mint/claim | ~0.5–1 day |
 | Phase 2 JS session routing | ~0.5–1 day |
-| Phase 3 Peer (guest-only) | ~0.5 day |
-| Phase 3 Host handoff | +0.5–1 day |
+| Phase 3 Peer (guest browser → HUD host) | ~0.5 day |
 | Phase 4 polish/docs | ~0.5 day |
 
-**Guest-only v1:** about **2–3 focused days** including in-world soak.  
-**Host handoff:** add most of the risk and reconnect edge cases.
+**Guest browser + host-on-HUD v1:** about **2–3 focused days** including in-world soak.
 
 ---
 
@@ -321,4 +303,4 @@ No Experience DB required for v1 (tokens live on the **table object**).
 
 ## 15. Recommendation
 
-Ship **guest-only seated browser MP** with **one-time table-minted tokens**, mint **after Join**, park HUD, reuse PeerJS room. Defer host-browser handoff until guests-on-browser is proven. Keep TURN/table-relay as separate reliability track.
+Ship **guest seated browser MP** with **one-time table-minted tokens**, mint **after Join**, park guest HUD, reuse PeerJS room hosted by the **HUD host**. **Host never leaves MoAP for MP.** Keep TURN/table-relay as separate reliability track.
