@@ -1307,14 +1307,9 @@ ul {
   flex-direction: column;
 }
 
-.scoreboard-panel .table-felt,
-.scoreboard-panel .table-brass {
+.scoreboard-panel .table-felt {
   position: absolute;
   inset: 0;
-}
-
-.scoreboard-panel .table-brass {
-  inset: 5px;
 }
 
 .scoreboard-head,

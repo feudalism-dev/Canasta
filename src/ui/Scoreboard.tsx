@@ -87,7 +87,6 @@ export function Scoreboard({ slCap }: Props) {
     <div className="scoreboard-root">
       <div className="scoreboard-panel">
         <div className="table-felt" />
-        <div className="table-brass" />
         <header className="scoreboard-head">
           <p className="brand-kicker">Hand &amp; Foot / Canasta</p>
           <h1>High scores</h1>
