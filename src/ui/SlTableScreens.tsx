@@ -338,16 +338,27 @@ export function SlTableScreens({
                 </li>
               ))}
             </ul>
-            {!peerLive && iJoined && !iAmHost ? (
+            {!peerLive && iJoined ? (
               <p className="error">
-                Peer link not connected on this HUD. Use <strong>Play match in browser</strong> below.
+                {seatedBrowser
+                  ? 'Peer link not connected in this browser either (network/WebRTC). You are still Joined — the host can Start Match without your Ready checkmark.'
+                  : 'Peer link not connected on this HUD. Use Play match in browser below.'}
               </p>
             ) : null}
             <button
               type="button"
               className="btn secondary"
-              disabled={!peerLive}
-              onClick={() => onPeerReadyToggle?.(!iAmReady)}
+              onClick={() => {
+                if (!peerLive) {
+                  setErr(
+                    seatedBrowser
+                      ? 'No peer link — Ready needs WebRTC. Stay Joined; ask the host to Start Match.'
+                      : 'No peer link — use Play match in browser, or ask the host to Start once everyone has Joined.',
+                  )
+                  return
+                }
+                onPeerReadyToggle?.(!iAmReady)
+              }}
             >
               {iAmReady ? 'Not ready' : 'Ready'}
             </button>
