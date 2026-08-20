@@ -74,6 +74,8 @@ EVENT|player|team|rank|value|extra
 | `THREES` | Laid red threes | team, count in `value` |
 | `SCORE` | Round scored | team0 in `player`, team1 in `team` as scores via extra `t0|t1` in extra |
 | `GAME_OVER` | Match over | winning team in `team` |
+
+`Canasta_Scores.lsl` (table linkset) region-says each seated human’s final team score on `-18475021` for the MOAP scoreboard. See [SCOREBOARD.md](SCOREBOARD.md).
 | `FREEZE` | Pile freeze changed | `value` 1=frozen 0=clear |
 | `NAMES` | Roster labels | name0–name3 (AI included) |
 | `BOARD` | Spectator snapshot chunk | `i|n|chunk` — Http concatenates (not Table, to stay under Mono heap) |

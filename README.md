@@ -44,12 +44,13 @@ Site: `https://<you>.github.io/Canasta/`
 - [SECOND_LIFE.md](Docs/SECOND_LIFE.md) — MOAP HUD, table lock, Active / Create / Join
 - [MULTIPLAYER.md](Docs/MULTIPLAYER.md)
 - [TABLE_DISPLAY.md](Docs/TABLE_DISPLAY.md) — chairs, Furware, table-top spectator MOAP
+- [SCOREBOARD.md](Docs/SCOREBOARD.md) — parlor / network high scores (MOAP)
 - [ASSETS.md](Docs/ASSETS.md)
 - [DEFERRED.md](Docs/DEFERRED.md)
 
 ## Second Life (in-world)
 
-1. Put `lsl/Canasta_Table.lsl`, `lsl/Canasta_Http.lsl`, and `lsl/Canasta_Bots.lsl` on the game table root (with AVsitter; seats 0–3; linked prims named `bot1`–`bot4`). Put `lsl/Canasta_Display.lsl` on the **display child** (Furware sets `text0`–`text3`). Compile Table + HUD with your **Experience**.
+1. Put `lsl/Canasta_Table.lsl`, `lsl/Canasta_Http.lsl`, `lsl/Canasta_Bots.lsl`, and `lsl/Canasta_Scores.lsl` on the game table root (with AVsitter; seats 0–3; linked prims named `bot1`–`bot4`). Put `lsl/Canasta_Display.lsl` on the **display child** (Furware sets `text0`–`text3`). Compile Table + HUD with your **Experience**. Optional wall **scoreboard**: `lsl/Canasta_Scoreboard.lsl` on its own prim (same Experience, media face 0).
 2. Build HUD object named **`Canasta HUD`** (square, media face **4**), put `lsl/Canasta_HUD.lsl` in it (same Experience), then put that object in the **table** inventory.
 3. Whitelist `feudalism-dev.github.io` for media; bump `HUD_PAGE_ASSET_REV` after Pages deploys.
 4. Sit → table rezzes/attaches HUD → lobby (auto-enter).

@@ -1285,3 +1285,116 @@ ul {
   opacity: 0.62;
 }
 
+.scoreboard-root {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: calc(0.45 * var(--rem)) calc(0.55 * var(--rem)) calc(0.5 * var(--rem));
+  display: flex;
+  flex-direction: column;
+}
+
+.scoreboard-head,
+.scoreboard-tabs,
+.scoreboard-list,
+.scoreboard-err {
+  position: relative;
+  z-index: 1;
+}
+
+.scoreboard-head {
+  text-align: center;
+}
+
+.scoreboard-head h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 6vw, 3.2rem);
+  letter-spacing: 0.08em;
+  color: var(--brass);
+}
+
+.scoreboard-sub {
+  margin: 0.15rem 0 0.35rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.78;
+  font-size: clamp(0.7rem, 2.2vw, 1rem);
+}
+
+.scoreboard-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0.2rem 0;
+}
+
+.scoreboard-tabs button {
+  flex: 1;
+  font: inherit;
+  cursor: pointer;
+  color: var(--cream);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(201, 162, 39, 0.28);
+  border-radius: 4px;
+  padding: 0.4rem 0.3rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: clamp(0.68rem, 2vw, 0.95rem);
+}
+
+.scoreboard-tabs button.is-on {
+  border-color: var(--brass);
+  color: var(--brass);
+  box-shadow: 0 0 0 1px var(--brass);
+}
+
+.scoreboard-err {
+  color: #f0a0a0;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.scoreboard-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-height: 0;
+}
+
+.scoreboard-list li {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.18rem 0.4rem;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(201, 162, 39, 0.18);
+  font-size: clamp(0.85rem, 2.8vw, 1.35rem);
+}
+
+.scoreboard-list li.is-empty {
+  opacity: 0.35;
+}
+
+.scoreboard-rank {
+  font-family: var(--font-display);
+  color: var(--brass);
+  font-weight: 700;
+}
+
+.scoreboard-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scoreboard-pts {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--brass);
+}
+

@@ -11,7 +11,7 @@ export type SlBootstrap = {
   client: 'hud' | 'browser' | 'web' | ''
   room: string
   action: string
-  view: 'table' | ''
+  view: 'table' | 'scores' | ''
 }
 
 function paramsFrom(raw: string): URLSearchParams {
@@ -33,8 +33,8 @@ export function readSlBootstrap(href = window.location.href): SlBootstrap | null
   const tableId = (merged.get('tableId') || merged.get('table') || '').trim()
   const uid = (merged.get('uid') || '').trim()
   const viewRaw = (merged.get('view') || '').trim().toLowerCase()
-  const view = viewRaw === 'table' ? 'table' : ''
-  if (view !== 'table' && (!tableId || !uid)) return null
+  const view = viewRaw === 'table' ? 'table' : viewRaw === 'scores' ? 'scores' : ''
+  if (view !== 'table' && view !== 'scores' && (!tableId || !uid)) return null
   const seatRaw = merged.get('seat')
   const seat = seatRaw != null && seatRaw !== '' ? Number(seatRaw) : -1
   const clientRaw = (merged.get('client') || '').trim().toLowerCase()
@@ -57,7 +57,7 @@ export function readSlBootstrap(href = window.location.href): SlBootstrap | null
 
 export function isTableHudSession(boot: SlBootstrap | null): boolean {
   if (!boot) return false
-  if (boot.view === 'table') return false
+  if (boot.view === 'table' || boot.view === 'scores') return false
   if (boot.parked) return false
   if (boot.client === 'browser' || boot.client === 'web') return false
   return Boolean(boot.tableId && boot.uid)

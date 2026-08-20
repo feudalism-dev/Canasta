@@ -8,6 +8,7 @@ import { HowToPlay } from './ui/HowToPlay'
 import { HandAndFootHouseFields } from './ui/HouseFields'
 import { ParkedHud } from './ui/ParkedHud'
 import { SlTableScreens } from './ui/SlTableScreens'
+import { Scoreboard } from './ui/Scoreboard'
 import { SpectatorTable } from './ui/SpectatorTable'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
@@ -178,6 +179,10 @@ function AppInner() {
 
   if (slBoot?.view === 'table') {
     return <SpectatorTable slCap={slBoot.slCap} />
+  }
+
+  if (slBoot?.view === 'scores') {
+    return <Scoreboard slCap={slBoot.slCap} />
   }
 
   if (slBoot?.parked) return wrap(<ParkedHud boot={slBoot} />)

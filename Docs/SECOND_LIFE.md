@@ -23,8 +23,9 @@ Browsers → PeerJS for multiplayer moves
 
 **Inventory**
 
-- **Table root:** `Canasta_Table.lsl` + `Canasta_Http.lsl` + `Canasta_Bots.lsl` + AVsitter; HUD object **`Canasta HUD`** in table inventory. Compile Table + HUD with the **same Experience**. Linked seat props **`bot1`–`bot4`** (Player 1–4): shown for computer chairs at Start, hidden on Reset / game over (Blinn-Phong alpha and PBR base alpha).
+- **Table root:** `Canasta_Table.lsl` + `Canasta_Http.lsl` + `Canasta_Bots.lsl` + `Canasta_Scores.lsl` + AVsitter; HUD object **`Canasta HUD`** in table inventory. Compile Table + HUD with the **same Experience**. Linked seat props **`bot1`–`bot4`** (Player 1–4): shown for computer chairs at Start, hidden on Reset / game over (Blinn-Phong alpha and PBR base alpha).
 - **Display child:** `Canasta_Display.lsl` (Mono). Furware sets `text0`–`text3` plus **one** `FURWARE text` script in the same linkset. Table prim must stay the linkset root.
+- **Scoreboard (optional):** own object, `Canasta_Scoreboard.lsl` (Mono + same Experience). MOAP face 0. See [SCOREBOARD.md](SCOREBOARD.md).
 - Root description contains `canasta-table`.
 
 Parcel must allow that Experience.
