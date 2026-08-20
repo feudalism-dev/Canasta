@@ -105,8 +105,8 @@ string sessionHome(integer parked, string client)
         + "?tableId=" + llEscapeURL(gTableId)
         + "&seat=" + (string)gSeat
         + "&uid=" + llEscapeURL((string)gWearer)
-        + "&name=" + llEscapeURL(gNameHint)
         + "&rev=" + (string)HUD_PAGE_ASSET_REV;
+    if (gNameHint != "") home += "&name=" + llEscapeURL(gNameHint);
     home += "&sl_cap=" + llEscapeURL(gSlCap);
     if (parked)
     {
@@ -148,20 +148,22 @@ integer applyMoap(integer force)
     if (gParked) client = "";
     string home = sessionHome(gParked, client);
 
-    // Skip clear/set when session params unchanged (avoids MoAP thrash).
-    if (!force && home == gLastHomeUrl) return FALSE;
+    list existing = llGetLinkMedia(LINK_THIS, HUD_FACE, [PRIM_MEDIA_CURRENT_URL]);
+    string existingUrl = llList2String(existing, 0);
+    integer hasMedia = FALSE;
+    if (existingUrl != "") hasMedia = TRUE;
+    integer sameHome = FALSE;
+    if (home == gLastHomeUrl) sameHome = TRUE;
 
-    string bust = (string)llGetUnixTime();
-    string cur = home + "&cb=" + bust;
+    // Same session with media already up: do not cache-bust. A new &cb= plus
+    // ClearPrimMedia wipes CEF while the first load is still running.
+    if (sameHome && hasMedia) return FALSE;
+    if (sameHome && !force) return FALSE;
 
+    string cur = home + "&cb=" + (string)llGetUnixTime();
     debug("MoAP " + llGetSubString(cur, 0, 180));
 
-    // Only clear when URL actually changes — ClearPrimMedia every tick blanked the viewer.
-    list existing = llGetLinkMedia(LINK_THIS, HUD_FACE, [PRIM_MEDIA_CURRENT_URL]);
-    if (llList2String(existing, 0) != cur)
-    {
-        llClearPrimMedia(HUD_FACE);
-    }
+    if (!sameHome && hasMedia) llClearPrimMedia(HUD_FACE);
     llSetPrimMediaParams(HUD_FACE, [
         PRIM_MEDIA_AUTO_PLAY, TRUE,
         PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
@@ -218,11 +220,6 @@ integer storeReadyFields(string msg)
     key uid = (key)llList2String(p, 3);
     string cap = llList2String(p, 4);
     string nm = llList2String(p, 5);
-    if (gNameHint == "" && uid != NULL_KEY)
-    {
-        string dn = llGetDisplayName(uid);
-        if (dn != "") nm = dn;
-    }
 
     integer dirty = FALSE;
     if (uid != NULL_KEY && uid != gTargetAvatar)
