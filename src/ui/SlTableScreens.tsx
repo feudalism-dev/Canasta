@@ -38,6 +38,9 @@ type Props = {
   onLeaveLobby?: () => void | Promise<void>
   /** Drop local PeerJS before parking HUD for browser match. */
   onDetachPeer?: () => void
+  /** True when this client already has match state from PeerJS. */
+  peerHasState?: boolean
+  onRejoinPeer?: (roomCode: string) => void | Promise<void>
   peerRoomCode?: string
   peerSeats?: { id: string; name: string; ready: boolean; isHost: boolean; avatarUid?: string; seat?: number }[]
   isPeerHost?: boolean
@@ -67,6 +70,8 @@ export function SlTableScreens({
   onHostStartMp,
   onLeaveLobby,
   onDetachPeer,
+  peerHasState = false,
+  onRejoinPeer,
   peerRoomCode,
   peerSeats,
   isPeerHost,
@@ -173,6 +178,7 @@ export function SlTableScreens({
   const canMintBrowser =
     !seatedBrowser && entered && iJoined && !iAmHost && (mode === 'lobby' || mode === 'match')
   const peerLive = Boolean(peerRoomCode) || Boolean(peerSeats && peerSeats.length)
+  const matchWithoutState = mode === 'match' && iJoined && !peerHasState
   const showMpLobby = mode === 'lobby' || mode === 'match' || !!peerRoomCode || !!boot.room
   const youSeat = me?.seat ?? (boot.seat >= 0 ? boot.seat : 0)
   const myPeer = (peerSeats || []).find((s) => (s.avatarUid || '').toLowerCase() === boot.uid.toLowerCase())
@@ -344,6 +350,39 @@ export function SlTableScreens({
                   ? 'Peer link not connected in this browser either (network/WebRTC). You are still Joined — the host can Start Match without your Ready checkmark.'
                   : 'Peer link not connected on this HUD. Use Play match in browser below.'}
               </p>
+            ) : null}
+            {matchWithoutState ? (
+              <p className="error">
+                Match already started, but this page never received the game. Reconnect to the host peer.
+              </p>
+            ) : null}
+            {matchWithoutState ? (
+              <button
+                type="button"
+                className="btn primary"
+                disabled={busy}
+                onClick={() => {
+                  void (async () => {
+                    const room = (peerRoomCode || table?.roomCode || boot.room || '').toUpperCase()
+                    if (!room) {
+                      setErr('No room code to reconnect')
+                      return
+                    }
+                    setBusy(true)
+                    setErr('')
+                    try {
+                      await onRejoinPeer?.(room)
+                      setStatus(`Reconnected · room ${room}`)
+                    } catch (e) {
+                      setErr(e instanceof Error ? e.message : 'Reconnect failed')
+                    } finally {
+                      setBusy(false)
+                    }
+                  })()
+                }}
+              >
+                Reconnect to match
+              </button>
             ) : null}
             <button
               type="button"

@@ -259,6 +259,15 @@ function AppInner() {
           setPeer(null)
           slMatchKind.current = 'none'
         }}
+        peerHasState={Boolean(peer?.state)}
+        onRejoinPeer={async (roomCode) => {
+          peer?.destroy()
+          local?.destroy()
+          const session = await joinPeerRoom(roomCode, name, { avatarUid: slBoot.uid, seat: slBoot.seat })
+          setPeer(session)
+          setLocal(null)
+          slMatchKind.current = 'mp'
+        }}
         peerRoomCode={peer?.roomCode}
         peerSeats={peer?.seats}
         isPeerHost={peer?.isHost}

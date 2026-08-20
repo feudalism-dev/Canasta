@@ -163,9 +163,9 @@ function buildSession(
   let seats: LobbySeat[] = [
     {
       id: localId,
-      name: playerName || 'Host',
+      name: playerName || (isHost ? 'Host' : 'Player'),
       ready: isHost,
-      isHost: true,
+      isHost,
       avatarUid: localAvatarUid,
       seat: localSeat,
     },
@@ -259,8 +259,27 @@ function buildSession(
             seat: msg.seat,
           },
         ]
+      } else {
+        seats = seats.map((s) =>
+          s.id === msg.id
+            ? { ...s, name: msg.name, avatarUid: msg.avatarUid, seat: msg.seat ?? s.seat }
+            : s,
+        )
       }
       syncLobby()
+      // Late joiner / reconnect after Start: push current match so their UI leaves the lobby.
+      if (state) {
+        const c = conns.get(fromId)
+        if (c) {
+          send(c, {
+            t: 'start',
+            state,
+            occupants: seats
+              .filter((s) => s.seat != null && s.seat >= 0)
+              .map((s) => ({ uid: s.avatarUid || '', seat: s.seat as number })),
+          })
+        }
+      }
       return
     }
     if (msg.t === 'lobby') {
@@ -404,6 +423,10 @@ function buildSession(
       broadcast({ t: 'start', state, occupants: occupantRows })
       status = state.lastMessage
       notify()
+      // Flaky guests sometimes miss the first big payload — push state again shortly.
+      window.setTimeout(() => {
+        if (!cancelled && state) broadcast({ t: 'state', state })
+      }, 1500)
       void pumpAi()
     },
     submit(move) {
