@@ -41,9 +41,23 @@ There are **no extra buttons and no Furware meshes**. The page has:
 - **This parlor** / **Network**
 - **Weekly** / **Monthly** / **Lifetime**
 
-Touching the prim is optional; the page polls JSONP. Network numbers refresh from Experience every few seconds.
+Touching the prim is optional for spectators; the page polls JSONP. Network numbers refresh from Experience every few seconds.
 
 Bump `PAGE_ASSET_REV` in `Canasta_Scoreboard.lsl` (and `HUD_PAGE_ASSET_REV` in the HUD) when Pages deploys so the panel reloads.
+
+## Admin (touch the scoreboard)
+
+| Who | Local (this parlor LSD) | Network (Experience) |
+|-----|-------------------------|----------------------|
+| **Super-user** (hard-coded UUID in the script) | Clear / remove / set | Clear / remove / set |
+| **Object owner** | Clear / remove / set | Refresh cache only — no writes |
+| Everyone else | No menu | No menu |
+
+Menus: Local or Network → game → period (or all periods) → Clear board / Remove player / Set score. Set score text box: `Name|score` or `uuid|Name|score`. Admin set/remove bypasses the normal “keep higher only” rule.
+
+## Test shouter
+
+Drop `lsl/Canasta_Score_Test.lsl` on any nearby prim (owner or super-user). Touch for sample Canasta / Hand & Foot shouts, “me” scores, or a custom `game|Name|score` line. Stay within **100 m** of the scoreboard. Remove the prim when you are done testing.
 
 ## Placement
 

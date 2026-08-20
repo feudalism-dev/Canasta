@@ -2,6 +2,7 @@
 // Drop this script on its OWN object (not the game table). Compile: Mono + same Experience as the table.
 // Media face 0 shows GitHub Pages ?view=scores. No Furware. Tabs are on the web page.
 // Listens for llShout from Canasta_Scores.lsl: CN_SCORE|c|uuid|Name|8441  (c=Canasta, h=Hand&Foot)
+// Touch (owner or super-user) opens admin menus. Super-user alone may write Experience keys.
 
 integer SCORE_CH = -18475021;
 integer MEDIA_FACE = 0;
@@ -9,6 +10,7 @@ integer MEDIA_PIXELS = 1024;
 integer PAGE_ASSET_REV = 2;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
+key SUPER_USER = "4d4e9fdc-41ae-42c3-bbc9-fc01ce159130";
 
 integer gListen = 0;
 string gCapUrl = "";
@@ -29,6 +31,16 @@ string gXpOp = "";
 integer gXpStep = 0;
 key gXpReq = NULL_KEY;
 integer gXpSaid = FALSE;
+
+integer gDlgH = 0;
+integer gDlgCh = 0;
+key gDlgAv = NULL_KEY;
+integer gDlgMode = 0;
+string gAdScope = "L";
+string gAdGame = "c";
+string gAdPeriod = "w";
+list gPickUid = [];
+list gPickNm = [];
 
 string jsonEscape(string s)
 {
@@ -80,52 +92,46 @@ string lsdKey(string game, string period)
     return "l" + game + period;
 }
 
+string gameLabel(string game)
+{
+    if (game == "h") return "Hand&Foot";
+    return "Canasta";
+}
+
+string periodLabel(string period)
+{
+    if (period == "w") return "Weekly";
+    if (period == "m") return "Monthly";
+    if (period == "a") return "All periods";
+    return "Lifetime";
+}
+
+integer isSuper(key av)
+{
+    return (av == SUPER_USER);
+}
+
+integer canAdmin(key av)
+{
+    if (av == NULL_KEY) return FALSE;
+    if (isSuper(av)) return TRUE;
+    if (av == llGetOwner()) return TRUE;
+    return FALSE;
+}
+
+integer canNetAdmin(key av)
+{
+    return isSuper(av);
+}
+
 integer hasXp()
 {
     return (llGetListLength(llGetExperienceDetails(NULL_KEY)) > 0);
 }
 
-string insertPacked(string packed, string uid, string nm, integer score)
+string packRows(list uids, list nms, list scs)
 {
-    if (uid == "" || uid == (string)NULL_KEY) return packed;
-    list uids = [];
-    list nms = [];
-    list scs = [];
-    if (packed != "")
-    {
-        list recs = llParseStringKeepNulls(packed, ["^"], []);
-        integer r;
-        integer rn = llGetListLength(recs);
-        for (r = 0; r < rn; r++)
-        {
-            list f = llParseStringKeepNulls(llList2String(recs, r), ["~"], []);
-            if (llGetListLength(f) >= 3)
-            {
-                uids += [llList2String(f, 0)];
-                nms += [llList2String(f, 1)];
-                scs += [(integer)llList2String(f, 2)];
-            }
-        }
-    }
-    integer found = -1;
-    integer i;
     integer n = llGetListLength(uids);
-    for (i = 0; i < n; i++)
-    {
-        if (llList2String(uids, i) == uid) found = i;
-    }
-    if (found >= 0)
-    {
-        nms = llListReplaceList(nms, [nm], found, found);
-        if (score > llList2Integer(scs, found)) scs = llListReplaceList(scs, [score], found, found);
-    }
-    else
-    {
-        uids += [uid];
-        nms += [nm];
-        scs += [score];
-        n += 1;
-    }
     integer a;
     integer b;
     for (a = 0; a < n; a++)
@@ -148,12 +154,132 @@ string insertPacked(string packed, string uid, string nm, integer score)
     }
     if (n > 10) n = 10;
     string out = "";
+    integer i;
     for (i = 0; i < n; i++)
     {
         if (i) out += "^";
         out += llList2String(uids, i) + "~" + llList2String(nms, i) + "~" + (string)llList2Integer(scs, i);
     }
     return out;
+}
+
+list unpackUids(string packed)
+{
+    list uids = [];
+    if (packed == "") return uids;
+    list recs = llParseStringKeepNulls(packed, ["^"], []);
+    integer r;
+    integer rn = llGetListLength(recs);
+    for (r = 0; r < rn; r++)
+    {
+        list f = llParseStringKeepNulls(llList2String(recs, r), ["~"], []);
+        if (llGetListLength(f) >= 3) uids += [llList2String(f, 0)];
+    }
+    return uids;
+}
+
+list unpackNms(string packed)
+{
+    list nms = [];
+    if (packed == "") return nms;
+    list recs = llParseStringKeepNulls(packed, ["^"], []);
+    integer r;
+    integer rn = llGetListLength(recs);
+    for (r = 0; r < rn; r++)
+    {
+        list f = llParseStringKeepNulls(llList2String(recs, r), ["~"], []);
+        if (llGetListLength(f) >= 3) nms += [llList2String(f, 1)];
+    }
+    return nms;
+}
+
+list unpackScs(string packed)
+{
+    list scs = [];
+    if (packed == "") return scs;
+    list recs = llParseStringKeepNulls(packed, ["^"], []);
+    integer r;
+    integer rn = llGetListLength(recs);
+    for (r = 0; r < rn; r++)
+    {
+        list f = llParseStringKeepNulls(llList2String(recs, r), ["~"], []);
+        if (llGetListLength(f) >= 3) scs += [(integer)llList2String(f, 2)];
+    }
+    return scs;
+}
+
+string insertPacked(string packed, string uid, string nm, integer score)
+{
+    if (uid == "" || uid == (string)NULL_KEY) return packed;
+    list uids = unpackUids(packed);
+    list nms = unpackNms(packed);
+    list scs = unpackScs(packed);
+    integer found = -1;
+    integer i;
+    integer n = llGetListLength(uids);
+    for (i = 0; i < n; i++)
+    {
+        if (llList2String(uids, i) == uid) found = i;
+    }
+    if (found >= 0)
+    {
+        nms = llListReplaceList(nms, [nm], found, found);
+        if (score > llList2Integer(scs, found)) scs = llListReplaceList(scs, [score], found, found);
+    }
+    else
+    {
+        uids += [uid];
+        nms += [nm];
+        scs += [score];
+    }
+    return packRows(uids, nms, scs);
+}
+
+string forceSetPacked(string packed, string uid, string nm, integer score)
+{
+    if (uid == "" || uid == (string)NULL_KEY) return packed;
+    list uids = unpackUids(packed);
+    list nms = unpackNms(packed);
+    list scs = unpackScs(packed);
+    integer found = -1;
+    integer i;
+    integer n = llGetListLength(uids);
+    for (i = 0; i < n; i++)
+    {
+        if (llList2String(uids, i) == uid) found = i;
+    }
+    if (found >= 0)
+    {
+        nms = llListReplaceList(nms, [nm], found, found);
+        scs = llListReplaceList(scs, [score], found, found);
+    }
+    else
+    {
+        uids += [uid];
+        nms += [nm];
+        scs += [score];
+    }
+    return packRows(uids, nms, scs);
+}
+
+string removePacked(string packed, string uid)
+{
+    if (uid == "") return packed;
+    list uids = unpackUids(packed);
+    list nms = unpackNms(packed);
+    list scs = unpackScs(packed);
+    integer found = -1;
+    integer i;
+    integer n = llGetListLength(uids);
+    for (i = 0; i < n; i++)
+    {
+        if (llList2String(uids, i) == uid) found = i;
+    }
+    if (found < 0) return packed;
+    uids = llDeleteSubList(uids, found, found);
+    nms = llDeleteSubList(nms, found, found);
+    scs = llDeleteSubList(scs, found, found);
+    return packRows(uids, nms, scs);
 }
 
 string rowsToJson(string packed)
@@ -245,6 +371,19 @@ string loadLocalPeriod(string game, string period)
     return llLinksetDataRead(lsdKey(game, period));
 }
 
+string loadNetPeriod(string game, string period)
+{
+    if (game == "h")
+    {
+        if (period == "w") return gNetHW;
+        if (period == "m") return gNetHM;
+        return gNetHL;
+    }
+    if (period == "w") return gNetCW;
+    if (period == "m") return gNetCM;
+    return gNetCL;
+}
+
 integer setNetCache(string game, string period, string packed)
 {
     if (game == "h")
@@ -321,6 +460,185 @@ integer ingest(string game, string uid, string nm, integer score)
     enqueueXp("M" + game + "l", who, label, score);
     kickXp();
     return TRUE;
+}
+
+list periodList(string period)
+{
+    if (period == "a") return ["w", "m", "l"];
+    return [period];
+}
+
+integer adminClearLocal(string game, string period)
+{
+    list ps = periodList(period);
+    integer i;
+    integer n = llGetListLength(ps);
+    for (i = 0; i < n; i++)
+    {
+        saveLocalPeriod(game, llList2String(ps, i), "");
+    }
+    return TRUE;
+}
+
+integer adminForceLocal(string game, string period, string uid, string nm, integer score)
+{
+    list ps = periodList(period);
+    integer i;
+    integer n = llGetListLength(ps);
+    for (i = 0; i < n; i++)
+    {
+        string p = llList2String(ps, i);
+        saveLocalPeriod(game, p, forceSetPacked(loadLocalPeriod(game, p), uid, nm, score));
+    }
+    return TRUE;
+}
+
+integer adminRemoveLocal(string game, string period, string uid)
+{
+    list ps = periodList(period);
+    integer i;
+    integer n = llGetListLength(ps);
+    for (i = 0; i < n; i++)
+    {
+        string p = llList2String(ps, i);
+        saveLocalPeriod(game, p, removePacked(loadLocalPeriod(game, p), uid));
+    }
+    return TRUE;
+}
+
+integer adminClearNet(string game, string period)
+{
+    list ps = periodList(period);
+    integer i;
+    integer n = llGetListLength(ps);
+    for (i = 0; i < n; i++)
+    {
+        enqueueXp("Z" + game + llList2String(ps, i), "", "", 0);
+    }
+    kickXp();
+    return TRUE;
+}
+
+integer adminForceNet(string game, string period, string uid, string nm, integer score)
+{
+    list ps = periodList(period);
+    integer i;
+    integer n = llGetListLength(ps);
+    for (i = 0; i < n; i++)
+    {
+        enqueueXp("F" + game + llList2String(ps, i), uid, nm, score);
+    }
+    kickXp();
+    return TRUE;
+}
+
+integer adminRemoveNet(string game, string period, string uid)
+{
+    list ps = periodList(period);
+    integer i;
+    integer n = llGetListLength(ps);
+    for (i = 0; i < n; i++)
+    {
+        enqueueXp("D" + game + llList2String(ps, i), uid, "", 0);
+    }
+    kickXp();
+    return TRUE;
+}
+
+string boardPackedForPick()
+{
+    string period = gAdPeriod;
+    if (period == "a") period = "l";
+    if (gAdScope == "N") return loadNetPeriod(gAdGame, period);
+    return loadLocalPeriod(gAdGame, period);
+}
+
+integer closeDlg()
+{
+    if (gDlgH) llListenRemove(gDlgH);
+    gDlgH = 0;
+    gDlgCh = 0;
+    gDlgAv = NULL_KEY;
+    gDlgMode = 0;
+    gPickUid = [];
+    gPickNm = [];
+    return TRUE;
+}
+
+integer openDlg(key av, integer mode, string title, list buttons)
+{
+    if (gDlgH) llListenRemove(gDlgH);
+    gDlgAv = av;
+    gDlgMode = mode;
+    gDlgCh = 0x80000000 | ((integer)llFrand(0x7FFFFF00) + 1);
+    gDlgH = llListen(gDlgCh, "", av, "");
+    llDialog(av, title, buttons, gDlgCh);
+    return TRUE;
+}
+
+integer openText(key av, integer mode, string title)
+{
+    if (gDlgH) llListenRemove(gDlgH);
+    gDlgAv = av;
+    gDlgMode = mode;
+    gDlgCh = 0x80000000 | ((integer)llFrand(0x7FFFFF00) + 1);
+    gDlgH = llListen(gDlgCh, "", av, "");
+    llTextBox(av, title, gDlgCh);
+    return TRUE;
+}
+
+integer showRoot(key av)
+{
+    list btns = ["Local"];
+    if (canNetAdmin(av)) btns += ["Network"];
+    btns += ["Refresh net", "Cancel"];
+    string who = "Owner";
+    if (isSuper(av)) who = "Super-user";
+    return openDlg(av, 1, "Canasta scores (" + who + ")\nLocal = this parlor LSD.\nNetwork = Experience (super only).", btns);
+}
+
+integer showGame(key av)
+{
+    string scope = "This parlor";
+    if (gAdScope == "N") scope = "Network";
+    return openDlg(av, 2, scope + " — pick game", ["Canasta", "Hand & Foot", "Back", "Cancel"]);
+}
+
+integer showPeriod(key av)
+{
+    return openDlg(av, 3, gameLabel(gAdGame) + " — pick period", ["Weekly", "Monthly", "Lifetime", "All periods", "Back", "Cancel"]);
+}
+
+integer showAction(key av)
+{
+    string scope = "Local";
+    if (gAdScope == "N") scope = "Network";
+    string t = scope + " · " + gameLabel(gAdGame) + " · " + periodLabel(gAdPeriod);
+    return openDlg(av, 4, t + "\nClear / Remove / Set score", ["Clear board", "Remove player", "Set score", "Back", "Cancel"]);
+}
+
+integer showRemove(key av)
+{
+    string packed = boardPackedForPick();
+    gPickUid = unpackUids(packed);
+    gPickNm = unpackNms(packed);
+    integer n = llGetListLength(gPickNm);
+    if (n < 1)
+    {
+        llRegionSayTo(av, 0, "Canasta scoreboard: no players on that board.");
+        return showAction(av);
+    }
+    list btns = [];
+    integer i;
+    if (n > 9) n = 9;
+    for (i = 0; i < n; i++)
+    {
+        string label = (string)(i + 1) + ". " + llList2String(gPickNm, i);
+        if (llStringLength(label) > 24) label = llGetSubString(label, 0, 23);
+        btns += [label];
+    }
+    btns += ["Back", "Cancel"];
+    return openDlg(av, 5, "Remove which player?", btns);
 }
 
 list parseQuery(string qs)
@@ -440,6 +758,170 @@ integer takeScoreChat(string msg)
     return TRUE;
 }
 
+integer handleDlg(key av, string msg)
+{
+    if (av != gDlgAv) return FALSE;
+    if (msg == "Cancel")
+    {
+        closeDlg();
+        return TRUE;
+    }
+    if (gDlgMode == 1)
+    {
+        if (msg == "Local")
+        {
+            gAdScope = "L";
+            return showGame(av);
+        }
+        if (msg == "Network")
+        {
+            if (!canNetAdmin(av))
+            {
+                llRegionSayTo(av, 0, "Canasta scoreboard: only the super-user can edit network scores.");
+                return showRoot(av);
+            }
+            gAdScope = "N";
+            return showGame(av);
+        }
+        if (msg == "Refresh net")
+        {
+            enqueueReads();
+            kickXp();
+            llRegionSayTo(av, 0, "Canasta scoreboard: refreshing network cache.");
+            closeDlg();
+            return TRUE;
+        }
+        return showRoot(av);
+    }
+    if (gDlgMode == 2)
+    {
+        if (msg == "Back") return showRoot(av);
+        if (msg == "Canasta") gAdGame = "c";
+        else if (msg == "Hand & Foot") gAdGame = "h";
+        else return showGame(av);
+        return showPeriod(av);
+    }
+    if (gDlgMode == 3)
+    {
+        if (msg == "Back") return showGame(av);
+        if (msg == "Weekly") gAdPeriod = "w";
+        else if (msg == "Monthly") gAdPeriod = "m";
+        else if (msg == "Lifetime") gAdPeriod = "l";
+        else if (msg == "All periods") gAdPeriod = "a";
+        else return showPeriod(av);
+        return showAction(av);
+    }
+    if (gDlgMode == 4)
+    {
+        if (msg == "Back") return showPeriod(av);
+        if (msg == "Clear board")
+        {
+            if (gAdScope == "N")
+            {
+                if (!canNetAdmin(av)) return closeDlg();
+                adminClearNet(gAdGame, gAdPeriod);
+                llRegionSayTo(av, 0, "Canasta scoreboard: network clear queued (" + gameLabel(gAdGame) + " / " + periodLabel(gAdPeriod) + ").");
+            }
+            else
+            {
+                adminClearLocal(gAdGame, gAdPeriod);
+                llRegionSayTo(av, 0, "Canasta scoreboard: local board cleared (" + gameLabel(gAdGame) + " / " + periodLabel(gAdPeriod) + ").");
+            }
+            closeDlg();
+            return TRUE;
+        }
+        if (msg == "Remove player") return showRemove(av);
+        if (msg == "Set score")
+        {
+            return openText(av, 6, "Set score — enter:\nName|score\nor\nuuid|Name|score\n\n" + gameLabel(gAdGame) + " · " + periodLabel(gAdPeriod));
+        }
+        return showAction(av);
+    }
+    if (gDlgMode == 5)
+    {
+        if (msg == "Back") return showAction(av);
+        integer idx = -1;
+        integer i;
+        integer n = llGetListLength(gPickNm);
+        if (n > 9) n = 9;
+        for (i = 0; i < n; i++)
+        {
+            string label = (string)(i + 1) + ". " + llList2String(gPickNm, i);
+            if (llStringLength(label) > 24) label = llGetSubString(label, 0, 23);
+            if (msg == label) idx = i;
+        }
+        if (idx < 0) return showRemove(av);
+        string uid = llList2String(gPickUid, idx);
+        string nm = llList2String(gPickNm, idx);
+        if (gAdScope == "N")
+        {
+            if (!canNetAdmin(av)) return closeDlg();
+            adminRemoveNet(gAdGame, gAdPeriod, uid);
+            llRegionSayTo(av, 0, "Canasta scoreboard: network remove queued for " + nm + ".");
+        }
+        else
+        {
+            adminRemoveLocal(gAdGame, gAdPeriod, uid);
+            llRegionSayTo(av, 0, "Canasta scoreboard: removed " + nm + " from local board.");
+        }
+        closeDlg();
+        return TRUE;
+    }
+    if (gDlgMode == 6)
+    {
+        list parts = llParseStringKeepNulls(msg, ["|"], []);
+        integer pn = llGetListLength(parts);
+        string uid = "";
+        string nm = "";
+        integer sc = 0;
+        if (pn >= 3)
+        {
+            uid = llStringTrim(llList2String(parts, 0), STRING_TRIM);
+            nm = cleanName(llList2String(parts, 1));
+            sc = (integer)llList2String(parts, 2);
+        }
+        else if (pn >= 2)
+        {
+            nm = cleanName(llList2String(parts, 0));
+            sc = (integer)llList2String(parts, 1);
+            uid = llToLower(nm);
+        }
+        else
+        {
+            llRegionSayTo(av, 0, "Canasta scoreboard: use Name|score or uuid|Name|score.");
+            return showAction(av);
+        }
+        if (nm == "" || sc < 0)
+        {
+            llRegionSayTo(av, 0, "Canasta scoreboard: bad Name/score.");
+            return showAction(av);
+        }
+        if (gAdScope == "N")
+        {
+            if (!canNetAdmin(av)) return closeDlg();
+            adminForceNet(gAdGame, gAdPeriod, uid, nm, sc);
+            llRegionSayTo(av, 0, "Canasta scoreboard: network set queued for " + nm + " = " + (string)sc + ".");
+        }
+        else
+        {
+            adminForceLocal(gAdGame, gAdPeriod, uid, nm, sc);
+            llRegionSayTo(av, 0, "Canasta scoreboard: local set " + nm + " = " + (string)sc + ".");
+        }
+        closeDlg();
+        return TRUE;
+    }
+    closeDlg();
+    return TRUE;
+}
+
+string applyWriteOp(string kind, string base)
+{
+    if (kind == "Z") return "";
+    if (kind == "D") return removePacked(base, gInUid);
+    if (kind == "F") return forceSetPacked(base, gInUid, gInName, gInScore);
+    return insertPacked(base, gInUid, gInName, gInScore);
+}
+
 default
 {
     state_entry()
@@ -452,7 +934,7 @@ default
         gMoapPending = TRUE;
         gMoapKick = 1;
         llSetTimerEvent(0.5);
-        llOwnerSay("Canasta scoreboard: MOAP face " + (string)MEDIA_FACE + ", listen " + (string)SCORE_CH + ".");
+        llOwnerSay("Canasta scoreboard: MOAP face " + (string)MEDIA_FACE + ", listen " + (string)SCORE_CH + ". Touch to admin.");
     }
 
     on_rez(integer p)
@@ -463,6 +945,17 @@ default
     changed(integer change)
     {
         if (change & CHANGED_REGION_START) llRequestSecureURL();
+    }
+
+    touch_start(integer n)
+    {
+        key av = llDetectedKey(0);
+        if (!canAdmin(av))
+        {
+            llRegionSayTo(av, 0, "Canasta scoreboard: owner or super-user only.");
+            return;
+        }
+        showRoot(av);
     }
 
     timer()
@@ -486,7 +979,12 @@ default
 
     listen(integer ch, string name, key id, string msg)
     {
-        if (ch == SCORE_CH) takeScoreChat(msg);
+        if (ch == SCORE_CH)
+        {
+            takeScoreChat(msg);
+            return;
+        }
+        if (ch == gDlgCh && id == gDlgAv) handleDlg(id, msg);
     }
 
     http_request(key id, string method, string body)
@@ -539,7 +1037,7 @@ default
             kickXp();
             return;
         }
-        if (kind != "M")
+        if (kind != "M" && kind != "F" && kind != "D" && kind != "Z")
         {
             gXpOp = "";
             kickXp();
@@ -549,7 +1047,7 @@ default
         {
             string base = "";
             if (ok) base = payload;
-            string merged = insertPacked(base, gInUid, gInName, gInScore);
+            string merged = applyWriteOp(kind, base);
             setNetCache(game, period, merged);
             if (!ok && err == XP_ERROR_KEY_NOT_FOUND)
             {
