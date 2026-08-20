@@ -137,6 +137,7 @@ integer takeBoardChunk(string payload)
 
 requestCap()
 {
+    llOwnerSay("CN HTTP: requesting secure URL retry=" + (string)gCapRetry);
     llRequestSecureURL();
 }
 
@@ -188,6 +189,12 @@ default
     link_message(integer sender, integer num, string str, key id)
     {
         if (num != HTTP_CMD) return;
+        if (str == "NEEDCAP")
+        {
+            if (gCapUrl != "") toTable("CAP|" + gCapUrl);
+            else requestCap();
+            return;
+        }
         if (llGetSubString(str, 0, 4) == "RESP|")
         {
             string rest = llGetSubString(str, 5, -1);
@@ -219,6 +226,7 @@ default
         {
             gCapUrl = body;
             gCapRetry = 0;
+            llOwnerSay("CN HTTP: URL granted len=" + (string)llStringLength(gCapUrl));
             toTable("CAP|" + gCapUrl);
             return;
         }
@@ -226,6 +234,7 @@ default
         {
             gCapUrl = "";
             gCapRetry++;
+            llOwnerSay("CN HTTP: URL denied retry=" + (string)gCapRetry);
             return;
         }
         string query = llGetHTTPHeader(id, "x-query-string");

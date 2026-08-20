@@ -428,6 +428,7 @@ integer onSit(key av, integer seat)
     gSeatAv = llListReplaceList(gSeatAv, [av], seat, seat);
     gSeatName = llListReplaceList(gSeatName, [nm], seat, seat);
     gActive = llListReplaceList(gActive, [FALSE], seat, seat);
+    if (gCapUrl == "") llMessageLinked(LINK_THIS, HTTP_CMD, "NEEDCAP", NULL_KEY);
     rezHudFor(av, seat);
     llRegionSayTo(av, 0, "Canasta: HUD attaching — wait for table lobby.");
     dbg(av, "onSit seat=" + (string)seat + " name=" + nm + " caplen=" + (string)llStringLength(gCapUrl));
@@ -778,6 +779,7 @@ default
         clearBoardStore();
         llListen(tableChannel(), "", NULL_KEY, "");
         llSetTimerEvent(2.0);
+        llMessageLinked(LINK_THIS, HTTP_CMD, "NEEDCAP", NULL_KEY);
         pushStatus();
         llOwnerSay("Canasta table ready. Free=" + (string)llGetFreeMemory()
             + " HUD inv=" + (string)llGetInventoryType(HUD_OBJECT_NAME)

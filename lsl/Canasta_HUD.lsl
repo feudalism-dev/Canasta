@@ -314,6 +314,12 @@ integer beginAttachFromHandshake(string msg)
         return TRUE;
     }
 
+    if (gPendingAttach)
+    {
+        debug("handshake ignore — attach already pending");
+        return TRUE;
+    }
+
     gPendingAttach = TRUE;
     debug("request Experience attach");
     llSetTimerEvent((float)ATTACH_WAIT_SEC);
@@ -361,6 +367,7 @@ default
         else
         {
             if (!DEBUG) llSetLinkAlpha(LINK_SET, 0.0, ALL_SIDES);
+            else llSetLinkAlpha(LINK_SET, 1.0, ALL_SIDES);
             debug("state_entry unattached id=" + (string)llGetKey());
         }
     }
@@ -370,6 +377,7 @@ default
         if (startParam == 0)
         {
             debug("on_rez startParam=0 attached=" + (string)llGetAttached());
+            llSetPrimitiveParams([PRIM_TEMP_ON_REZ, FALSE]);
             if (!llGetAttached()) llResetScript();
             return;
         }
@@ -394,7 +402,7 @@ default
         // CN_READY means no attach, and TEMP_ON_REZ then silently dies.
         gHsListen = llListen(gHsChan, "", NULL_KEY, "");
         llSetPrimitiveParams([PRIM_TEMP_ON_REZ, TRUE]);
-        if (!DEBUG) llSetLinkAlpha(LINK_SET, 0.0, ALL_SIDES);
+        llSetLinkAlpha(LINK_SET, 1.0, ALL_SIDES);
         llSetTimerEvent((float)ATTACH_WAIT_SEC);
         debug("on_rez param=" + (string)startParam + " listen=" + (string)gHsListen
             + " id=" + (string)llGetKey() + " mem=" + (string)llGetFreeMemory());
@@ -508,12 +516,12 @@ default
     {
         if (id == NULL_KEY)
         {
-            debug("detach — die");
+            debug("detach fromTable=" + (string)gFromTableRez);
             clearListens();
             gWearer = NULL_KEY;
             gPendingAttach = FALSE;
             gPendingDetach = FALSE;
-            llDie();
+            if (gFromTableRez) llDie();
             return;
         }
 
@@ -587,8 +595,17 @@ default
             return;
         }
 
-        // Keep trying hello until we have a painted session, then a few extras.
-        if (gSlCap == "" || gLastHomeUrl == "")
+        // Hello until we have sl_cap, then a few extras. Do not spam forever.
+        if (gSlCap == "" && gTableId != "")
+        {
+            if (gHelloTicks < 8)
+            {
+                gHelloTicks++;
+                sayHello();
+            }
+            llSetTimerEvent(4.0);
+        }
+        else if (gLastHomeUrl == "")
         {
             if (gTableId != "") sayHello();
             llSetTimerEvent(2.0);
