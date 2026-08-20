@@ -481,6 +481,7 @@ default
         if (!gPendingAttach) return;
         llRegionSayTo(avId, 0, "Canasta HUD auto-attach failed. Please accept attachment permissions.");
         llRequestPermissions(avId, PERMISSION_ATTACH);
+    }
 
     run_time_permissions(integer perm)
     {
