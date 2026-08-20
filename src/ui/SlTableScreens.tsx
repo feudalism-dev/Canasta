@@ -206,6 +206,9 @@ export function SlTableScreens({
   const youSeat = me?.seat ?? (boot.seat >= 0 ? boot.seat : 0)
   const myPeer = (peerSeats || []).find((s) => (s.avatarUid || '').toLowerCase() === boot.uid.toLowerCase())
   const iAmReady = !!myPeer?.ready
+  const peerLobby = peerSeats || []
+  const allPeersReady = peerLobby.length > 0 && peerLobby.every((s) => s.ready)
+  const notReadyNames = peerLobby.filter((s) => !s.ready).map((s) => s.name)
   const occupants: Occupant[] = (table?.roster || [])
     .filter((r) => r.seat >= 0)
     .map((r) => {
@@ -301,8 +304,8 @@ export function SlTableScreens({
             {showMpLobby && !rulesLocked ? (
               <p className="muted">
                 {canEditRules
-                  ? 'Change house rules here until you press Start Match — everyone in the lobby sees the summary update.'
-                  : 'Ask the host to change a setting if you want something different before Start.'}
+                  ? 'Change house rules until Start. Any change clears Ready — everyone must Ready again to accept the current pack.'
+                  : 'Ready means you accept the house rules below. Use Not ready while debating; the host can Start when everyone is Ready.'}
               </p>
             ) : null}
             <HandAndFootHouseFields
@@ -425,14 +428,19 @@ export function SlTableScreens({
                 <li key={s.id}>
                   {s.isHost ? '[Host] ' : ''}
                   {s.name}
-                  {s.ready ? ' ✓' : ''}
+                  {s.ready ? ' — Ready ✓' : ' — Not ready'}
                 </li>
               ))}
             </ul>
+            {peerLive && !allPeersReady && !rulesLocked ? (
+              <p className="muted">
+                Waiting on Ready (rules acceptance): {notReadyNames.join(', ') || 'someone'}
+              </p>
+            ) : null}
             {!peerLive && iJoined ? (
               <p className="error">
                 {seatedBrowser
-                  ? 'Peer link not connected in this browser either (network/WebRTC). You are still Joined — the host can Start Match without your Ready checkmark.'
+                  ? 'Peer link not connected — Ready cannot sync. Fix WebRTC or ask the host to wait.'
                   : 'Peer link not connected on this HUD. Use Play match in browser below.'}
               </p>
             ) : null}
@@ -476,15 +484,15 @@ export function SlTableScreens({
                 if (!peerLive) {
                   setErr(
                     seatedBrowser
-                      ? 'No peer link — Ready needs WebRTC. Stay Joined; ask the host to Start Match.'
-                      : 'No peer link — use Play match in browser, or ask the host to Start once everyone has Joined.',
+                      ? 'No peer link — Ready needs WebRTC to accept the house rules.'
+                      : 'No peer link — use Play match in browser to Ready up.',
                   )
                   return
                 }
                 onPeerReadyToggle?.(!iAmReady)
               }}
             >
-              {iAmReady ? 'Not ready' : 'Ready'}
+              {iAmReady ? 'Not ready' : 'Ready — accept these rules'}
             </button>
             {canMintBrowser ? (
               <button
@@ -518,7 +526,14 @@ export function SlTableScreens({
               <button
                 type="button"
                 className="btn primary"
+                disabled={!allPeersReady || busy}
                 onClick={async () => {
+                  if (!allPeersReady) {
+                    setErr(
+                      `Everyone must Ready first (accepts current house rules). Still waiting: ${notReadyNames.join(', ')}`,
+                    )
+                    return
+                  }
                   const sitting = (table?.roster || []).filter((r) => r.seat >= 0)
                   const notJoined = sitting.filter((r) => !r.joined)
                   if (notJoined.length) {

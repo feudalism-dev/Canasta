@@ -404,19 +404,30 @@ function buildSession(
     },
     setVariant(v) {
       if (!isHost) return
-      variant = v
+      if (v !== variant) {
+        variant = v
+        seats = seats.map((s) => ({ ...s, ready: false }))
+      }
       broadcast({ t: 'variant', variant })
       syncLobby()
     },
     setHouse(next) {
       if (!isHost) return
-      house = normalizeHouse(next)
+      const normalized = normalizeHouse(next)
+      const changed = JSON.stringify(normalized) !== JSON.stringify(house)
+      house = normalized
+      if (changed) seats = seats.map((s) => ({ ...s, ready: false }))
       broadcast({ t: 'house', house })
       syncLobby()
     },
     startMatch(tableOccupants?: Occupant[]) {
       if (!isHost) {
         status = 'Only host can start.'
+        notify()
+        return
+      }
+      if (seats.length > 0 && seats.some((s) => !s.ready)) {
+        status = 'Everyone must Ready (accept the current house rules) before Start.'
         notify()
         return
       }

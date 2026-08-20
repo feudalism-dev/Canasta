@@ -253,8 +253,7 @@ function AppInner() {
           peer?.setHouse(h)
         }}
         onHostStartMp={(tableStatus) => {
-          peer?.setVariant(variant)
-          peer?.setHouse(house)
+          // Variant/house already live on the peer from lobby edits; Ready = acceptance.
           const occupants = (tableStatus?.roster || [])
             .filter((r) => r.seat >= 0 && r.joined)
             .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid }))
