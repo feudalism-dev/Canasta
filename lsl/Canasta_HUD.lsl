@@ -136,13 +136,6 @@ integer applyMoap(integer force)
         debug("No tableId yet — waiting for CN_READY");
         return FALSE;
     }
-    // Table JSONP needs HTTP-IN; don't paint a dead session without sl_cap.
-    if (gSlCap == "")
-    {
-        gMoapPending = TRUE;
-        debug("No sl_cap yet — waiting for table HTTP-IN URL");
-        return FALSE;
-    }
 
     string client = "hud";
     if (gParked) client = "";
@@ -152,18 +145,20 @@ integer applyMoap(integer force)
     string existingUrl = llList2String(existing, 0);
     integer hasMedia = FALSE;
     if (existingUrl != "") hasMedia = TRUE;
+    integer firstPaint = FALSE;
+    if (gLastHomeUrl == "") firstPaint = TRUE;
     integer sameHome = FALSE;
     if (home == gLastHomeUrl) sameHome = TRUE;
 
     // Same session with media already up: do not cache-bust. A new &cb= plus
     // ClearPrimMedia wipes CEF while the first load is still running.
-    if (sameHome && hasMedia) return FALSE;
-    if (sameHome && !force) return FALSE;
+    if (!firstPaint && sameHome && hasMedia) return FALSE;
+    if (!firstPaint && sameHome && !force) return FALSE;
 
     string cur = home + "&cb=" + (string)llGetUnixTime();
     debug("MoAP " + llGetSubString(cur, 0, 180));
 
-    if (!sameHome && hasMedia) llClearPrimMedia(HUD_FACE);
+    if (hasMedia) llClearPrimMedia(HUD_FACE);
     llSetPrimMediaParams(HUD_FACE, [
         PRIM_MEDIA_AUTO_PLAY, TRUE,
         PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
@@ -181,6 +176,8 @@ integer applyMoap(integer force)
 
 integer pollMediaHandoff()
 {
+    // Ignore leftover inventory media until this attach has painted a session.
+    if (gLastHomeUrl == "") return FALSE;
     list existing = llGetLinkMedia(LINK_THIS, HUD_FACE, [PRIM_MEDIA_CURRENT_URL]);
     string cur = llList2String(existing, 0);
     if (cur == "") return FALSE;
@@ -262,10 +259,14 @@ integer handleReadyWhileWorn(string msg)
         debug("CN_READY uid mismatch — ignore");
         return FALSE;
     }
-    gMoapPending = FALSE;
-    // First load or real param change only — ignore periodic identical READY.
-    // Do not unpark if the wearer is playing in an external browser.
-    if (!gParked && (dirty || gLastHomeUrl == "")) applyMoap(TRUE);
+    // First paint always — a saved Play-in-Browser park flag on the inventory
+    // object must not skip llSetPrimMediaParams.
+    if (gLastHomeUrl == "")
+    {
+        applyMoap(TRUE);
+        return TRUE;
+    }
+    if (!gParked && dirty) applyMoap(TRUE);
     return TRUE;
 }
 
@@ -321,6 +322,7 @@ default
             gWearer = llGetOwner();
             gTargetAvatar = gWearer;
             gCmdListen = llListen(commandChannel(gWearer), "", NULL_KEY, "");
+            gParked = FALSE;
             gMoapPending = TRUE;
             llSetTimerEvent(3.0);
             llOwnerSay("Canasta HUD: waiting for table handshake…");
@@ -352,6 +354,10 @@ default
         gLastHomeUrl = "";
         gHelloTicks = 0;
         gResyncLeft = 0;
+        gParked = FALSE;
+        gMoapPending = FALSE;
+        gWearer = NULL_KEY;
+        llClearPrimMedia(HUD_FACE);
         gHsListen = llListen(gHsChan, "", NULL_KEY, "");
         llSetPrimitiveParams([PRIM_TEMP_ON_REZ, TRUE]);
         llSetLinkAlpha(LINK_SET, 0.0, ALL_SIDES);
@@ -515,7 +521,7 @@ default
             return;
         }
 
-        // Keep trying hello until we have sl_cap + MoAP, then a few extras.
+        // Keep trying hello until we have a painted session, then a few extras.
         if (gSlCap == "" || gLastHomeUrl == "")
         {
             if (gTableId != "") sayHello();
@@ -532,7 +538,7 @@ default
             llSetTimerEvent(4.0);
         }
 
-        if (gMoapPending && gTableId != "" && gSlCap != "")
+        if (gMoapPending && gTableId != "")
         {
             gMoapPending = FALSE;
             applyMoap(TRUE);
