@@ -29,7 +29,7 @@ const PAGES: Page[] = [
         </p>
         <ul>
           <li>Canasta draws <strong>one</strong>. Hand and Foot draws <strong>two</strong>.</li>
-          <li>A frozen pile (or any Hand and Foot pile) needs <strong>two natural cards</strong> of the top rank.</li>
+          <li>A frozen pile needs <strong>two natural cards</strong> of the top rank. Hand and Foot does too by default (house rule: require a natural pair to pick up the pile).</li>
           <li>
             An unfrozen Canasta pile can also be taken by adding the top card to a meld you already have of that
             rank — you do not need another matching card in hand.

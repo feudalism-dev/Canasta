@@ -318,6 +318,43 @@ describe('discard pile', () => {
     if (!res.ok) expect(res.error).toMatch(/Need two Jacks/)
   })
 
+  it('Hand and Foot can take onto an existing meld when the natural-pair house rule is off', () => {
+    const s = createMatch({
+      variant: 'handAndFoot',
+      names: ['A', 'B', 'C', 'D'],
+      humans: [true, false, false, false],
+      seed: 2,
+      house: { ...DEFAULT_HOUSE, requireNaturalPairToTakePile: false },
+    })
+    const top = makeCard(5, 'H', 'J', 0)
+    forceHands(
+      s,
+      [fillLow(13, 400), fillLow(13, 500), fillLow(13, 600), fillLow(13, 700)],
+      [top],
+      fillLow(20, 80),
+    )
+    s.discardFrozen = false
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      {
+        rank: 'J',
+        cards: [
+          makeCard(0, 'H', 'J', 0),
+          makeCard(0, 'D', 'J', 0),
+          makeCard(0, 'S', 'J', 0),
+          makeCard(0, 'C', 'J', 0),
+          makeCard(1, 'H', 'J', 0),
+          makeCard(1, 'D', 'J', 0),
+        ],
+        closed: false,
+      },
+    ]
+    expect(claimCardsForPile(s, 0)).toEqual([])
+    const res = tryApply(s, { kind: 'takePile', cardIds: [] }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.teams[0]!.melds[0]!.cards.map((c) => c.id)).toContain(top.id)
+  })
+
   it('still needs two naturals for a frozen pile even with that meld on the table', () => {
     const s = createMatch({ variant: 'canasta', names: ['A', 'B'], humans: [true, true], seed: 2 })
     const top = makeCard(5, 'H', 'J', 0)

@@ -8,6 +8,14 @@ type Props = {
 export function HandAndFootHouseFields({ house, onChange }: Props) {
   return (
     <>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={house.requireNaturalPairToTakePile}
+          onChange={(e) => onChange({ ...house, requireNaturalPairToTakePile: e.target.checked })}
+        />
+        Require natural pair to pick up the discard pile
+      </label>
       <label>
         Books to go out
         <select

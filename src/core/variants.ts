@@ -48,7 +48,7 @@ export function variantConfig(
     minNaturalsToStart: 2,
     minNaturalsForDirtyBook: 4,
     freezeOnWildDiscard: true,
-    takePileNeedsTwoNaturalsAlways: true,
+    takePileNeedsTwoNaturalsAlways: houseRules.requireNaturalPairToTakePile,
     redThreeReplacement: false,
     booksCloseAtSeven: true,
     requireDiscardToGoOut: houseRules.requireDiscardToGoOut,

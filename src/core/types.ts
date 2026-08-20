@@ -11,6 +11,8 @@ export type HouseRules = {
   addToClosedBooks: boolean
   /** Hand and Foot: must discard the last card to go out. */
   requireDiscardToGoOut: boolean
+  /** Hand and Foot: pile pickup always needs two naturals of the top rank. */
+  requireNaturalPairToTakePile: boolean
 }
 
 export const DEFAULT_HOUSE: HouseRules = {
@@ -20,6 +22,7 @@ export const DEFAULT_HOUSE: HouseRules = {
   partnerConsent: true,
   addToClosedBooks: false,
   requireDiscardToGoOut: true,
+  requireNaturalPairToTakePile: true,
 }
 
 export type VariantConfig = {

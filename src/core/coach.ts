@@ -48,9 +48,13 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
     const n = state.config.stockDraw
     const frozen = top && pileFrozenFor(state, playerIndex) && !pileIsStopped(state)
     const freezeNote = frozen ? ' The pile is frozen — two matching naturals, and enough points to meld.' : ''
-    return n === 1
-      ? `Your turn. Draw from the stock, or take the pile if it is legal.${freezeNote}`
-      : `Your turn. Draw two from the stock, or take the pile with two matching naturals.${freezeNote}`
+    if (n === 1) {
+      return `Your turn. Draw from the stock, or take the pile if it is legal.${freezeNote}`
+    }
+    if (state.config.takePileNeedsTwoNaturalsAlways) {
+      return `Your turn. Draw two from the stock, or take the pile with two matching naturals.${freezeNote}`
+    }
+    return `Your turn. Draw two from the stock, or take the pile if it is legal.${freezeNote}`
   }
   if (!team.hasInitialMeld) {
     return `Your turn. Need ${need} to meld. Build one or more sets in your hand — the meter counts all of them, and nothing is shown to others until you press Meld.`
@@ -123,8 +127,8 @@ function lessonFor(state: MatchState, playerIndex: number, selectedIds: string[]
     if (top && pileFrozenFor(state, playerIndex)) {
       return `Frozen piles need two natural ${rankLabel(top.rank)}s from your hand — wilds cannot substitute for the pickup.`
     }
-    if (cfg.variant === 'handAndFoot') {
-      return 'Hand and Foot always treats the pile as frozen: two matching naturals of the top rank, then draw is the other choice.'
+    if (cfg.takePileNeedsTwoNaturalsAlways) {
+      return 'This table requires two matching naturals of the top rank to take the pile. Draw is the other choice.'
     }
     return 'Draw from the stock. After you draw you may meld, then you must discard one card to end the turn.'
   }
