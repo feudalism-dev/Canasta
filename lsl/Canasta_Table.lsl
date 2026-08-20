@@ -277,8 +277,9 @@ integer sendHudDetach(key av, integer seat)
 string sendReady(key av, integer seat)
 {
     if (av == NULL_KEY || seat < 0 || seat >= MAX_SEATS) return "";
+    string nm = llDumpList2String(llParseStringKeepNulls(llList2String(gSeatName, seat), ["|"], []), " ");
     string msg = "CN_READY|" + (string)llGetKey() + "|" + (string)seat + "|"
-        + (string)av + "|" + gCapUrl + "|" + llList2String(gSeatName, seat);
+        + (string)av + "|" + gCapUrl + "|" + nm;
     llRegionSayTo(av, commandChannel(av), msg);
     return msg;
 }

@@ -218,7 +218,7 @@ integer storeReadyFields(string msg)
     key uid = (key)llList2String(p, 3);
     string cap = llList2String(p, 4);
     string nm = llList2String(p, 5);
-    if (uid != NULL_KEY)
+    if (gNameHint == "" && uid != NULL_KEY)
     {
         string dn = llGetDisplayName(uid);
         if (dn != "") nm = dn;
@@ -252,11 +252,7 @@ integer storeReadyFields(string msg)
         gSlCap = cap;
         dirty = TRUE;
     }
-    if (nm != "" && nm != gNameHint)
-    {
-        gNameHint = nm;
-        dirty = TRUE;
-    }
+    if (gNameHint == "" && nm != "") gNameHint = nm;
     return dirty;
 }
 
@@ -545,8 +541,7 @@ default
             applyMoap(TRUE);
             gResyncLeft = 1;
         }
-        // Exactly one CEF resync after first paint — never re-arms.
-        if (gResyncLeft > 0 && gTableId != "")
+        else if (gResyncLeft > 0 && gTableId != "")
         {
             gResyncLeft = 0;
             applyMoap(TRUE);
