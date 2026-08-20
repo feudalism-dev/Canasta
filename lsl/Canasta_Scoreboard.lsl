@@ -1,6 +1,7 @@
 // Canasta — parlor scoreboard CORE (LSD + Experience + MOAP + score listen).
-// Same prim as Canasta_Scoreboard_Admin.lsl. Compile: Mono + Experience.
-// Admin menus live in the Admin script (link 93001/93002).
+// Linkset: root = frame, child named "screen" (MoAP), child with Admin on "gear".
+// Drop this script on the FRAME (root). Compile: Mono + Experience.
+// Admin menus: Canasta_Scoreboard_Admin.lsl on the gear prim (link 93001/93002).
 
 integer SCORE_CH = -18475021;
 integer MEDIA_FACE = 0;
@@ -13,11 +14,13 @@ string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
 integer ADMIN_CMD = 93001;
 integer ADMIN_RSP = 93002;
+string SCREEN_NAME = "screen";
 
 string gCapUrl = "";
 string gLastHome = "";
 integer gMoapPending = FALSE;
 integer gMoapKick = 0;
+integer gScreenLink = LINK_THIS;
 string gNetCW = "";
 string gNetCM = "";
 string gNetCL = "";
@@ -45,6 +48,24 @@ requestAssetRev()
 {
     if (gRevReq != NULL_KEY) return;
     gRevReq = llHTTPRequest(WEB_URL + "asset-rev.txt", [HTTP_METHOD, "GET"], "");
+}
+
+integer findScreenLink()
+{
+    integer n = llGetObjectPrimCount(llGetKey());
+    if (n < 1) n = llGetNumberOfPrims();
+    integer i;
+    for (i = 1; i <= n; i++)
+    {
+        string nm = llToLower(llStringTrim(llGetLinkName(i), STRING_TRIM));
+        if (nm == SCREEN_NAME)
+        {
+            gScreenLink = i;
+            return i;
+        }
+    }
+    gScreenLink = LINK_THIS;
+    return LINK_THIS;
 }
 
 string jsonEscape(string s)
@@ -430,7 +451,7 @@ integer applyMoap(integer force)
     if (!force && home == gLastHome) return FALSE;
     string cur = home;
     if (force) cur = home + "&cb=" + (string)llGetUnixTime();
-    llSetPrimMediaParams(MEDIA_FACE, [
+    llSetLinkMedia(gScreenLink, MEDIA_FACE, [
         PRIM_MEDIA_AUTO_PLAY, TRUE,
         PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
         PRIM_MEDIA_CURRENT_URL, cur,
@@ -477,13 +498,13 @@ integer handleAdmin(string str, key av)
     {
         enqueueReads();
         kickXp();
-        llMessageLinked(LINK_THIS, ADMIN_RSP, "OK|refresh", av);
+        llMessageLinked(LINK_SET, ADMIN_RSP, "OK|refresh", av);
         return TRUE;
     }
     if (cmd == "LIST")
     {
         string packed = pickPacked(llList2String(p, 1), normGame(llList2String(p, 2)), llList2String(p, 3));
-        llMessageLinked(LINK_THIS, ADMIN_RSP, "LIST|" + packed, av);
+        llMessageLinked(LINK_SET, ADMIN_RSP, "LIST|" + packed, av);
         return TRUE;
     }
     string scope = llList2String(p, 1);
@@ -493,7 +514,7 @@ integer handleAdmin(string str, key av)
     {
         if (scope == "N") adminNet("Z", game, period, "", "", 0);
         else adminLocal("Z", game, period, "", "", 0);
-        llMessageLinked(LINK_THIS, ADMIN_RSP, "OK|clear", av);
+        llMessageLinked(LINK_SET, ADMIN_RSP, "OK|clear", av);
         return TRUE;
     }
     if (cmd == "REMOVE")
@@ -501,7 +522,7 @@ integer handleAdmin(string str, key av)
         string uid = llList2String(p, 4);
         if (scope == "N") adminNet("D", game, period, uid, "", 0);
         else adminLocal("D", game, period, uid, "", 0);
-        llMessageLinked(LINK_THIS, ADMIN_RSP, "OK|remove", av);
+        llMessageLinked(LINK_SET, ADMIN_RSP, "OK|remove", av);
         return TRUE;
     }
     if (cmd == "FORCE")
@@ -515,7 +536,7 @@ integer handleAdmin(string str, key av)
         if (uid == "") uid = llToLower(nm);
         if (scope == "N") adminNet("F", game, period, uid, nm, sc);
         else adminLocal("F", game, period, uid, nm, sc);
-        llMessageLinked(LINK_THIS, ADMIN_RSP, "OK|force", av);
+        llMessageLinked(LINK_SET, ADMIN_RSP, "OK|force", av);
         return TRUE;
     }
     return FALSE;
@@ -526,6 +547,7 @@ default
     state_entry()
     {
         rotateLocal();
+        findScreenLink();
         llListen(SCORE_CH, "", NULL_KEY, "");
         llRequestSecureURL();
         requestAssetRev();
@@ -534,7 +556,8 @@ default
         gMoapPending = TRUE;
         gMoapKick = 1;
         llSetTimerEvent(0.5);
-        llOwnerSay("Canasta scoreboard core ready. Free=" + (string)llGetFreeMemory());
+        llOwnerSay("Canasta scoreboard core ready. screen link=" + (string)gScreenLink
+            + " Free=" + (string)llGetFreeMemory());
     }
 
     on_rez(integer p)
@@ -544,6 +567,12 @@ default
 
     changed(integer change)
     {
+        if (change & CHANGED_LINK)
+        {
+            findScreenLink();
+            gMoapPending = TRUE;
+            llSetTimerEvent(0.5);
+        }
         if (change & CHANGED_REGION_START) llRequestSecureURL();
     }
 

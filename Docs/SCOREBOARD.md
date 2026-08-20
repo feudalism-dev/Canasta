@@ -27,27 +27,28 @@ on channel **`-18475021`**. Game code is `c` (Canasta) or `h` (Hand & Foot), tak
 
 Recompile order on the table is still Display → Http → Table; Scores can compile anytime.
 
-## Scoreboard object
+## Scoreboard object (3-prim linkset)
 
-1. Rez a **flat panel** (picture frame / wall sign). Linkset root = the media prim.
-2. Media on **face 0** (`MEDIA_FACE`). Default media size is **1024×720** (landscape) so the brass frame hugs the top-10 list — reshape the prim to roughly that aspect (wider than tall), then reset the core script so media reapplies.
-3. Drop **`lsl/Canasta_Scoreboard.lsl`** (core) and **`lsl/Canasta_Scoreboard_Admin.lsl`** (touch menus) on the same prim. Compile core **Mono + the same Experience as the table**; Admin needs Mono only.
-4. Parcel must allow that Experience (needed for Network). Local parlor scores still work without it.
-5. Whitelist `feudalism-dev.github.io` for media on the parcel.
+Recommended link order (select all, then **click the frame last** so it becomes root):
 
-There are **no extra buttons and no Furware meshes**. The page has:
+| Prim | Name (exact) | Scripts |
+|------|----------------|---------|
+| **Frame** (root) | `frame` (any name ok) | `Canasta_Scoreboard.lsl` only — Mono + Experience |
+| **Screen** (display) | **`screen`** (required) | none — Core finds this name and sets MoAP on face 0 |
+| **Gear** (admin) | `gear` (any name ok) | `Canasta_Scoreboard_Admin.lsl` — Mono |
 
-- **Canasta** / **Hand & Foot**
-- **This parlor** / **Network**
-- **Weekly** / **Monthly** / **Lifetime**
+1. Media is applied to the child named **`screen`**, face **0** (`MEDIA_FACE`). Default media size is **1024×720** (landscape). Reshape the screen prim to roughly that aspect, then reset the core script.
+2. Parcel must allow the Experience (needed for Network). Local parlor scores still work without it.
+3. Whitelist `feudalism-dev.github.io` for media on the parcel.
+4. Touch the **gear** (owner or super-user) for admin menus — not the MoAP screen.
 
-Touching the prim is optional for spectators; the page polls JSONP. Network numbers refresh from Experience every few seconds.
+The MoAP page has tabs for **Canasta** / **Hand & Foot**, **This parlor** / **Network**, and **Weekly** / **Monthly** / **Lifetime**. Spectators use the screen; admins use the gear. Network numbers refresh from Experience every few seconds.
 
-Bump `public/asset-rev.txt` when Pages deploys so MoAP reloads **without** recompiling the HUD. Script `PAGE_ASSET_REV` / `HUD_PAGE_ASSET_REV` values are fallbacks only.
+Bump `public/asset-rev.txt` when Pages deploys so MoAP reloads **without** recompiling scripts. Script `PAGE_ASSET_REV` values are fallbacks only.
 
-## Admin (touch the scoreboard prim — not the MOAP)
+## Admin (touch the gear)
 
-There is **no gear on the web display**. Touch the scoreboard object (owner or super-user). `Canasta_Scoreboard_Admin.lsl` opens `llDialog` menus and talks to the core over link `93001`/`93002`.
+`Canasta_Scoreboard_Admin.lsl` on the gear opens `llDialog` menus and talks to the core over link `93001`/`93002` (`LINK_SET`).
 
 | Who | Local (this parlor LSD) | Network (Experience) |
 |-----|-------------------------|----------------------|

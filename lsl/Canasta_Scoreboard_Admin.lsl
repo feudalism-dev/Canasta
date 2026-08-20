@@ -1,5 +1,6 @@
 // Canasta — scoreboard ADMIN menus (owner + super-user).
-// Drop in the SAME prim as Canasta_Scoreboard.lsl. Compile: Mono.
+// Drop on the GEAR prim (linked to the frame/screen). Compile: Mono.
+// Talks to Canasta_Scoreboard.lsl on the frame root via LINK_SET (93001/93002).
 // Super-user may edit Experience network boards; owner may edit local LSD only.
 
 integer ADMIN_CMD = 93001;
@@ -59,7 +60,7 @@ string cleanName(string s)
 
 toCore(string msg, key av)
 {
-    llMessageLinked(LINK_THIS, ADMIN_CMD, msg, av);
+    llMessageLinked(LINK_SET, ADMIN_CMD, msg, av);
 }
 
 integer closeDlg()
