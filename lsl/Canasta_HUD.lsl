@@ -357,7 +357,8 @@ default
         gParked = FALSE;
         gMoapPending = FALSE;
         gWearer = NULL_KEY;
-        llClearPrimMedia(HUD_FACE);
+        // Listen before any delay (ClearPrimMedia / SetPrimitiveParams). Missing
+        // CN_READY means no attach, and TEMP_ON_REZ then silently dies.
         gHsListen = llListen(gHsChan, "", NULL_KEY, "");
         llSetPrimitiveParams([PRIM_TEMP_ON_REZ, TRUE]);
         llSetLinkAlpha(LINK_SET, 0.0, ALL_SIDES);
@@ -468,6 +469,9 @@ default
 
         gWearer = id;
         llSetLinkAlpha(LINK_SET, 1.0, ALL_SIDES);
+        llClearPrimMedia(HUD_FACE);
+        gLastHomeUrl = "";
+        gParked = FALSE;
         if (gCmdListen) llListenRemove(gCmdListen);
         gCmdListen = llListen(commandChannel(gWearer), "", NULL_KEY, "");
         dropHsListen();

@@ -868,9 +868,10 @@ default
         gRezQueue = llDeleteSubList(gRezQueue, 0, 2);
         string msg = sendReady(av, seat);
         if (msg == "") return;
+        llRegionSayTo(objId, ch, msg);
         integer wasEmpty = (llGetListLength(gHudReadyQueue) == 0);
         gHudReadyQueue += [objId, ch, msg];
-        if (wasEmpty) llSetTimerEvent(0.35);
+        if (wasEmpty) llSetTimerEvent(0.6);
         if (seat >= 0 && seat < MAX_SEATS)
         {
             gHudObj = llListReplaceList(gHudObj, [objId], seat, seat);
