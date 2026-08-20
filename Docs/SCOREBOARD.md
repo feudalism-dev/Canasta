@@ -31,7 +31,7 @@ Recompile order on the table is still Display → Http → Table; Scores can com
 
 1. Rez a **flat panel** (picture frame / wall sign). Linkset root = the media prim.
 2. Media on **face 0** (`MEDIA_FACE` in the script — change it if your mesh uses another face).
-3. Drop **only** `lsl/Canasta_Scoreboard.lsl`. Compile **Mono + the same Experience as the table**.
+3. Drop **`lsl/Canasta_Scoreboard.lsl`** (core) and **`lsl/Canasta_Scoreboard_Admin.lsl`** (touch menus) on the same prim. Compile core **Mono + the same Experience as the table**; Admin needs Mono only.
 4. Parcel must allow that Experience (needed for Network). Local parlor scores still work without it.
 5. Whitelist `feudalism-dev.github.io` for media on the parcel.
 
@@ -47,9 +47,11 @@ Bump `PAGE_ASSET_REV` in `Canasta_Scoreboard.lsl` (and `HUD_PAGE_ASSET_REV` in t
 
 ## Admin (touch the scoreboard)
 
+Menus are in `Canasta_Scoreboard_Admin.lsl` (same prim as the core). Core handles storage over link `93001`/`93002`.
+
 | Who | Local (this parlor LSD) | Network (Experience) |
 |-----|-------------------------|----------------------|
-| **Super-user** (hard-coded UUID in the script) | Clear / remove / set | Clear / remove / set |
+| **Super-user** (hard-coded UUID in the Admin script) | Clear / remove / set | Clear / remove / set |
 | **Object owner** | Clear / remove / set | Refresh cache only — no writes |
 | Everyone else | No menu | No menu |
 
