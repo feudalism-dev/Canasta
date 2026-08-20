@@ -5,7 +5,7 @@ import { claimCardsForPile, getLegalMoves, initialMeldMinimum, peekDiscard, tryA
 import { sortMeldsForDisplay, teamCanastaCounts } from './melds'
 import { eventsForMove } from './displayEvents'
 import { scoreTeamHand } from './score'
-import { DEFAULT_HOUSE } from './types'
+import { DEFAULT_HOUSE } from './houseRules'
 
 function kings(n: number, start = 0): Card[] {
   const suits = ['H', 'D', 'S', 'C'] as const
@@ -321,7 +321,7 @@ describe('discard pile', () => {
 
   it('Hand and Foot can take onto an existing meld when the natural-pair house rule is off', () => {
     const s = createMatch({
-      variant: 'handAndFoot',
+      variant: 'handAndFootHouse',
       names: ['A', 'B', 'C', 'D'],
       humans: [true, false, false, false],
       seed: 2,
@@ -484,7 +484,7 @@ describe('Hand and Foot', () => {
 
   it('honors 2 clean + 2 dirty going-out toggle', () => {
     const s = createMatch({
-      variant: 'handAndFoot',
+      variant: 'handAndFootHouse',
       names: ['A', 'B'],
       humans: [true, true],
       seed: 4,
@@ -513,7 +513,7 @@ describe('Hand and Foot', () => {
 
   it('adds leftover cards to a closed book when the house rule is on', () => {
     const s = createMatch({
-      variant: 'handAndFoot',
+      variant: 'handAndFootHouse',
       names: ['A', 'B'],
       humans: [true, true],
       seed: 4,
@@ -619,7 +619,7 @@ describe('Hand and Foot', () => {
 
   it('lets Hand and Foot meld the last cards when the discard house rule is off', () => {
     const s = createMatch({
-      variant: 'handAndFoot',
+      variant: 'handAndFootHouse',
       names: ['A', 'B'],
       humans: [true, true],
       seed: 4,
@@ -670,7 +670,7 @@ describe('Hand and Foot', () => {
 
   it('still ends the hand if a partner refuses after the last cards were already melded', () => {
     const s = createMatch({
-      variant: 'handAndFoot',
+      variant: 'handAndFootHouse',
       names: ['You', 'Brass', 'Velvet', 'Lamp'],
       humans: [true, false, true, false],
       seed: 4,

@@ -65,9 +65,11 @@ Four rounds, then highest total wins. Round initial-meld minimums: **50 / 90 / 1
 
 **Deal:** 13 Hand + 13 Foot each. Foot stays face-down until picked up.
 
-**Turn:** Draw **two** from stock, or take the **entire** discard pile. By default that pickup needs **two naturals** of the top rank (the pile is treated as frozen). Uncheck the house toggle to allow Canasta-style pickup onto an existing meld. Then meld, then discard one. Going out requires that final discard unless the house toggle is off.
+**Turn:** Draw **two** from stock, or take the discard pile (**entire** pile in Pagat; House Rules may limit to top 7). By default that pickup needs **two naturals** of the top rank (the pile is treated as frozen). Uncheck the house toggle to allow Canasta-style pickup onto an existing meld. Then meld, then discard one. Going out requires that final discard unless the house toggle is off.
 
-**Red threes:** Auto-laid from Hand (and when the Foot is picked up), with a replacement draw from stock. They stay face-down in a sealed Foot until pickup. +100 if laid; **−100** each if still in an unopened Foot when the round ends.
+**Red threes (Pagat):** Auto-laid from Hand (and when the Foot is picked up), with a replacement draw from stock. They stay face-down in a sealed Foot until pickup. +100 if laid; **−100** each if still in an unopened Foot when the round ends.
+
+**House Rules Hand & Foot:** Same deal and books as Pagat, but the table owner’s saved house pack (LSD) controls red-3 autoplay/replace/scoring, black-3 deadwood, pile size (all vs top 7), and the other toggles. Hosts may tweak for one match; **Save house rules to table** writes the parlor default.
 
 **Black threes:** Stop discards. Not melded. Worth 5 (against you if left in hand).
 
@@ -83,7 +85,12 @@ House toggle: require **two clean and two dirty** instead of 1+1.
 
 **Stock empty:** Round ends; no going-out bonus.
 
-## House toggles (Hand and Foot)
+## Variants
+
+- **Pagat Hand & Foot** — fixed Pagat-style rules (full pile, red 3 auto-lay + replace, sealed-Foot −100).
+- **House Rules Hand & Foot** — same skeleton; knobs below. Table owner **Save house rules to table** stores them in LSD (`cn.hf`). Hosts can tweak per match; joiners see a summary.
+
+## House toggles (House Rules Hand & Foot)
 
 - Books to go out: 1 clean + 1 dirty (default) or 2 + 2
 - Wild books allowed (default on)
@@ -91,5 +98,8 @@ House toggle: require **two clean and two dirty** instead of 1+1.
 - Add to closed books (default off). When on, leftover matching cards may join a finished seven-card book. The book still scores as one clean or dirty canasta; extra cards count as card points.
 - Require a natural pair to pick up the discard pile (default on). When off, an unfrozen pile may be taken by adding the top card to a meld you already have, as in Classic Canasta.
 - Require a discard to go out (default on). When off, you may meld your last cards with no leftover discard, as in Classic Canasta.
+- Discard pickup: entire pile or top 7 only
+- Red 3s: autoplay on draw / on Foot open; replace from hand / on Foot open; discard freezes pile; laid score on/off + points; Hand end penalty; sealed Foot end penalty
+- Black 3s left in Hand/Foot: configurable point penalty (default 5)
 
 Classic Canasta v1 has no house toggles. Modern American Canasta is deferred.

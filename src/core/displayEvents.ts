@@ -1,5 +1,6 @@
 import { isRedThree, isWild, type MeldRank } from './cards'
 import { canastaKind } from './melds'
+import { isHandAndFoot } from './houseRules'
 import type { GameMove, MatchState } from './types'
 
 function rankPipe(rank: MeldRank | string): string {
@@ -71,7 +72,7 @@ export function eventsForMove(
     out.push(`SCORE|${next.teams[0]!.score}|${next.teams[1]!.score}|NONE|0|`)
   }
   if (next.phase === 'matchEnd') {
-    const game = next.config.variant === 'handAndFoot' ? 'h' : 'c'
+    const game = isHandAndFoot(next.config.variant) ? 'h' : 'c'
     out.push(`GAME_OVER|${seat}|${next.winnerTeam}|NONE|0|${game}`)
   }
   return out

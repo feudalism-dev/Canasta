@@ -4,7 +4,8 @@ import type { AiDifficulty } from '../ai/heuristic'
 import { createMatch } from '../core/state'
 import { fourHandRoster, type Occupant } from '../core/tableSeating'
 import { tryApply, type GameMove, type MatchState } from '../core/rules'
-import { DEFAULT_HOUSE, type HouseRules, type Variant } from '../core/types'
+import { DEFAULT_HOUSE, normalizeHouse } from '../core/houseRules'
+import type { HouseRules, Variant } from '../core/types'
 
 export type LobbySeat = {
   id: string
@@ -17,13 +18,14 @@ export type LobbySeat = {
 
 type Wire =
   | { t: 'hello'; id: string; name: string; avatarUid?: string; seat?: number }
-  | { t: 'lobby'; seats: LobbySeat[]; roomCode: string; variant: Variant }
+  | { t: 'lobby'; seats: LobbySeat[]; roomCode: string; variant: Variant; house: HouseRules }
   | { t: 'ready'; id: string; ready: boolean }
   | { t: 'start'; state: MatchState; occupants: { uid: string; seat: number }[] }
   | { t: 'state'; state: MatchState }
   | { t: 'move'; move: GameMove; playerIndex?: number }
   | { t: 'info'; message: string }
   | { t: 'variant'; variant: Variant }
+  | { t: 'house'; house: HouseRules }
 
 function roomCode(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -56,6 +58,7 @@ export type PeerSession = {
   localIndex: number
   status: string
   variant: Variant
+  house: HouseRules
   aiThinking: boolean
   onChange: (cb: () => void) => () => void
   setReady: (ready: boolean) => void
@@ -159,7 +162,7 @@ function buildSession(
       ? new Set(opts.allowedAvatarUids.map((u) => u.toLowerCase()))
       : null
   let variant: Variant = opts && 'variant' in opts && opts.variant ? opts.variant : 'canasta'
-  let house: HouseRules = opts && 'house' in opts && opts.house ? { ...DEFAULT_HOUSE, ...opts.house } : { ...DEFAULT_HOUSE }
+  let house: HouseRules = opts && 'house' in opts && opts.house ? normalizeHouse(opts.house) : { ...DEFAULT_HOUSE }
   let seats: LobbySeat[] = [
     {
       id: localId,
@@ -185,7 +188,7 @@ function buildSession(
 
   const syncLobby = () => {
     if (!isHost) return
-    broadcast({ t: 'lobby', seats, roomCode: code, variant })
+    broadcast({ t: 'lobby', seats, roomCode: code, variant, house })
     notify()
   }
 
@@ -285,12 +288,18 @@ function buildSession(
     if (msg.t === 'lobby') {
       seats = msg.seats
       variant = msg.variant
+      if (msg.house) house = normalizeHouse(msg.house)
       status = `Room ${msg.roomCode}`
       notify()
       return
     }
     if (msg.t === 'variant') {
       variant = msg.variant
+      notify()
+      return
+    }
+    if (msg.t === 'house') {
+      house = normalizeHouse(msg.house)
       notify()
       return
     }
@@ -373,6 +382,9 @@ function buildSession(
     get variant() {
       return variant
     },
+    get house() {
+      return house
+    },
     get aiThinking() {
       return aiThinking
     },
@@ -398,7 +410,9 @@ function buildSession(
     },
     setHouse(next) {
       if (!isHost) return
-      house = { ...DEFAULT_HOUSE, ...next }
+      house = normalizeHouse(next)
+      broadcast({ t: 'house', house })
+      syncLobby()
     },
     startMatch(tableOccupants?: Occupant[]) {
       if (!isHost) {

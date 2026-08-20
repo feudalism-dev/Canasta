@@ -5,7 +5,7 @@ import { readCoachTips, writeCoachTips } from './ui/coachPref'
 import { readOppTray, writeOppTray } from './ui/oppTrayPref'
 import { GameBoard } from './ui/GameBoard'
 import { HowToPlay } from './ui/HowToPlay'
-import { HandAndFootHouseFields } from './ui/HouseFields'
+import { HandAndFootHouseFields, HouseRulesPreview } from './ui/HouseFields'
 import { ParkedHud } from './ui/ParkedHud'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { Scoreboard } from './ui/Scoreboard'
@@ -16,8 +16,8 @@ import { startSolo, soloSeatCount, type LocalControllers } from './ui/localSessi
 import type { AiDifficulty } from './ai/heuristic'
 import { planPileTake } from './core/rules'
 import { cloneState } from './core/state'
+import { DEFAULT_HOUSE, isHouseRulesHandAndFoot, normalizeHouse } from './core/houseRules'
 import type { HouseRules, MatchState, Variant } from './core/types'
-import { DEFAULT_HOUSE } from './core/types'
 import { createPeerHost, joinPeerRoom, type PeerSession } from './net/peerSession'
 import { isSeatedBrowserSession, isTableHudSession, readSlBootstrap, readWebNameHint } from './sl/bootstrap'
 import { emitDisplayPipes, emitPublicBoard } from './sl/displaySync'
@@ -61,6 +61,12 @@ function AppInner() {
     if (!peer) return
     return peer.onChange(() => setTick((t) => t + 1))
   }, [peer])
+
+  useEffect(() => {
+    if (!peer || peer.isHost) return
+    setVariant(peer.variant)
+    setHouse(normalizeHouse(peer.house))
+  }, [peer, tick])
 
   useEffect(() => {
     if (!local) return
@@ -211,7 +217,10 @@ function AppInner() {
         status={status}
         setStatus={setStatus}
         variant={variant}
-        onVariant={setVariant}
+        onVariant={(v) => {
+          setVariant(v)
+          peer?.setVariant(v)
+        }}
         partnership={partnership}
         onPartnership={setPartnership}
         onStartSolo={startLocal}
@@ -239,7 +248,10 @@ function AppInner() {
           slMatchKind.current = 'mp'
         }}
         house={house}
-        onHouse={setHouse}
+        onHouse={(h) => {
+          setHouse(h)
+          peer?.setHouse(h)
+        }}
         onHostStartMp={(tableStatus) => {
           peer?.setVariant(variant)
           peer?.setHouse(house)
@@ -325,7 +337,8 @@ function AppInner() {
             Game
             <select value={variant} onChange={(e) => setVariant(e.target.value as Variant)}>
               <option value="canasta">Classic Canasta — to 5,000</option>
-              <option value="handAndFoot">Hand and Foot — 4 rounds</option>
+              <option value="handAndFoot">Pagat Hand &amp; Foot — 4 rounds</option>
+              <option value="handAndFootHouse">House Rules Hand &amp; Foot — 4 rounds</option>
             </select>
           </label>
           <label className="check">
@@ -351,7 +364,10 @@ function AppInner() {
               <option value="sharp">Sharp</option>
             </select>
           </label>
-          {variant === 'handAndFoot' ? <HandAndFootHouseFields house={house} onChange={setHouse} /> : null}
+          {variant !== 'canasta' ? <HouseRulesPreview house={house} variant={variant} /> : null}
+          {isHouseRulesHandAndFoot(variant) ? (
+            <HandAndFootHouseFields house={house} onChange={setHouse} />
+          ) : null}
           <button type="button" className="btn primary" onClick={() => void startLocal()}>
             Deal
           </button>

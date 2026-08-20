@@ -1,6 +1,7 @@
-import { cardPoints } from './cards'
+import { cardPoints, isBlackThree, isRedThree, type Card } from './cards'
+import { isHandAndFoot } from './houseRules'
 import { canastaKind, meldPoints } from './melds'
-import type { MatchState, PlayerState, TeamState } from './types'
+import type { HouseRules, MatchState, PlayerState, TeamState, Variant } from './types'
 
 export type TeamScoreBreak = {
   cardPoints: number
@@ -11,10 +12,27 @@ export type TeamScoreBreak = {
   total: number
 }
 
-export function scoreRedThrees(team: TeamState, variant: 'canasta' | 'handAndFoot', laidOnly: boolean): number {
+function deadwoodPoints(card: Card, house: HouseRules, sealedFoot: boolean): number {
+  if (isRedThree(card)) {
+    if (sealedFoot) {
+      return house.redThreeSealedFootPenalty ? house.redThreeSealedFootPenaltyPoints : 0
+    }
+    return house.redThreeHandEndPenalty ? house.redThreeHandEndPenaltyPoints : 0
+  }
+  if (isBlackThree(card)) return house.blackThreeEndPenaltyPoints
+  return cardPoints(card)
+}
+
+export function scoreRedThrees(
+  team: TeamState,
+  variant: Variant,
+  house: HouseRules,
+  laidOnly: boolean,
+): number {
   const n = team.redThrees.length
-  if (variant === 'handAndFoot') {
-    return laidOnly ? n * 100 : 0
+  if (isHandAndFoot(variant)) {
+    if (!laidOnly || !house.redThreeScoreEnabled) return 0
+    return n * house.redThreeScorePoints
   }
   if (n === 0) return 0
   const raw = n === 4 ? 800 : n * 100
@@ -29,6 +47,7 @@ export function scoreTeamHand(
 ): TeamScoreBreak {
   const team = state.teams[teamIndex]!
   const cfg = state.config
+  const house = cfg.house
   let cardPts = 0
   let canastaBonus = 0
   for (const m of team.melds) {
@@ -38,7 +57,7 @@ export function scoreTeamHand(
     else if (kind === 'mixed') canastaBonus += 300
     else if (kind === 'wild') canastaBonus += 1500
   }
-  const red = scoreRedThrees(team, cfg.variant, true)
+  const red = scoreRedThrees(team, cfg.variant, house, true)
   let goingOut = 0
   if (wentOutTeam === teamIndex) {
     goingOut = 100
@@ -50,9 +69,8 @@ export function scoreTeamHand(
   let handPenalty = 0
   for (const p of state.players) {
     if (p.team !== teamIndex) continue
-    for (const c of p.hand) handPenalty += cardPoints(c)
-    // Sealed Foot only: red 3s still here are −100 each (cardPoints). Opened Foot is empty.
-    for (const c of p.foot) handPenalty += cardPoints(c)
+    for (const c of p.hand) handPenalty += deadwoodPoints(c, house, false)
+    for (const c of p.foot) handPenalty += deadwoodPoints(c, house, true)
   }
   const total = cardPts + canastaBonus + red + goingOut - handPenalty
   return { cardPoints: cardPts, canastaBonus, redThreeScore: red, goingOut, handPenalty, total }

@@ -1,12 +1,12 @@
 import type { HouseRules, Variant, VariantConfig } from './types'
-import { DEFAULT_HOUSE } from './types'
+import { DEFAULT_HOUSE, houseForVariant, isHandAndFoot } from './houseRules'
 
-export { DEFAULT_HOUSE }
+export { DEFAULT_HOUSE } from './houseRules'
 
 export function variantConfig(
   variant: Variant,
   playerCount: number,
-  house: HouseRules = DEFAULT_HOUSE,
+  house?: Partial<HouseRules> | null,
 ): VariantConfig {
   const n = playerCount <= 2 ? 2 : 4
   if (variant === 'canasta') {
@@ -30,10 +30,10 @@ export function variantConfig(
       requireDiscardToGoOut: false,
       goingOutNeedsCanasta: true,
       concealedBonus: true,
-      house: { ...DEFAULT_HOUSE, partnerConsent: false, goingOutClean: 0, goingOutDirty: 0, wildBooksAllowed: false },
+      house: houseForVariant('canasta'),
     }
   }
-  const houseRules = { ...DEFAULT_HOUSE, ...house }
+  const houseRules = houseForVariant(variant, house)
   return {
     variant,
     deckCount: n === 2 ? 3 : 5,
@@ -49,7 +49,7 @@ export function variantConfig(
     minNaturalsForDirtyBook: 4,
     freezeOnWildDiscard: true,
     takePileNeedsTwoNaturalsAlways: houseRules.requireNaturalPairToTakePile,
-    redThreeReplacement: true,
+    redThreeReplacement: houseRules.replaceRedThreesFromHand,
     booksCloseAtSeven: true,
     requireDiscardToGoOut: houseRules.requireDiscardToGoOut,
     goingOutNeedsCanasta: false,
@@ -59,7 +59,7 @@ export function variantConfig(
 }
 
 export function initialMeldMinimum(config: VariantConfig, teamScore: number, round: number): number {
-  if (config.variant === 'handAndFoot') {
+  if (isHandAndFoot(config.variant)) {
     const table = [50, 90, 120, 150]
     const idx = Math.min(Math.max(round - 1, 0), 3)
     return table[idx] ?? 50

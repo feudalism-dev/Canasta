@@ -3,8 +3,8 @@ import type { AiDifficulty } from '../ai/heuristic'
 import { COMPUTER_NAMES } from '../core/tableSeating'
 import { createMatch } from '../core/state'
 import { tryApply } from '../core/rules'
+import { DEFAULT_HOUSE } from '../core/houseRules'
 import type { ApplyResult, GameMove, HouseRules, MatchState, Variant } from '../core/types'
-import { DEFAULT_HOUSE } from '../core/types'
 
 export type LocalControllers = {
   state: MatchState

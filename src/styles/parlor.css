@@ -173,6 +173,31 @@ label.check {
   gap: calc(0.45 * var(--rem));
 }
 
+.house-fields {
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.35 * var(--rem));
+  margin: calc(0.4 * var(--rem)) 0;
+  max-height: 40vh;
+  overflow: auto;
+  padding-right: calc(0.25 * var(--rem));
+}
+
+.house-section {
+  margin: calc(0.5 * var(--rem)) 0 0;
+  font-weight: 600;
+}
+
+.house-preview {
+  margin: calc(0.45 * var(--rem)) 0;
+  font-size: calc(0.78 * var(--rem));
+}
+
+.house-preview ul {
+  margin: calc(0.25 * var(--rem)) 0 0;
+  padding-left: calc(1.1 * var(--rem));
+}
+
 input,
 select {
   font: inherit;

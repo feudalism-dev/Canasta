@@ -1,6 +1,6 @@
 import type { Card, MeldRank } from './cards'
 
-export type Variant = 'canasta' | 'handAndFoot'
+export type Variant = 'canasta' | 'handAndFoot' | 'handAndFootHouse'
 
 export type HouseRules = {
   goingOutClean: number
@@ -13,16 +13,29 @@ export type HouseRules = {
   requireDiscardToGoOut: boolean
   /** Hand and Foot: pile pickup always needs two naturals of the top rank. */
   requireNaturalPairToTakePile: boolean
-}
-
-export const DEFAULT_HOUSE: HouseRules = {
-  goingOutClean: 1,
-  goingOutDirty: 1,
-  wildBooksAllowed: true,
-  partnerConsent: true,
-  addToClosedBooks: false,
-  requireDiscardToGoOut: true,
-  requireNaturalPairToTakePile: true,
+  /** Auto-lay red 3s from Hand on deal / stock draw / pile bury. */
+  autoplayRedThreesOnDraw: boolean
+  /** Auto-lay red 3s when the Foot is picked up. */
+  autoplayRedThreesOnFootOpen: boolean
+  /** Draw replacements when red 3s are laid from Hand (deal/draw/pile). */
+  replaceRedThreesFromHand: boolean
+  /** Draw replacements when red 3s are laid on Foot open. */
+  replaceRedThreesOnFootOpen: boolean
+  /** Discarding a red 3 onto the pile freezes it. */
+  redThreeDiscardFreezes: boolean
+  /** Laid red 3s score positive points. */
+  redThreeScoreEnabled: boolean
+  redThreeScorePoints: number
+  /** Red 3s still in Hand at round end cost points. */
+  redThreeHandEndPenalty: boolean
+  redThreeHandEndPenaltyPoints: number
+  /** Red 3s still in an unopened Foot at round end cost points. */
+  redThreeSealedFootPenalty: boolean
+  redThreeSealedFootPenaltyPoints: number
+  /** Points charged for each black 3 left in Hand or Foot. */
+  blackThreeEndPenaltyPoints: number
+  /** When true, take only the top 7 discard cards; otherwise the whole pile. */
+  takeDiscardTopSeven: boolean
 }
 
 export type VariantConfig = {

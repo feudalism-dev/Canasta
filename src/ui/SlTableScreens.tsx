@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import type { HouseRules, Variant } from '../core/types'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
-import { HandAndFootHouseFields } from './HouseFields'
+import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
 import { SeatMap } from './SeatMap'
 import type { SlBootstrap } from '../sl/bootstrap'
 import { openMatchInBrowser } from '../sl/sessionUrl'
+import {
+  decodeHouseCompact,
+  encodeHouseCompact,
+  isHandAndFoot,
+  isHouseRulesHandAndFoot,
+  normalizeHouse,
+} from '../core/houseRules'
 import {
   tableClaimBrowser,
   tableCreate,
@@ -12,6 +19,7 @@ import {
   tableJoin,
   tableLeave,
   tableMintBrowser,
+  tableSaveHouse,
   tableStart,
   tableStatus,
   type TableStatus,
@@ -87,6 +95,17 @@ export function SlTableScreens({
   const [mintBusy, setMintBusy] = useState(false)
   const enterLock = useRef(false)
   const browserClaimLock = useRef(false)
+  const loadedHouseRef = useRef('')
+
+  useEffect(() => {
+    if (!isHouseRulesHandAndFoot(variant)) return
+    const raw = table?.house || ''
+    if (!raw || raw === loadedHouseRef.current) return
+    const decoded = decodeHouseCompact(raw)
+    if (!decoded) return
+    loadedHouseRef.current = raw
+    onHouse(decoded)
+  }, [variant, table?.house, onHouse])
 
   const enterTable = async (name: string) => {
     if (!boot.slCap) throw new Error('Waiting for table HTTP-IN URL')
@@ -239,9 +258,20 @@ export function SlTableScreens({
         </label>
         <label>
           Game
-          <select value={variant} onChange={(e) => onVariant(e.target.value as Variant)}>
+          <select
+            value={variant}
+            onChange={(e) => {
+              const next = e.target.value as Variant
+              onVariant(next)
+              if (isHouseRulesHandAndFoot(next) && table?.house) {
+                const decoded = decodeHouseCompact(table.house)
+                if (decoded) onHouse(decoded)
+              }
+            }}
+          >
             <option value="canasta">Classic Canasta</option>
-            <option value="handAndFoot">Hand and Foot</option>
+            <option value="handAndFoot">Pagat Hand &amp; Foot</option>
+            <option value="handAndFootHouse">House Rules Hand &amp; Foot</option>
           </select>
         </label>
         {!seatedBrowser ? (
@@ -260,7 +290,47 @@ export function SlTableScreens({
             </label>
           </>
         ) : null}
-        {variant === 'handAndFoot' ? <HandAndFootHouseFields house={house} onChange={onHouse} /> : null}
+        {isHandAndFoot(variant) ? <HouseRulesPreview house={house} variant={variant} /> : null}
+        {isHouseRulesHandAndFoot(variant) ? (
+          <>
+            <HandAndFootHouseFields
+              house={house}
+              editable={Boolean(isPeerHost || !peerRoomCode)}
+              onChange={onHouse}
+            />
+            {table?.ownerUid && table.ownerUid.toLowerCase() === boot.uid.toLowerCase() ? (
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={busy}
+                onClick={() => {
+                  void (async () => {
+                    setBusy(true)
+                    try {
+                      const st = await tableSaveHouse(
+                        boot.slCap,
+                        boot.uid,
+                        youSeat,
+                        encodeHouseCompact(normalizeHouse(house)),
+                      )
+                      if (!st.ok) throw new Error(st.error || 'Save failed')
+                      setTable(st)
+                      setStatus('House rules saved on this table.')
+                    } catch (e) {
+                      setErr(e instanceof Error ? e.message : 'Save failed')
+                    } finally {
+                      setBusy(false)
+                    }
+                  })()
+                }}
+              >
+                Save house rules to table
+              </button>
+            ) : (
+              <p className="muted">Only the table owner can save house rules to this table.</p>
+            )}
+          </>
+        ) : null}
         <SeatMap occupants={seating} youSeat={youSeat} />
         <p className="muted">{matchup}</p>
         {!seatedBrowser ? (

@@ -10,6 +10,7 @@ import {
   planPileTake,
 } from './rules'
 import { partnerOf } from './score'
+import { isHandAndFoot } from './houseRules'
 import type { MatchState } from './types'
 
 export function whatShouldIDo(state: MatchState, playerIndex: number): string {
@@ -60,7 +61,7 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
     return `Your turn. Need ${need} to meld. Build one or more sets in your hand — the meter counts all of them, and nothing is shown to others until you press Meld.`
   }
   const books = teamCanastaCounts(team.melds, state.config.canastaSize)
-  if (state.config.variant === 'handAndFoot') {
+  if (isHandAndFoot(state.config.variant)) {
     if (!me.footPickedUp) return 'Your turn. Meld or discard. Empty your Hand to pick up the Foot.'
     const needC = state.config.house.goingOutClean
     const needD = state.config.house.goingOutDirty
@@ -173,12 +174,12 @@ function lessonFor(state: MatchState, playerIndex: number, selectedIds: string[]
     return `Tap a rank group to select it. Wilds are 2s and jokers. Several incomplete-looking sets can still add up to ${need} if each is a legal three-card meld.`
   }
 
-  if (cfg.variant === 'handAndFoot' && !me.footPickedUp) {
+  if (isHandAndFoot(cfg.variant) && !me.footPickedUp) {
     return 'Play the 13-card Hand first. Meld or discard until it is empty — then you pick up the Foot and keep going if you emptied it by melding.'
   }
 
   const books = teamCanastaCounts(team.melds, cfg.canastaSize)
-  if (cfg.variant === 'handAndFoot') {
+  if (isHandAndFoot(cfg.variant)) {
     const needC = cfg.house.goingOutClean
     const needD = cfg.house.goingOutDirty
     if (books.clean < needC || books.dirty < needD) {

@@ -24,9 +24,10 @@ import {
   validateMeldCards,
 } from './melds'
 import { partnerIndex, partnerOf, scoreTeamHand } from './score'
-import { flushRedThrees, maybePickupFoot, resetHandKeepScores } from './state'
+import { flushRedThrees, maybeAutoplayRedThreesFromHand, maybePickupFoot, resetHandKeepScores } from './state'
 import type { ApplyResult, GameMove, MatchState, Meld, TeamState } from './types'
 import { initialMeldMinimum } from './variants'
+import { isHandAndFoot } from './houseRules'
 
 export { cloneState } from './state'
 export { createMatch } from './state'
@@ -345,7 +346,7 @@ function canPlayerGoOut(state: MatchState, playerIndex: number): ApplyResult {
 function needsConsent(state: MatchState, playerIndex: number): boolean {
   const cfg = state.config
   if (!cfg.house.partnerConsent) return false
-  if (cfg.variant !== 'handAndFoot') return false
+  if (!isHandAndFoot(cfg.variant)) return false
   const mate = partnerIndex(state, playerIndex)
   if (mate < 0) return false
   return state.players[mate]!.isHuman
@@ -409,7 +410,7 @@ function applyDrawStock(state: MatchState, playerIndex: number): ApplyResult {
     const c = state.stock.shift()!
     player.hand.push(c)
   }
-  flushRedThrees(state, playerIndex, state.config.redThreeReplacement)
+  maybeAutoplayRedThreesFromHand(state, playerIndex)
   player.hand = sortHand(player.hand)
   state.phase = 'awaitingPlay'
   state.lastMessage = `${player.displayName} draws.`
@@ -425,9 +426,24 @@ function applyTakePile(state: MatchState, playerIndex: number, cardIds: string[]
   const { claimFromHand, extraMelds, rest } = check.parts
   player.hand = rest
   const pile = state.discard
-  const pileSize = pile.length
-  state.discard = []
-  state.discardFrozen = false
+  const topSeven = isHandAndFoot(state.config.variant) && state.config.house.takeDiscardTopSeven
+  let takenPile: Card[]
+  let leftPile: Card[]
+  if (topSeven && pile.length > 7) {
+    leftPile = pile.slice(0, pile.length - 7)
+    takenPile = pile.slice(pile.length - 7)
+  } else {
+    leftPile = []
+    takenPile = pile
+  }
+  const pileSize = takenPile.length
+  state.discard = leftPile
+  if (leftPile.length === 0) {
+    state.discardFrozen = false
+  } else {
+    const newTop = leftPile[leftPile.length - 1]!
+    state.discardFrozen = isWild(newTop) || isRedThree(newTop)
+  }
   layClaim(state, playerIndex, claimFromHand, top)
   for (const cards of extraMelds) {
     const rank = inferMeldRank(cards)
@@ -435,11 +451,14 @@ function applyTakePile(state: MatchState, playerIndex: number, cardIds: string[]
     const meld: Meld = closeIfNeeded({ rank, cards, closed: false }, state.config)
     state.teams[player.team]!.melds.push(meld)
   }
-  const buried = pile.filter((c) => c.id !== top.id)
+  const buried = takenPile.filter((c) => c.id !== top.id)
   player.hand.push(...buried)
-  // Classic Canasta: no replace from the pile. Hand and Foot: replace when configured.
-  const replaceFromPile = state.config.variant === 'handAndFoot' && state.config.redThreeReplacement
-  flushRedThrees(state, playerIndex, replaceFromPile)
+  // Classic Canasta: no replace from the pile. Hand and Foot: house autoplay/replace.
+  if (isHandAndFoot(state.config.variant)) {
+    maybeAutoplayRedThreesFromHand(state, playerIndex)
+  } else {
+    flushRedThrees(state, playerIndex, false)
+  }
   player.hand = sortHand(player.hand)
   state.phase = 'awaitingPlay'
   state.lastMessage = `${player.displayName} takes the pile (${pileSize}).`
@@ -627,7 +646,9 @@ function applyDiscard(state: MatchState, playerIndex: number, cardId: string): A
   const player = state.players[playerIndex]!
   const card = findCard(player.hand, cardId)
   if (!card) return { ok: false, error: 'That card is not in your hand.' }
-  if (isRedThree(card)) return { ok: false, error: 'Red threes are laid, not discarded.' }
+  if (isRedThree(card) && state.config.house.autoplayRedThreesOnDraw) {
+    return { ok: false, error: 'Red threes are laid, not discarded.' }
+  }
   const goingOut = player.hand.length === 1
   if (goingOut) {
     const able = canPlayerGoOut(state, playerIndex)
@@ -649,6 +670,7 @@ function applyDiscard(state: MatchState, playerIndex: number, cardId: string): A
   player.hand = rest
   state.discard.push(card)
   if (isWild(card) && state.config.freezeOnWildDiscard) state.discardFrozen = true
+  if (isRedThree(card) && state.config.house.redThreeDiscardFreezes) state.discardFrozen = true
   if (goingOut && player.footPickedUp && canPlayerGoOut(state, playerIndex).ok) {
     finishRound(state, playerIndex)
     return { ok: true }
@@ -751,7 +773,8 @@ export function discardIsLegal(state: MatchState, playerIndex: number, cardId: s
   if (state.phase !== 'awaitingPlay' || playerIndex !== state.currentPlayer) return false
   const player = state.players[playerIndex]!
   const card = findCard(player.hand, cardId)
-  if (!card || isRedThree(card)) return false
+  if (!card) return false
+  if (isRedThree(card) && state.config.house.autoplayRedThreesOnDraw) return false
   if (player.hand.length > 1) return true
   if (state.config.footSize > 0 && !player.footPickedUp) return true
   return canPlayerGoOut(state, playerIndex).ok

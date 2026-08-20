@@ -1,5 +1,6 @@
 import { makeCard, type Card, type MeldRank, type Rank, type Suit } from './cards'
 import { canastaKind } from './melds'
+import { isHandAndFoot } from './houseRules'
 import type { Meld, MatchState, Phase, Variant } from './types'
 import { variantConfig } from './variants'
 
@@ -188,7 +189,7 @@ export function publicBoardFromMatch(state: MatchState): PublicBoard {
 
 export function encodePublicBoard(board: PublicBoard): string {
   const live = board.live ? '1' : '0'
-  const variant = board.variant === 'handAndFoot' ? 'h' : 'c'
+  const variant = isHandAndFoot(board.variant) ? 'h' : 'c'
   const playTo = board.playTo == null ? '-' : String(board.playTo)
   const turn = board.currentSeat < 0 ? '-' : String(board.currentSeat)
   const frozen = board.frozen ? '1' : '0'

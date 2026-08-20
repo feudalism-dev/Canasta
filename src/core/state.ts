@@ -1,4 +1,5 @@
 import { buildDeck, isRedThree, isWild, sortHand, type Card } from './cards'
+import { variantLabel } from './houseRules'
 import { mulberry32, shuffleInPlace } from './rng'
 import type { HouseRules, MatchState, PlayerState, TeamState, Variant } from './types'
 import { teamOfSeat, variantConfig } from './variants'
@@ -96,11 +97,10 @@ export function dealHand(state: MatchState, forcedStock?: Card[]): void {
   state.stock = deck
   startDiscard(state)
   for (let i = 0; i < state.players.length; i++) {
-    flushRedThrees(state, i, state.config.redThreeReplacement)
+    maybeAutoplayRedThreesFromHand(state, i)
   }
-  const variantName = state.config.variant === 'canasta' ? 'Canasta' : 'Hand and Foot'
   state.phase = 'awaitingDraw'
-  state.lastMessage = `${variantName} — ${state.players[state.currentPlayer]!.displayName} draws.`
+  state.lastMessage = `${variantLabel(state.config.variant)} — ${state.players[state.currentPlayer]!.displayName} draws.`
 }
 
 function startDiscard(state: MatchState): void {
@@ -155,6 +155,13 @@ export function flushRedThrees(state: MatchState, playerIndex: number, replace: 
   return laid
 }
 
+/** Deal / draw / pile: honor autoplay + replace-from-hand. */
+export function maybeAutoplayRedThreesFromHand(state: MatchState, playerIndex: number): number {
+  const house = state.config.house
+  if (!house.autoplayRedThreesOnDraw) return 0
+  return flushRedThrees(state, playerIndex, house.replaceRedThreesFromHand)
+}
+
 export function maybePickupFoot(state: MatchState, playerIndex: number, viaDiscard: boolean): boolean {
   const player = state.players[playerIndex]!
   if (state.config.footSize === 0) return false
@@ -167,7 +174,10 @@ export function maybePickupFoot(state: MatchState, playerIndex: number, viaDisca
   player.hand = sortHand(player.foot)
   player.foot = []
   player.footPickedUp = true
-  flushRedThrees(state, playerIndex, state.config.redThreeReplacement)
+  const house = state.config.house
+  if (house.autoplayRedThreesOnFootOpen) {
+    flushRedThrees(state, playerIndex, house.replaceRedThreesOnFootOpen)
+  }
   state.lastMessage = `${player.displayName} picks up the Foot.`
   return viaDiscard
 }

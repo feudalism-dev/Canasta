@@ -51,6 +51,23 @@ string withBoard(string status)
     return llGetSubString(status, 0, n - 2) + ",\"board\":\"" + jsonEscape(gBoard) + "\"}";
 }
 
+string withHouse(string status)
+{
+    integer n = llStringLength(status);
+    if (n < 2) return status;
+    if (llGetSubString(status, n - 1, n - 1) != "}") return status;
+    string packed = llLinksetDataRead("cn.hf");
+    string owner = (string)llGetOwner();
+    return llGetSubString(status, 0, n - 2)
+        + ",\"ownerUid\":\"" + owner
+        + "\",\"house\":\"" + jsonEscape(packed) + "\"}";
+}
+
+string statusOut(string status)
+{
+    return withHouse(withBoard(status));
+}
+
 list parseQuery(string qs)
 {
     list out = [];
@@ -147,7 +164,7 @@ string mintToken()
 
 string statusWithToken(string token, integer exp)
 {
-    string j = withBoard(gLastStatus);
+    string j = statusOut(gLastStatus);
     integer n = llStringLength(j);
     if (n < 2) return "{\"ok\":false,\"error\":\"no status\"}";
     return llGetSubString(j, 0, n - 2)
@@ -233,7 +250,7 @@ finishClaim(integer seat, string room)
         failPend("token expired");
         return;
     }
-    sendJsonp(gPendHttp, gPendCb, withBoard(gLastStatus));
+    sendJsonp(gPendHttp, gPendCb, statusOut(gLastStatus));
     clearPend();
 }
 
@@ -245,7 +262,7 @@ handleHttp(key id, string query)
 
     if (action == "" || action == "status")
     {
-        sendJsonp(id, cb, withBoard(gLastStatus));
+        sendJsonp(id, cb, statusOut(gLastStatus));
         return;
     }
     if (action == "board")
@@ -259,6 +276,28 @@ handleHttp(key id, string query)
     string pname = qget(q, "name");
     string players = qget(q, "players");
     string p = qget(q, "p");
+
+    if (action == "save_house")
+    {
+        if (uid == "" || (key)uid != llGetOwner())
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"owner only\"}");
+            return;
+        }
+        if (llStringLength(p) < 8 || llStringLength(p) > 200)
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"bad house payload\"}");
+            return;
+        }
+        if (llGetSubString(p, 0, 1) != "v1")
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"bad house version\"}");
+            return;
+        }
+        llLinksetDataWrite("cn.hf", p);
+        sendJsonp(id, cb, statusOut("{\"ok\":true}"));
+        return;
+    }
 
     if (action == "mint_browser" || action == "claim_browser")
     {

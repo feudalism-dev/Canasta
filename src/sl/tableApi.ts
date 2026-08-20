@@ -18,6 +18,9 @@ export type TableStatus = {
   roomCode?: string
   hostUid?: string
   soloUid?: string
+  ownerUid?: string
+  /** Compact house-rules pipe string from table LSD. */
+  house?: string
   roster?: TableRosterEntry[]
   error?: string
   board?: string
@@ -128,14 +131,10 @@ export async function tableClaimBrowser(
   return jsonpTable(slCap, { action: 'claim_browser', uid, seat, p: token })
 }
 
-export async function tableEvent(
-  slCap: string,
-  uid: string,
-  seat: number,
-  pipePayload: string,
-): Promise<TableStatus> {
-  return jsonpTable(slCap, { action: 'event', uid, seat, p: pipePayload })
+export async function tableSaveHouse(slCap: string, uid: string, seat: number, compact: string): Promise<TableStatus> {
+  return jsonpTable(slCap, { action: 'save_house', uid, seat, p: compact })
 }
+
 
 const BOARD_CHUNK = 160
 

@@ -127,7 +127,7 @@ export function SpectatorTable({ slCap }: Props) {
 
   const config = spectatorConfig(board)
   const variant = board.variant === 'canasta' ? 'Canasta' : 'Hand & Foot'
-  const roundLine = board.variant === 'handAndFoot' ? `R${board.round}/4` : board.playTo ? `to ${board.playTo}` : ''
+  const roundLine = board.variant === 'canasta' ? (board.playTo ? `to ${board.playTo}` : '') : `R${board.round}/4`
   const top = board.top ? { id: 'spec-top', rank: board.top.rank, suit: board.top.suit } : null
   const sideways = Boolean(top && (isWild(top) || board.frozen))
 
