@@ -177,7 +177,7 @@ integer applyMoap(integer force)
         + " parked=" + (string)gParked + " " + llGetSubString(cur, 0, 140));
 
     if (hasMedia) llClearPrimMedia(HUD_FACE);
-    list st = llSetPrimMediaParams(HUD_FACE, [
+    integer st = llSetPrimMediaParams(HUD_FACE, [
         PRIM_MEDIA_AUTO_PLAY, TRUE,
         PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
         PRIM_MEDIA_CURRENT_URL, cur,
@@ -188,7 +188,7 @@ integer applyMoap(integer force)
         PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_OWNER,
         PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_OWNER
     ]);
-    debug("MoAP status=" + llDumpList2String(st, ","));
+    debug("MoAP status=" + (string)st);
     gLastHomeUrl = home;
     return TRUE;
 }
