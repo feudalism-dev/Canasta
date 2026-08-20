@@ -19,7 +19,6 @@ string SCREEN_NAME = "screen";
 string gCapUrl = "";
 string gLastHome = "";
 integer gMoapPending = FALSE;
-integer gMoapKick = 0;
 integer gScreenLink = LINK_THIS;
 string gNetCW = "";
 string gNetCM = "";
@@ -448,9 +447,22 @@ integer applyMoap(integer force)
 {
     string home = WEB_URL + "?view=scores&uid=board&rev=" + (string)effectiveRev();
     if (gCapUrl != "") home += "&sl_cap=" + llEscapeURL(gCapUrl);
-    if (!force && home == gLastHome) return FALSE;
-    string cur = home;
-    if (force) cur = home + "&cb=" + (string)llGetUnixTime();
+
+    list existing = llGetLinkMedia(gScreenLink, MEDIA_FACE, [PRIM_MEDIA_CURRENT_URL]);
+    string existingUrl = llList2String(existing, 0);
+    integer hasMedia = FALSE;
+    if (existingUrl != "") hasMedia = TRUE;
+    integer firstPaint = FALSE;
+    if (gLastHome == "") firstPaint = TRUE;
+    integer sameHome = FALSE;
+    if (home == gLastHome) sameHome = TRUE;
+
+    // Do not ClearPrimMedia / do not rewrite CURRENT_URL when home is unchanged —
+    // repeated SetLinkMedia with a new &cb= kills CEF and leaves a white face.
+    if (!firstPaint && sameHome && hasMedia && !force) return FALSE;
+    if (!firstPaint && sameHome && hasMedia && force) return FALSE;
+
+    string cur = home + "&cb=" + (string)llGetUnixTime();
     llSetLinkMedia(gScreenLink, MEDIA_FACE, [
         PRIM_MEDIA_AUTO_PLAY, TRUE,
         PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
@@ -554,7 +566,6 @@ default
         enqueueReads();
         kickXp();
         gMoapPending = TRUE;
-        gMoapKick = 1;
         llSetTimerEvent(0.5);
         llOwnerSay("Canasta scoreboard core ready. screen link=" + (string)gScreenLink
             + " Free=" + (string)llGetFreeMemory());
@@ -569,9 +580,14 @@ default
     {
         if (change & CHANGED_LINK)
         {
+            integer prev = gScreenLink;
             findScreenLink();
-            gMoapPending = TRUE;
-            llSetTimerEvent(0.5);
+            if (gScreenLink != prev)
+            {
+                gLastHome = "";
+                gMoapPending = TRUE;
+                llSetTimerEvent(0.5);
+            }
         }
         if (change & CHANGED_REGION_START) llRequestSecureURL();
     }
@@ -581,14 +597,7 @@ default
         if (gMoapPending)
         {
             gMoapPending = FALSE;
-            applyMoap(TRUE);
-            if (gMoapKick > 0)
-            {
-                gMoapKick = 0;
-                gMoapPending = TRUE;
-                llSetTimerEvent(1.5);
-                return;
-            }
+            applyMoap(FALSE);
             llSetTimerEvent(TIMER_SEC);
         }
         if (gXpOp == "" && llGetListLength(gXpQ) == 0) enqueueReads();
@@ -626,10 +635,13 @@ default
     {
         if (method == URL_REQUEST_GRANTED)
         {
+            string prev = gCapUrl;
             gCapUrl = body;
-            gMoapPending = TRUE;
-            gMoapKick = 1;
-            llSetTimerEvent(0.5);
+            if (gCapUrl != prev)
+            {
+                gMoapPending = TRUE;
+                llSetTimerEvent(0.5);
+            }
             llOwnerSay("Canasta scoreboard: HTTP-IN ready.");
             return;
         }
