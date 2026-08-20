@@ -253,7 +253,7 @@ If a guest’s HUD had already joined PeerJS, parking the HUD should `destroy()`
 
 | Area | Files |
 |------|--------|
-| LSL | `Canasta_Table.lsl` (+ maybe Http forward already generic) |
+| LSL | `Canasta_Table.lsl` (gate only); `Canasta_Http.lsl` (tokens + JSONP) |
 | API | `src/sl/tableApi.ts` |
 | Bootstrap / URL | `src/sl/bootstrap.ts`, `sessionUrl.ts`, tests |
 | App / UI | `App.tsx`, `SlTableScreens.tsx`, `AppChrome.tsx`, `ParkedHud.tsx` |

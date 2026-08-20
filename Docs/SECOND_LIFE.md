@@ -6,7 +6,7 @@
 |--------|------|
 | **AVsitter** | Sit poses only (`90070` / `90065`). Does **not** attach the HUD. |
 | **Table LSL** | Roster, **rezzes HUD**, one-game lock, display reset handshake |
-| **Http LSL** | HTTP-IN JSONP + spectator board snapshot (same root prim as Table) |
+| **Http LSL** | HTTP-IN JSONP + spectator board snapshot + guest browser mint tokens (same root prim as Table) |
 | **Display LSL** | Furware seat lines (`text0`–`text3`) + table-top spectator MOAP |
 | **Bots LSL** | Linked prims `bot1`–`bot4`: show computer seats, hide the rest |
 | **HUD LSL** | Experience **temp-attach** → set MOAP URL (Pages) |
@@ -77,8 +77,8 @@ Query params: `action`, `cb`, `uid`, `name`, `seat`, plus action-specific fields
 | `create` | Mint room code; caller = host; table → lobby |
 | `join` | Join open lobby |
 | `start` | Host starts MP (need ≥2 joined) |
-| `mint_browser` | Guest (joined, not host): mint one-time browser match token (~10 min) |
-| `claim_browser` | External browser redeems `p=<token>` while still seated/Active/Joined |
+| `mint_browser` | Guest (joined, not host): Http mints one-time browser token after Table gate check |
+| `claim_browser` | External browser redeems `p=<token>` (Http validates; Table gates seated/joined) |
 | `event` | Display bus: pipe payload in `p=` (see `TABLE_DISPLAY.md`) |
 
 Response shape: `callback({ ok, ... });`

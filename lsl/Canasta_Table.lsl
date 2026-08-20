@@ -35,12 +35,6 @@ key gSoloUid = NULL_KEY;
 key gHostUid = NULL_KEY;
 string gRoomCode = "";
 list gJoined = [];
-// Per-seat guest browser mint: token, expiry unix, used flag, claimed flag
-list gBrowserTok = [];
-list gBrowserExp = [];
-list gBrowserUsed = [];
-list gBrowserClaimed = [];
-integer BROWSER_TOKEN_TTL = 600;
 
 key gPendingHttp = NULL_KEY;
 string gPendingCb = "";
@@ -73,32 +67,7 @@ integer initSeats()
     gSeatName = ["", "", "", ""];
     gActive = [FALSE, FALSE, FALSE, FALSE];
     gHudObj = [NULL_KEY, NULL_KEY, NULL_KEY, NULL_KEY];
-    gBrowserTok = ["", "", "", ""];
-    gBrowserExp = [0, 0, 0, 0];
-    gBrowserUsed = [FALSE, FALSE, FALSE, FALSE];
-    gBrowserClaimed = [FALSE, FALSE, FALSE, FALSE];
     return TRUE;
-}
-
-clearBrowserSeat(integer seat)
-{
-    if (seat < 0 || seat >= MAX_SEATS) return;
-    gBrowserTok = llListReplaceList(gBrowserTok, [""], seat, seat);
-    gBrowserExp = llListReplaceList(gBrowserExp, [0], seat, seat);
-    gBrowserUsed = llListReplaceList(gBrowserUsed, [FALSE], seat, seat);
-    gBrowserClaimed = llListReplaceList(gBrowserClaimed, [FALSE], seat, seat);
-}
-
-clearAllBrowserTokens()
-{
-    integer i;
-    for (i = 0; i < MAX_SEATS; i++) clearBrowserSeat(i);
-}
-
-string mintToken()
-{
-    string k = (string)llGenerateKey();
-    return llToLower(llDumpList2String(llParseString2List(k, ["-"], []), ""));
 }
 
 integer seatOf(key av)
@@ -178,8 +147,7 @@ string rosterJson()
             + ",\"uid\":\"" + (string)av
             + "\",\"name\":\"" + jsonEscape(llList2String(gSeatName, i))
             + "\",\"active\":" + llList2String(["false", "true"], llList2Integer(gActive, i))
-            + ",\"joined\":" + llList2String(["false", "true"], isJoined(av))
-            + ",\"browserClaimed\":" + llList2String(["false", "true"], llList2Integer(gBrowserClaimed, i)) + "}";
+            + ",\"joined\":" + llList2String(["false", "true"], isJoined(av)) + "}";
         @cont;
     }
     return s + "]";
@@ -225,20 +193,6 @@ okReq(key httpId, string cb)
     httpResp(httpId, cb, statusJson(TRUE, ""));
 }
 
-okMint(key httpId, string cb, string token, integer exp)
-{
-    string j = statusJson(TRUE, "");
-    integer n = llStringLength(j);
-    if (n < 2)
-    {
-        failReq(httpId, cb, "mint failed");
-        return;
-    }
-    httpResp(httpId, cb, llGetSubString(j, 0, n - 2)
-        + ",\"token\":\"" + jsonEscape(token)
-        + "\",\"exp\":" + (string)exp + "}");
-}
-
 clearBoardStore()
 {
     llMessageLinked(LINK_THIS, HTTP_CMD, "BCLR|", NULL_KEY);
@@ -267,7 +221,7 @@ integer beginTrackReset(integer clearLock)
         gHostUid = NULL_KEY;
         gRoomCode = "";
         gJoined = [];
-        clearAllBrowserTokens();
+        llMessageLinked(LINK_THIS, HTTP_CMD, "BCLEAR|", NULL_KEY);
     }
     gMode = MODE_RESETTING;
     gResetDeadline = llGetUnixTime() + RESET_TIMEOUT_SEC;
@@ -378,7 +332,7 @@ integer releaseGameLock()
         gHostUid = NULL_KEY;
         gRoomCode = "";
         gJoined = [];
-        clearAllBrowserTokens();
+        llMessageLinked(LINK_THIS, HTTP_CMD, "BCLEAR|", NULL_KEY);
         return TRUE;
     }
     beginTrackReset(TRUE);
@@ -391,7 +345,7 @@ integer forfeitAvatar(key av)
     if (seat >= 0)
     {
         gActive = llListReplaceList(gActive, [FALSE], seat, seat);
-        clearBrowserSeat(seat);
+        llMessageLinked(LINK_THIS, HTTP_CMD, "BCLEAR|" + (string)seat, NULL_KEY);
     }
     integer j = llListFindList(gJoined, [av]);
     if (j >= 0) gJoined = llDeleteSubList(gJoined, j, j);
@@ -555,7 +509,7 @@ integer finishReset()
     }
     if (action == "create")
     {
-        clearAllBrowserTokens();
+        llMessageLinked(LINK_THIS, HTTP_CMD, "BCLEAR|", NULL_KEY);
         gMode = MODE_LOBBY;
         gHostUid = uid;
         gSoloUid = NULL_KEY;
@@ -576,7 +530,7 @@ integer finishReset()
     gHostUid = NULL_KEY;
     gRoomCode = "";
     gJoined = [];
-    clearAllBrowserTokens();
+    llMessageLinked(LINK_THIS, HTTP_CMD, "BCLEAR|", NULL_KEY);
     clearBoardStore();
     pushStatus();
     return TRUE;
@@ -766,88 +720,6 @@ handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, s
         beginTrackReset(FALSE);
         return;
     }
-    if (action == "mint_browser")
-    {
-        integer seat = requireSeatedActive(uid, seatHint);
-        if (seat < 0)
-        {
-            failReq(httpId, cb, "must be seated and active");
-            return;
-        }
-        if (gMode != MODE_LOBBY && gMode != MODE_MATCH)
-        {
-            failReq(httpId, cb, "no open match");
-            return;
-        }
-        if (uid == gHostUid)
-        {
-            failReq(httpId, cb, "host must play in HUD");
-            return;
-        }
-        if (!isJoined(uid))
-        {
-            failReq(httpId, cb, "join the room first");
-            return;
-        }
-        if (gRoomCode == "")
-        {
-            failReq(httpId, cb, "no room code");
-            return;
-        }
-        string token = mintToken();
-        integer exp = llGetUnixTime() + BROWSER_TOKEN_TTL;
-        gBrowserTok = llListReplaceList(gBrowserTok, [token], seat, seat);
-        gBrowserExp = llListReplaceList(gBrowserExp, [exp], seat, seat);
-        gBrowserUsed = llListReplaceList(gBrowserUsed, [FALSE], seat, seat);
-        gBrowserClaimed = llListReplaceList(gBrowserClaimed, [FALSE], seat, seat);
-        okMint(httpId, cb, token, exp);
-        return;
-    }
-    if (action == "claim_browser")
-    {
-        integer seat = seatOf(uid);
-        if (seat < 0)
-        {
-            failReq(httpId, cb, "not seated");
-            return;
-        }
-        if (requireSeatedActive(uid, seatHint) < 0)
-        {
-            failReq(httpId, cb, "must be seated and active");
-            return;
-        }
-        if (uid == gHostUid)
-        {
-            failReq(httpId, cb, "host must play in HUD");
-            return;
-        }
-        if (!isJoined(uid))
-        {
-            failReq(httpId, cb, "join the room first");
-            return;
-        }
-        string token = llStringTrim(payload, STRING_TRIM);
-        token = llDumpList2String(llParseStringKeepNulls(token, ["%7C"], []), "|");
-        if (token == "")
-        {
-            failReq(httpId, cb, "token required");
-            return;
-        }
-        if (llToLower(token) != llList2String(gBrowserTok, seat))
-        {
-            failReq(httpId, cb, "bad token");
-            return;
-        }
-        if (llGetUnixTime() > llList2Integer(gBrowserExp, seat))
-        {
-            failReq(httpId, cb, "token expired");
-            return;
-        }
-        gBrowserUsed = llListReplaceList(gBrowserUsed, [TRUE], seat, seat);
-        gBrowserClaimed = llListReplaceList(gBrowserClaimed, [TRUE], seat, seat);
-        okReq(httpId, cb);
-        return;
-    }
     if (action == "event")
     {
         payload = llDumpList2String(llParseStringKeepNulls(payload, ["%7C"], []), "|");
@@ -880,6 +752,39 @@ handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, s
     failReq(httpId, cb, "unknown action");
 }
 
+// Http asks before mint/claim: BGATE|op|uid|seatHint  →  BGATEOK|op|seat|room  or BGATEFAIL|err
+gateBrowser(string op, key uid, integer seatHint)
+{
+    integer seat = requireSeatedActive(uid, seatHint);
+    if (seat < 0)
+    {
+        llMessageLinked(LINK_THIS, HTTP_CMD, "BGATEFAIL|must be seated and active", NULL_KEY);
+        return;
+    }
+    if (gMode != MODE_LOBBY && gMode != MODE_MATCH)
+    {
+        llMessageLinked(LINK_THIS, HTTP_CMD, "BGATEFAIL|no open match", NULL_KEY);
+        return;
+    }
+    if (uid == gHostUid)
+    {
+        llMessageLinked(LINK_THIS, HTTP_CMD, "BGATEFAIL|host must play in HUD", NULL_KEY);
+        return;
+    }
+    if (!isJoined(uid))
+    {
+        llMessageLinked(LINK_THIS, HTTP_CMD, "BGATEFAIL|join the room first", NULL_KEY);
+        return;
+    }
+    if (gRoomCode == "")
+    {
+        llMessageLinked(LINK_THIS, HTTP_CMD, "BGATEFAIL|no room code", NULL_KEY);
+        return;
+    }
+    llMessageLinked(LINK_THIS, HTTP_CMD,
+        "BGATEOK|" + op + "|" + (string)seat + "|" + gRoomCode, NULL_KEY);
+}
+
 default
 {
     state_entry()
@@ -891,7 +796,6 @@ default
         gHostUid = NULL_KEY;
         gRoomCode = "";
         gJoined = [];
-        clearAllBrowserTokens();
         clearBoardStore();
         llListen(tableChannel(), "", NULL_KEY, "");
         llSetTimerEvent(2.0);
@@ -925,6 +829,16 @@ default
                 sendDisplayCap();
                 announceAllSeated();
                 pushStatus();
+                return;
+            }
+            if (llGetSubString(str, 0, 5) == "BGATE|")
+            {
+                list gp = llParseStringKeepNulls(str, ["|"], []);
+                string op = llList2String(gp, 1);
+                key uid = (key)llList2String(gp, 2);
+                integer seatHint = -1;
+                if (llList2String(gp, 3) != "") seatHint = (integer)llList2String(gp, 3);
+                gateBrowser(op, uid, seatHint);
                 return;
             }
             if (llGetSubString(str, 0, 3) == "REQ|")

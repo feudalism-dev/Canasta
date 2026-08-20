@@ -1,18 +1,23 @@
 // Canasta — HTTP-IN JSONP front door
 // Drop in the SAME prim as Canasta_Table.lsl (root / AVsitter).
 // Compile: Mono. See Docs/SECOND_LIFE.md
-// Owns the spectator board snapshot so Table stays under the Mono heap cap.
+// Owns spectator board snapshot + guest browser mint tokens (keeps Table under Mono heap).
 //
 // Http ↔ Table: HTTP_CMD = 92001
 //   Http → Table: REQ|httpId|cb|action|uid|seat|name|players|p
 //   Http → Table: CAP|url
+//   Http → Table: BGATE|op|uid|seatHint   (mint/claim gate)
 //   Table → Http: RESP|cb|json   (id = http request key)
 //   Table → Http: STATUS|json
-//   Table → Http: BOARD|i|n|chunk   (assemble snapshot)
+//   Table → Http: BOARD|i|n|chunk
 //   Table → Http: BCLR|
+//   Table → Http: BCLEAR| or BCLEAR|seat
+//   Table → Http: BGATEOK|op|seat|roomCode  /  BGATEFAIL|err
 
 integer HTTP_CMD = 92001;
 float CAP_RETRY_SEC = 6.0;
+integer MAX_SEATS = 4;
+integer BROWSER_TOKEN_TTL = 600;
 
 string gCapUrl = "";
 integer gCapRetry = 0;
@@ -21,6 +26,15 @@ string gBoard = "";
 string gBoardAcc = "";
 integer gBoardNext = 0;
 integer gBoardTot = 0;
+
+list gBrowserTok = [];
+list gBrowserExp = [];
+
+key gPendHttp = NULL_KEY;
+string gPendCb = "";
+string gPendOp = "";
+key gPendUid = NULL_KEY;
+string gPendToken = "";
 
 string jsonEscape(string s)
 {
@@ -97,6 +111,50 @@ clearBoard()
     gBoardTot = 0;
 }
 
+initBrowser()
+{
+    gBrowserTok = ["", "", "", ""];
+    gBrowserExp = [0, 0, 0, 0];
+}
+
+clearBrowserSeat(integer seat)
+{
+    if (seat < 0 || seat >= MAX_SEATS) return;
+    gBrowserTok = llListReplaceList(gBrowserTok, [""], seat, seat);
+    gBrowserExp = llListReplaceList(gBrowserExp, [0], seat, seat);
+}
+
+clearAllBrowser()
+{
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++) clearBrowserSeat(i);
+}
+
+clearPend()
+{
+    gPendHttp = NULL_KEY;
+    gPendCb = "";
+    gPendOp = "";
+    gPendUid = NULL_KEY;
+    gPendToken = "";
+}
+
+string mintToken()
+{
+    string k = (string)llGenerateKey();
+    return llToLower(llDumpList2String(llParseString2List(k, ["-"], []), ""));
+}
+
+string statusWithToken(string token, integer exp)
+{
+    string j = withBoard(gLastStatus);
+    integer n = llStringLength(j);
+    if (n < 2) return "{\"ok\":false,\"error\":\"no status\"}";
+    return llGetSubString(j, 0, n - 2)
+        + ",\"token\":\"" + jsonEscape(token)
+        + "\",\"exp\":" + (string)exp + "}";
+}
+
 integer takeBoardChunk(string payload)
 {
     list bp = llParseStringKeepNulls(payload, ["|"], []);
@@ -140,6 +198,45 @@ requestCap()
     llRequestSecureURL();
 }
 
+failPend(string err)
+{
+    if (gPendHttp == NULL_KEY) return;
+    sendJsonp(gPendHttp, gPendCb, "{\"ok\":false,\"error\":\"" + jsonEscape(err) + "\"}");
+    clearPend();
+}
+
+finishMint(integer seat, string room)
+{
+    string token = mintToken();
+    integer exp = llGetUnixTime() + BROWSER_TOKEN_TTL;
+    gBrowserTok = llListReplaceList(gBrowserTok, [token], seat, seat);
+    gBrowserExp = llListReplaceList(gBrowserExp, [exp], seat, seat);
+    sendJsonp(gPendHttp, gPendCb, statusWithToken(token, exp));
+    clearPend();
+}
+
+finishClaim(integer seat, string room)
+{
+    string want = llToLower(llStringTrim(gPendToken, STRING_TRIM));
+    if (want == "")
+    {
+        failPend("token required");
+        return;
+    }
+    if (want != llList2String(gBrowserTok, seat))
+    {
+        failPend("bad token");
+        return;
+    }
+    if (llGetUnixTime() > llList2Integer(gBrowserExp, seat))
+    {
+        failPend("token expired");
+        return;
+    }
+    sendJsonp(gPendHttp, gPendCb, withBoard(gLastStatus));
+    clearPend();
+}
+
 handleHttp(key id, string query)
 {
     list q = parseQuery(query);
@@ -162,6 +259,28 @@ handleHttp(key id, string query)
     string pname = qget(q, "name");
     string players = qget(q, "players");
     string p = qget(q, "p");
+
+    if (action == "mint_browser" || action == "claim_browser")
+    {
+        if (gPendHttp != NULL_KEY)
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"busy\"}");
+            return;
+        }
+        if (uid == "")
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"uid required\"}");
+            return;
+        }
+        gPendHttp = id;
+        gPendCb = cb;
+        gPendOp = action;
+        gPendUid = (key)uid;
+        gPendToken = p;
+        toTable("BGATE|" + action + "|" + uid + "|" + seat);
+        return;
+    }
+
     p = llDumpList2String(llParseStringKeepNulls(p, ["|"], []), "%7C");
     toTable("REQ|" + (string)id + "|" + cb + "|" + action + "|" + uid + "|" + seat + "|" + pname + "|" + players + "|" + p);
 }
@@ -170,9 +289,11 @@ default
 {
     state_entry()
     {
+        initBrowser();
+        clearPend();
         requestCap();
         llSetTimerEvent(CAP_RETRY_SEC);
-        llOwnerSay("Canasta HTTP ready.");
+        llOwnerSay("Canasta HTTP ready. Free=" + (string)llGetFreeMemory());
     }
 
     on_rez(integer p)
@@ -216,6 +337,31 @@ default
         if (llGetSubString(str, 0, 4) == "BCLR|")
         {
             clearBoard();
+            return;
+        }
+        if (llGetSubString(str, 0, 6) == "BCLEAR|")
+        {
+            string rest = llGetSubString(str, 7, -1);
+            if (rest == "") clearAllBrowser();
+            else clearBrowserSeat((integer)rest);
+            return;
+        }
+        if (llGetSubString(str, 0, 7) == "BGATEOK|")
+        {
+            list gp = llParseStringKeepNulls(str, ["|"], []);
+            string op = llList2String(gp, 1);
+            integer seat = (integer)llList2String(gp, 2);
+            string room = llList2String(gp, 3);
+            if (gPendHttp == NULL_KEY) return;
+            if (op == "mint_browser") finishMint(seat, room);
+            else if (op == "claim_browser") finishClaim(seat, room);
+            else failPend("bad gate op");
+            return;
+        }
+        if (llGetSubString(str, 0, 9) == "BGATEFAIL|")
+        {
+            failPend(llGetSubString(str, 10, -1));
+            return;
         }
     }
 
