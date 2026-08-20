@@ -135,6 +135,14 @@ export async function tableSaveHouse(slCap: string, uid: string, seat: number, c
   return jsonpTable(slCap, { action: 'save_house', uid, seat, p: compact })
 }
 
+export async function tableEvent(
+  slCap: string,
+  uid: string,
+  seat: number,
+  pipePayload: string,
+): Promise<TableStatus> {
+  return jsonpTable(slCap, { action: 'event', uid, seat, p: pipePayload })
+}
 
 const BOARD_CHUNK = 160
 

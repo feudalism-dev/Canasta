@@ -1,5 +1,5 @@
 import type { HouseRules, Variant, VariantConfig } from './types'
-import { DEFAULT_HOUSE, houseForVariant, isHandAndFoot } from './houseRules'
+import { houseForVariant, isHandAndFoot } from './houseRules'
 
 export { DEFAULT_HOUSE } from './houseRules'
 
