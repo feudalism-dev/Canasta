@@ -8,7 +8,6 @@ import { openMatchInBrowser } from '../sl/sessionUrl'
 import {
   decodeHouseCompact,
   encodeHouseCompact,
-  isHandAndFoot,
   isHouseRulesHandAndFoot,
   normalizeHouse,
 } from '../core/houseRules'
@@ -298,7 +297,6 @@ export function SlTableScreens({
             </label>
           </>
         ) : null}
-        {isHandAndFoot(variant) ? <HouseRulesPreview house={house} variant={variant} /> : null}
         {isHouseRulesHandAndFoot(variant) ? (
           <>
             {showMpLobby && !rulesLocked ? (
@@ -308,6 +306,7 @@ export function SlTableScreens({
                   : 'Ready means you accept the house rules below. Use Not ready while debating; the host can Start when everyone is Ready.'}
               </p>
             ) : null}
+            <HouseRulesPreview house={house} variant={variant} />
             <HandAndFootHouseFields
               house={house}
               editable={canEditRules}

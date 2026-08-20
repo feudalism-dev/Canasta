@@ -363,9 +363,11 @@ function AppInner() {
               <option value="sharp">Sharp</option>
             </select>
           </label>
-          {variant !== 'canasta' ? <HouseRulesPreview house={house} variant={variant} /> : null}
           {isHouseRulesHandAndFoot(variant) ? (
-            <HandAndFootHouseFields house={house} onChange={setHouse} />
+            <>
+              <HouseRulesPreview house={house} variant={variant} />
+              <HandAndFootHouseFields house={house} onChange={setHouse} />
+            </>
           ) : null}
           <button type="button" className="btn primary" onClick={() => void startLocal()}>
             Deal
