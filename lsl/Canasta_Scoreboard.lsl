@@ -36,6 +36,8 @@ key gXpReq = NULL_KEY;
 integer gXpSaid = FALSE;
 integer gPageRev = 0;
 key gRevReq = NULL_KEY;
+integer gRevDone = FALSE;
+integer gRevDeadline = 0;
 
 integer effectiveRev()
 {
@@ -47,6 +49,15 @@ requestAssetRev()
 {
     if (gRevReq != NULL_KEY) return;
     gRevReq = llHTTPRequest(WEB_URL + "asset-rev.txt", [HTTP_METHOD, "GET"], "");
+}
+
+integer scheduleMoap()
+{
+    if (gCapUrl == "") return FALSE;
+    if (!gRevDone) return FALSE;
+    gMoapPending = TRUE;
+    llSetTimerEvent(0.5);
+    return TRUE;
 }
 
 integer findScreenLink()
@@ -443,24 +454,15 @@ sendJsonp(key httpId, string callback, string json)
     llHTTPResponse(httpId, 200, callback + "(" + json + ");");
 }
 
-integer applyMoap(integer force)
+integer applyMoap()
 {
-    string home = WEB_URL + "?view=scores&uid=board&rev=" + (string)effectiveRev();
-    if (gCapUrl != "") home += "&sl_cap=" + llEscapeURL(gCapUrl);
+    // Never paint without HTTP-IN — the scores page needs sl_cap.
+    if (gCapUrl == "") return FALSE;
+    string home = WEB_URL + "?view=scores&uid=board&rev=" + (string)effectiveRev()
+        + "&sl_cap=" + llEscapeURL(gCapUrl);
 
-    list existing = llGetLinkMedia(gScreenLink, MEDIA_FACE, [PRIM_MEDIA_CURRENT_URL]);
-    string existingUrl = llList2String(existing, 0);
-    integer hasMedia = FALSE;
-    if (existingUrl != "") hasMedia = TRUE;
-    integer firstPaint = FALSE;
-    if (gLastHome == "") firstPaint = TRUE;
-    integer sameHome = FALSE;
-    if (home == gLastHome) sameHome = TRUE;
-
-    // Do not ClearPrimMedia / do not rewrite CURRENT_URL when home is unchanged —
-    // repeated SetLinkMedia with a new &cb= kills CEF and leaves a white face.
-    if (!firstPaint && sameHome && hasMedia && !force) return FALSE;
-    if (!firstPaint && sameHome && hasMedia && force) return FALSE;
+    // Hard skip: rewriting the same home with a new &cb= blanks CEF.
+    if (home == gLastHome) return FALSE;
 
     string cur = home + "&cb=" + (string)llGetUnixTime();
     llSetLinkMedia(gScreenLink, MEDIA_FACE, [
@@ -561,11 +563,14 @@ default
         rotateLocal();
         findScreenLink();
         llListen(SCORE_CH, "", NULL_KEY, "");
+        gRevDone = FALSE;
+        gRevDeadline = llGetUnixTime() + 5;
+        gLastHome = "";
+        gMoapPending = FALSE;
         llRequestSecureURL();
         requestAssetRev();
         enqueueReads();
         kickXp();
-        gMoapPending = TRUE;
         llSetTimerEvent(0.5);
         llOwnerSay("Canasta scoreboard core ready. screen link=" + (string)gScreenLink
             + " Free=" + (string)llGetFreeMemory());
@@ -585,23 +590,36 @@ default
             if (gScreenLink != prev)
             {
                 gLastHome = "";
-                gMoapPending = TRUE;
-                llSetTimerEvent(0.5);
+                scheduleMoap();
             }
         }
-        if (change & CHANGED_REGION_START) llRequestSecureURL();
+        if (change & CHANGED_REGION_START)
+        {
+            gCapUrl = "";
+            gLastHome = "";
+            gRevDone = FALSE;
+            gRevReq = NULL_KEY;
+            gRevDeadline = llGetUnixTime() + 5;
+            llRequestSecureURL();
+            requestAssetRev();
+        }
     }
 
     timer()
     {
+        if (!gRevDone && llGetUnixTime() >= gRevDeadline)
+        {
+            gRevDone = TRUE;
+            scheduleMoap();
+        }
         if (gMoapPending)
         {
             gMoapPending = FALSE;
-            applyMoap(FALSE);
-            llSetTimerEvent(TIMER_SEC);
+            applyMoap();
         }
         if (gXpOp == "" && llGetListLength(gXpQ) == 0) enqueueReads();
         kickXp();
+        llSetTimerEvent(TIMER_SEC);
     }
 
     listen(integer ch, string name, key id, string msg)
@@ -621,14 +639,10 @@ default
         if (status == 200)
         {
             integer r = (integer)llStringTrim(body, STRING_TRIM);
-            if (r > 0 && r != gPageRev)
-            {
-                gPageRev = r;
-                gMoapPending = TRUE;
-                llSetTimerEvent(0.5);
-            }
-            else if (r > 0) gPageRev = r;
+            if (r > 0) gPageRev = r;
         }
+        gRevDone = TRUE;
+        scheduleMoap();
     }
 
     http_request(key id, string method, string body)
@@ -637,12 +651,8 @@ default
         {
             string prev = gCapUrl;
             gCapUrl = body;
-            if (gCapUrl != prev)
-            {
-                gMoapPending = TRUE;
-                llSetTimerEvent(0.5);
-            }
             llOwnerSay("Canasta scoreboard: HTTP-IN ready.");
+            if (gCapUrl != prev) scheduleMoap();
             return;
         }
         if (method == URL_REQUEST_DENIED)
