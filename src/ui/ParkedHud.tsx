@@ -19,6 +19,11 @@ export function ParkedHud({ boot }: { boot: SlBootstrap }) {
             standby so you do not also play from the table.
           </p>
         )}
+        <p>
+          Second Life often cannot force a browser to open. We already copied the play URL to your
+          clipboard. If a browser did not open: open Chrome or Firefox yourself, click the address
+          bar, and paste (<kbd>Ctrl+V</kbd>), then Enter.
+        </p>
         <p className="muted">
           Seat {boot.seat >= 0 ? boot.seat + 1 : '?'} stays yours while you remain seated
           {boot.room ? ` · room ${boot.room}` : ''}.
