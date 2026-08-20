@@ -199,6 +199,10 @@ export function SlTableScreens({
   const peerLive = Boolean(peerRoomCode) || Boolean(peerSeats && peerSeats.length)
   const matchWithoutState = mode === 'match' && iJoined && !peerHasState
   const showMpLobby = mode === 'lobby' || mode === 'match' || !!peerRoomCode || !!boot.room
+  /** Host may tweak game + house rules until the match has actually started. */
+  const rulesLocked = peerHasState || mode === 'match'
+  const canEditRules =
+    !rulesLocked && (Boolean(isPeerHost) || iAmHost || (mode === 'idle' && !table?.roomCode))
   const youSeat = me?.seat ?? (boot.seat >= 0 ? boot.seat : 0)
   const myPeer = (peerSeats || []).find((s) => (s.avatarUid || '').toLowerCase() === boot.uid.toLowerCase())
   const iAmReady = !!myPeer?.ready
@@ -260,6 +264,7 @@ export function SlTableScreens({
           Game
           <select
             value={variant}
+            disabled={!canEditRules}
             onChange={(e) => {
               const next = e.target.value as Variant
               onVariant(next)
@@ -293,12 +298,19 @@ export function SlTableScreens({
         {isHandAndFoot(variant) ? <HouseRulesPreview house={house} variant={variant} /> : null}
         {isHouseRulesHandAndFoot(variant) ? (
           <>
+            {showMpLobby && !rulesLocked ? (
+              <p className="muted">
+                {canEditRules
+                  ? 'Change house rules here until you press Start Match — everyone in the lobby sees the summary update.'
+                  : 'Ask the host to change a setting if you want something different before Start.'}
+              </p>
+            ) : null}
             <HandAndFootHouseFields
               house={house}
-              editable={Boolean(isPeerHost || !peerRoomCode)}
+              editable={canEditRules}
               onChange={onHouse}
             />
-            {table?.ownerUid && table.ownerUid.toLowerCase() === boot.uid.toLowerCase() ? (
+            {canEditRules && table?.ownerUid && table.ownerUid.toLowerCase() === boot.uid.toLowerCase() ? (
               <button
                 type="button"
                 className="btn ghost"
@@ -315,6 +327,7 @@ export function SlTableScreens({
                       )
                       if (!st.ok) throw new Error(st.error || 'Save failed')
                       setTable(st)
+                      loadedHouseRef.current = encodeHouseCompact(normalizeHouse(house))
                       setStatus('House rules saved on this table.')
                     } catch (e) {
                       setErr(e instanceof Error ? e.message : 'Save failed')
@@ -326,9 +339,11 @@ export function SlTableScreens({
               >
                 Save house rules to table
               </button>
-            ) : (
-              <p className="muted">Only the table owner can save house rules to this table.</p>
-            )}
+            ) : null}
+            {canEditRules &&
+            !(table?.ownerUid && table.ownerUid.toLowerCase() === boot.uid.toLowerCase()) ? (
+              <p className="muted">Tweaks apply to this match. Only the table owner can Save as the table default.</p>
+            ) : null}
           </>
         ) : null}
         <SeatMap occupants={seating} youSeat={youSeat} />
