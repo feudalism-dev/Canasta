@@ -8,5 +8,5 @@ alwaysApply: true
 After finishing a change, commit and push to `origin` without waiting to be asked.
 
 - Follow this repo's commit style: one short sentence on why, not a file list.
-- When HUD web assets change, bump `HUD_PAGE_ASSET_REV` in `lsl/Canasta_HUD.lsl` in the same commit.
+- When HUD/table/scoreboard **web** assets change, bump `public/asset-rev.txt` (integer) in the same commit so in-world MoAP reloads without recompiling LSL. Do **not** bump `HUD_PAGE_ASSET_REV` / script `PAGE_ASSET_REV` fallbacks unless the LSL bootloader itself must change.
 - Do not skip hooks. Do not force-push `main`.

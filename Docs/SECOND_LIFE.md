@@ -106,4 +106,4 @@ Response shape: `callback({ ok, ... });`
 
 Square prim, media on **face 4**, 1024×1024. Object name **`Canasta HUD`**. Same Experience as the table.
 
-Whitelist `feudalism-dev.github.io` on the parcel. Bump `HUD_PAGE_ASSET_REV` after Pages deploys.
+Whitelist `feudalism-dev.github.io` on the parcel. After Pages deploys, bump `public/asset-rev.txt` so HUDs/table/scoreboard MoAP pick up the new build without reissuing objects.

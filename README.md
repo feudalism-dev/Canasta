@@ -52,7 +52,7 @@ Site: `https://<you>.github.io/Canasta/`
 
 1. Put `lsl/Canasta_Table.lsl`, `lsl/Canasta_Http.lsl`, `lsl/Canasta_Bots.lsl`, and `lsl/Canasta_Scores.lsl` on the game table root (with AVsitter; seats 0–3; linked prims named `bot1`–`bot4`). Put `lsl/Canasta_Display.lsl` on the **display child** (Furware sets `text0`–`text3`). Compile Table + HUD with your **Experience**. Optional wall **scoreboard**: `lsl/Canasta_Scoreboard.lsl` + `lsl/Canasta_Scoreboard_Admin.lsl` on the same prim (core needs Experience; owner/super-user touch for admin). Dev helper: `lsl/Canasta_Score_Test.lsl` shouts sample `CN_SCORE` lines.
 2. Build HUD object named **`Canasta HUD`** (square, media face **4**), put `lsl/Canasta_HUD.lsl` in it (same Experience), then put that object in the **table** inventory.
-3. Whitelist `feudalism-dev.github.io` for media; bump `HUD_PAGE_ASSET_REV` after Pages deploys.
+3. Whitelist `feudalism-dev.github.io` for media; bump `public/asset-rev.txt` after Pages deploys (no HUD reissue).
 4. Sit → table rezzes/attaches HUD → lobby (auto-enter).
 
 Recompile order: Display → Http → Table.

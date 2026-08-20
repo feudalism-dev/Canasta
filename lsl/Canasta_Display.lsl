@@ -15,6 +15,7 @@ integer DISPLAY_CMD_NEED_CAP = 91006;
 // Change this if the table-top media is not face 0.
 integer DISPLAY_FACE = 0;
 integer DISPLAY_MEDIA_PIXELS = 1024;
+// Fallback if asset-rev.txt fetch fails. Prefer bumping public/asset-rev.txt on Pages deploys.
 integer PAGE_ASSET_REV = 27;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 
@@ -30,11 +31,25 @@ integer gScoreA = 0;
 integer gScoreB = 0;
 string gSlCap = "";
 string gLastHomeUrl = "";
+integer gPageRev = 0;
+key gRevReq = NULL_KEY;
 
 integer debug(string m)
 {
     if (DEBUG) llOwnerSay("CN DISPLAY: " + m);
     return TRUE;
+}
+
+integer effectiveRev()
+{
+    if (gPageRev > 0) return gPageRev;
+    return PAGE_ASSET_REV;
+}
+
+requestAssetRev()
+{
+    if (gRevReq != NULL_KEY) return;
+    gRevReq = llHTTPRequest(WEB_URL + "asset-rev.txt", [HTTP_METHOD, "GET"], "");
 }
 
 string tableIdOf()
@@ -50,7 +65,7 @@ string sessionHome()
         + "?view=table"
         + "&tableId=" + llEscapeURL(tableIdOf())
         + "&uid=spec"
-        + "&rev=" + (string)PAGE_ASSET_REV;
+        + "&rev=" + (string)effectiveRev();
     if (gSlCap != "") home += "&sl_cap=" + llEscapeURL(gSlCap);
     return home;
 }
@@ -306,6 +321,7 @@ default
         clearState();
         llMessageLinked(LINK_SET, 0, "", "fw_reset");
         askForCap();
+        requestAssetRev();
         applyMoap(TRUE);
         llOwnerSay("Canasta display: Furware text0–text3 + table-top MOAP face " + (string)DISPLAY_FACE + ".");
     }
@@ -313,6 +329,22 @@ default
     on_rez(integer p)
     {
         llResetScript();
+    }
+
+    http_response(key id, integer status, list meta, string body)
+    {
+        if (id != gRevReq) return;
+        gRevReq = NULL_KEY;
+        if (status == 200)
+        {
+            integer r = (integer)llStringTrim(body, STRING_TRIM);
+            if (r > 0 && r != gPageRev)
+            {
+                gPageRev = r;
+                applyMoap(TRUE);
+            }
+            else if (r > 0) gPageRev = r;
+        }
     }
 
     link_message(integer sender, integer num, string str, key id)
@@ -336,7 +368,8 @@ default
         if (num == DISPLAY_CMD_CAP)
         {
             gSlCap = str;
-            applyMoap(FALSE);
+            requestAssetRev();
+            applyMoap(TRUE);
             return;
         }
         if ((string)id == "fw_ready")

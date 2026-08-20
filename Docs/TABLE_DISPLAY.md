@@ -50,7 +50,7 @@ The page polls JSONP `action=status` / `action=board` (~1s). When that snapshot 
 
 Idle / between games shows the four empty seats and the felt.
 
-Recompile **Display → Http → Table** after dropping the new scripts. Bump `HUD_PAGE_ASSET_REV` / `PAGE_ASSET_REV` together when Pages deploys.
+Recompile **Display → Http → Table** after dropping new table scripts. For Pages-only UI deploys, bump `public/asset-rev.txt` instead of reissuing the HUD.
 
 ## Event bus
 

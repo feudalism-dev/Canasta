@@ -7,6 +7,7 @@ integer MEDIA_FACE = 0;
 // Landscape plaque: match prim face to ~1024×720 so the brass frame hugs the top-10 list.
 integer MEDIA_W = 1024;
 integer MEDIA_H = 720;
+// Fallback if asset-rev.txt fetch fails. Prefer bumping public/asset-rev.txt on Pages deploys.
 integer PAGE_ASSET_REV = 3;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
@@ -31,6 +32,20 @@ string gXpOp = "";
 integer gXpStep = 0;
 key gXpReq = NULL_KEY;
 integer gXpSaid = FALSE;
+integer gPageRev = 0;
+key gRevReq = NULL_KEY;
+
+integer effectiveRev()
+{
+    if (gPageRev > 0) return gPageRev;
+    return PAGE_ASSET_REV;
+}
+
+requestAssetRev()
+{
+    if (gRevReq != NULL_KEY) return;
+    gRevReq = llHTTPRequest(WEB_URL + "asset-rev.txt", [HTTP_METHOD, "GET"], "");
+}
 
 string jsonEscape(string s)
 {
@@ -410,7 +425,7 @@ sendJsonp(key httpId, string callback, string json)
 
 integer applyMoap(integer force)
 {
-    string home = WEB_URL + "?view=scores&uid=board&rev=" + (string)PAGE_ASSET_REV;
+    string home = WEB_URL + "?view=scores&uid=board&rev=" + (string)effectiveRev();
     if (gCapUrl != "") home += "&sl_cap=" + llEscapeURL(gCapUrl);
     if (!force && home == gLastHome) return FALSE;
     string cur = home;
@@ -513,6 +528,7 @@ default
         rotateLocal();
         llListen(SCORE_CH, "", NULL_KEY, "");
         llRequestSecureURL();
+        requestAssetRev();
         enqueueReads();
         kickXp();
         gMoapPending = TRUE;
@@ -558,6 +574,23 @@ default
     link_message(integer sender, integer num, string str, key id)
     {
         if (num == ADMIN_CMD) handleAdmin(str, id);
+    }
+
+    http_response(key id, integer status, list meta, string body)
+    {
+        if (id != gRevReq) return;
+        gRevReq = NULL_KEY;
+        if (status == 200)
+        {
+            integer r = (integer)llStringTrim(body, STRING_TRIM);
+            if (r > 0 && r != gPageRev)
+            {
+                gPageRev = r;
+                gMoapPending = TRUE;
+                llSetTimerEvent(0.5);
+            }
+            else if (r > 0) gPageRev = r;
+        }
     }
 
     http_request(key id, string method, string body)

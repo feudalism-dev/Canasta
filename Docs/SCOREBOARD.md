@@ -43,7 +43,7 @@ There are **no extra buttons and no Furware meshes**. The page has:
 
 Touching the prim is optional for spectators; the page polls JSONP. Network numbers refresh from Experience every few seconds.
 
-Bump `PAGE_ASSET_REV` in `Canasta_Scoreboard.lsl` (and `HUD_PAGE_ASSET_REV` in the HUD) when Pages deploys so the panel reloads.
+Bump `public/asset-rev.txt` when Pages deploys so MoAP reloads **without** recompiling the HUD. Script `PAGE_ASSET_REV` / `HUD_PAGE_ASSET_REV` values are fallbacks only.
 
 ## Admin (touch the scoreboard prim — not the MOAP)
 

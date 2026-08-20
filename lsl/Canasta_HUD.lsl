@@ -6,7 +6,7 @@
 integer USE_DEV = FALSE;
 string WEB_URL_PROD = "https://feudalism-dev.github.io/Canasta/";
 string WEB_URL_DEV = "https://feudalism-dev.github.io/Canasta/";
-// Bump when GitHub Pages deploys so MoAP reloads.
+// Fallback if asset-rev.txt cannot be fetched. Prefer bumping public/asset-rev.txt on Pages deploys — no HUD reissue.
 integer HUD_PAGE_ASSET_REV = 36;
 
 integer HUD_FACE = 4;
@@ -34,6 +34,8 @@ integer gDetachTries = 0;
 integer gResyncLeft = 0;
 string gLastHomeUrl = "";
 integer gHelloTicks = 0;
+integer gPageRev = 0;
+key gRevReq = NULL_KEY;
 
 integer commandChannel(key av)
 {
@@ -50,6 +52,18 @@ string webBase()
 {
     if (USE_DEV) return WEB_URL_DEV;
     return WEB_URL_PROD;
+}
+
+integer effectiveRev()
+{
+    if (gPageRev > 0) return gPageRev;
+    return HUD_PAGE_ASSET_REV;
+}
+
+requestAssetRev()
+{
+    if (gRevReq != NULL_KEY) return;
+    gRevReq = llHTTPRequest(webBase() + "asset-rev.txt", [HTTP_METHOD, "GET"], "");
 }
 
 integer clearListens()
@@ -98,7 +112,7 @@ string sessionHome(integer parked, string client)
         + "?tableId=" + gTableId
         + "&seat=" + (string)gSeat
         + "&uid=" + (string)gWearer
-        + "&rev=" + (string)HUD_PAGE_ASSET_REV;
+        + "&rev=" + (string)effectiveRev();
     if (gNameHint != "") home += "&name=" + llEscapeURL(gNameHint);
     home += "&sl_cap=" + llEscapeURL(gSlCap);
     if (parked)
@@ -116,7 +130,7 @@ string standalonePlayUrl()
 {
     string home = webBase()
         + "?client=web"
-        + "&rev=" + (string)HUD_PAGE_ASSET_REV;
+        + "&rev=" + (string)effectiveRev();
     if (gNameHint != "") home += "&name=" + llEscapeURL(gNameHint);
     return home;
 }
@@ -516,16 +530,34 @@ default
         if (gMoapPending && gTableId != "")
         {
             gMoapPending = FALSE;
+            requestAssetRev();
             applyMoap(TRUE);
             gResyncLeft = 1;
         }
         else if (gResyncLeft > 0 && gTableId != "")
         {
             gResyncLeft = 0;
+            requestAssetRev();
             applyMoap(TRUE);
         }
         pollMediaHandoff();
         if (gParked) llSetTimerEvent(3.0);
+    }
+
+    http_response(key id, integer status, list meta, string body)
+    {
+        if (id != gRevReq) return;
+        gRevReq = NULL_KEY;
+        if (status == 200)
+        {
+            integer r = (integer)llStringTrim(body, STRING_TRIM);
+            if (r > 0 && r != gPageRev)
+            {
+                gPageRev = r;
+                if (gWearer != NULL_KEY && gTableId != "") applyMoap(TRUE);
+            }
+            else if (r > 0) gPageRev = r;
+        }
     }
 
     changed(integer change)
