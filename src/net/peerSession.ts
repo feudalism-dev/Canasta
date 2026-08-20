@@ -69,7 +69,16 @@ export type PeerSession = {
 export async function createPeerHost(playerName: string, opts?: PeerHostOptions): Promise<PeerSession> {
   const code = (opts?.roomCode || roomCode()).toUpperCase()
   const peer = new Peer(`canasta-${code}-host`)
-  await waitOpen(peer)
+  try {
+    await waitOpen(peer)
+  } catch (e) {
+    try {
+      peer.destroy()
+    } catch {
+      /* ignore */
+    }
+    throw e
+  }
   return buildSession(peer, code, true, playerName, undefined, opts)
 }
 
@@ -79,24 +88,57 @@ export async function joinPeerRoom(
   opts?: PeerJoinOptions,
 ): Promise<PeerSession> {
   const peer = new Peer()
-  await waitOpen(peer)
-  const conn = peer.connect(`canasta-${code.toUpperCase()}-host`, { reliable: true })
-  await waitConn(conn)
-  return buildSession(peer, code.toUpperCase(), false, playerName, conn, opts)
+  try {
+    await waitOpen(peer)
+    const conn = peer.connect(`canasta-${code.toUpperCase()}-host`, { reliable: true })
+    await waitConn(conn)
+    return buildSession(peer, code.toUpperCase(), false, playerName, conn, opts)
+  } catch (e) {
+    try {
+      peer.destroy()
+    } catch {
+      /* ignore */
+    }
+    throw e
+  }
 }
 
-function waitOpen(peer: Peer): Promise<void> {
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
-    peer.on('open', () => resolve())
-    peer.on('error', (e) => reject(e))
+    const timer = window.setTimeout(() => reject(new Error(`${label} timed out`)), ms)
+    p.then(
+      (v) => {
+        window.clearTimeout(timer)
+        resolve(v)
+      },
+      (e) => {
+        window.clearTimeout(timer)
+        reject(e)
+      },
+    )
   })
 }
 
-function waitConn(conn: DataConnection): Promise<void> {
-  return new Promise((resolve, reject) => {
-    conn.on('open', () => resolve())
-    conn.on('error', (e) => reject(e))
-  })
+function waitOpen(peer: Peer, ms = 12000): Promise<void> {
+  return withTimeout(
+    new Promise<void>((resolve, reject) => {
+      peer.on('open', () => resolve())
+      peer.on('error', (e) => reject(e))
+    }),
+    ms,
+    'Peer broker',
+  )
+}
+
+function waitConn(conn: DataConnection, ms = 12000): Promise<void> {
+  return withTimeout(
+    new Promise<void>((resolve, reject) => {
+      conn.on('open', () => resolve())
+      conn.on('error', (e) => reject(e))
+    }),
+    ms,
+    'Peer host link',
+  )
 }
 
 function buildSession(

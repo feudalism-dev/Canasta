@@ -79,6 +79,7 @@ export function SlTableScreens({
   const [entered, setEntered] = useState(false)
   const [table, setTable] = useState<TableStatus | null>(null)
   const [err, setErr] = useState('')
+  const [mintBusy, setMintBusy] = useState(false)
   const enterLock = useRef(false)
   const browserClaimLock = useRef(false)
 
@@ -171,6 +172,7 @@ export function SlTableScreens({
   const canJoin = !seatedBrowser && entered && mode === 'lobby' && !iJoined
   const canMintBrowser =
     !seatedBrowser && entered && iJoined && !iAmHost && (mode === 'lobby' || mode === 'match')
+  const peerLive = Boolean(peerRoomCode) || Boolean(peerSeats && peerSeats.length)
   const showMpLobby = mode === 'lobby' || mode === 'match' || !!peerRoomCode || !!boot.room
   const youSeat = me?.seat ?? (boot.seat >= 0 ? boot.seat : 0)
   const myPeer = (peerSeats || []).find((s) => (s.avatarUid || '').toLowerCase() === boot.uid.toLowerCase())
@@ -302,7 +304,16 @@ export function SlTableScreens({
               try {
                 const st = await tableJoin(boot.slCap, boot.uid, youSeat)
                 if (!st.ok) throw new Error(st.error || 'Join failed')
-                await onJoinedMp(st.roomCode || table.roomCode || '', st)
+                setTable(st)
+                try {
+                  await onJoinedMp(st.roomCode || table.roomCode || '', st)
+                } catch (peerErr) {
+                  setErr(
+                    `${peerErr instanceof Error ? peerErr.message : 'Peer link failed'} — use Play match in browser.`,
+                  )
+                  setStatus(`Joined room ${st.roomCode || table.roomCode} (HUD peer failed)`)
+                  return
+                }
               } catch (e) {
                 setErr(e instanceof Error ? e.message : 'Join failed')
               } finally {
@@ -327,10 +338,15 @@ export function SlTableScreens({
                 </li>
               ))}
             </ul>
+            {!peerLive && iJoined && !iAmHost ? (
+              <p className="error">
+                Peer link not connected on this HUD. Use <strong>Play match in browser</strong> below.
+              </p>
+            ) : null}
             <button
               type="button"
               className="btn secondary"
-              disabled={!peerRoomCode && !(peerSeats && peerSeats.length)}
+              disabled={!peerLive}
               onClick={() => onPeerReadyToggle?.(!iAmReady)}
             >
               {iAmReady ? 'Not ready' : 'Ready'}
@@ -338,11 +354,11 @@ export function SlTableScreens({
             {canMintBrowser ? (
               <button
                 type="button"
-                className="btn secondary"
-                disabled={busy}
+                className="btn primary"
+                disabled={mintBusy}
                 onClick={() => {
                   void (async () => {
-                    setBusy(true)
+                    setMintBusy(true)
                     setErr('')
                     try {
                       onDetachPeer?.()
@@ -355,7 +371,7 @@ export function SlTableScreens({
                     } catch (e) {
                       setErr(e instanceof Error ? e.message : 'Mint failed')
                     } finally {
-                      setBusy(false)
+                      setMintBusy(false)
                     }
                   })()
                 }}
