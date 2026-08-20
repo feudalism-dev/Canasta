@@ -34,10 +34,12 @@ Recommended link order (select all, then **click the frame last** so it becomes 
 | Prim | Name (exact) | Scripts |
 |------|----------------|---------|
 | **Frame** (root) | `frame` (any name ok) | `Canasta_Scoreboard.lsl` only — Mono + Experience |
-| **Screen** (display) | **`screen`** (required) | none — Core finds this name and sets MoAP on face 0 |
+| **Screen** (display) | **`screen`** (required) | `Canasta_Scoreboard_Moap.lsl` — Mono (sets MoAP on face 0 via `llSetPrimMediaParams`) |
 | **Gear** (admin) | `gear` (any name ok) | `Canasta_Scoreboard_Admin.lsl` — Mono |
 
-1. Media is applied to the child named **`screen`**, face **0** (`MEDIA_FACE`). Default media size is **1024×720** (landscape). Reshape the screen prim to roughly that aspect, then reset the core script.
+Restore point if MoAP behavior regresses: git tag **`WORKS-BUT-BLANKS`** (core set media from the frame via `llSetLinkMedia`).
+
+1. Media is applied on the child named **`screen`**, face **0**, by the Moap script (same `SetPrimMediaParams` / `AUTO_SCALE` pattern as the table-top display, but interact stays on for tabs). Default media size is **1024×720** (landscape). Reshape the screen prim to roughly that aspect, then reset core + Moap.
 2. Parcel must allow the Experience (needed for Network). Local parlor scores still work without it.
 3. Whitelist `feudalism-dev.github.io` for media on the parcel.
 4. Touch the **gear** (owner or super-user) for admin menus — not the MoAP screen.

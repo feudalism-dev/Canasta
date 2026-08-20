@@ -1,19 +1,18 @@
 // Canasta — parlor scoreboard CORE (LSD + Experience + MOAP + score listen).
 // Linkset: root = frame, child named "screen" (MoAP), child with Admin on "gear".
 // Drop this script on the FRAME (root). Compile: Mono + Experience.
+// Screen MoAP: Canasta_Scoreboard_Moap.lsl on the screen prim (link 93003).
 // Admin menus: Canasta_Scoreboard_Admin.lsl on the gear prim (link 93001/93002).
+// Restore point before table-style MoAP: git tag WORKS-BUT-BLANKS.
 
 integer SCORE_CH = -18475021;
-integer MEDIA_FACE = 0;
-// Landscape plaque: match prim face to ~1024×720 so the brass frame hugs the top-10 list.
-integer MEDIA_W = 1024;
-integer MEDIA_H = 720;
 // Fallback if asset-rev.txt fetch fails. Prefer bumping public/asset-rev.txt on Pages deploys.
 integer PAGE_ASSET_REV = 3;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
 integer ADMIN_CMD = 93001;
 integer ADMIN_RSP = 93002;
+integer MOAP_CMD = 93003;
 string SCREEN_NAME = "screen";
 
 string gCapUrl = "";
@@ -461,22 +460,12 @@ integer applyMoap()
     string home = WEB_URL + "?view=scores&uid=board&rev=" + (string)effectiveRev()
         + "&sl_cap=" + llEscapeURL(gCapUrl);
 
-    // Hard skip: rewriting the same home with a new &cb= blanks CEF.
+    // Hard skip: rewriting the same home blanks CEF.
     if (home == gLastHome) return FALSE;
 
-    string cur = home + "&cb=" + (string)llGetUnixTime();
-    llSetLinkMedia(gScreenLink, MEDIA_FACE, [
-        PRIM_MEDIA_AUTO_PLAY, TRUE,
-        PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
-        PRIM_MEDIA_CURRENT_URL, cur,
-        PRIM_MEDIA_HOME_URL, home,
-        PRIM_MEDIA_FIRST_CLICK_INTERACT, TRUE,
-        PRIM_MEDIA_WIDTH_PIXELS, MEDIA_W,
-        PRIM_MEDIA_HEIGHT_PIXELS, MEDIA_H,
-        PRIM_MEDIA_WHITELIST_ENABLE, FALSE,
-        PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_NONE,
-        PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_ANYONE
-    ]);
+    // Screen script applies via llSetPrimMediaParams (table-display style).
+    // force=1: clear + &cb= once when home actually changes.
+    llMessageLinked(gScreenLink, MOAP_CMD, "1\n" + home, NULL_KEY);
     gLastHome = home;
     return TRUE;
 }
