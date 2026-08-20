@@ -5,6 +5,7 @@ type SessionOpts = {
   parked?: boolean
   room?: string
   action?: 'browser' | 'hud' | ''
+  token?: string
 }
 
 function originPath(): URL {
@@ -24,11 +25,22 @@ export function buildSessionUrl(boot: SlBootstrap, opts: SessionOpts = {}): stri
   if (boot.rev) params.set('rev', boot.rev)
   const room = (opts.room || boot.room || '').trim()
   if (room) params.set('room', room)
+  const token = (opts.token || boot.token || '').trim()
+  if (token) params.set('token', token)
   if (opts.parked) params.set('parked', '1')
   else params.set('client', opts.client || 'browser')
   if (opts.action) params.set('action', opts.action)
   url.search = params.toString()
   return url.toString()
+}
+
+/** Minted match URL for a seated guest (external browser). */
+export function buildMatchBrowserUrl(boot: SlBootstrap, room: string, token: string): string {
+  return buildSessionUrl(boot, { client: 'browser', room, token })
+}
+
+export function buildParkedHudUrl(boot: SlBootstrap, room?: string): string {
+  return buildSessionUrl(boot, { parked: true, room: room || boot.room })
 }
 
 export async function copyText(text: string): Promise<boolean> {
@@ -63,11 +75,26 @@ export function standalonePlayUrl(boot?: Pick<SlBootstrap, 'name' | 'rev'> | nul
   return url.toString()
 }
 
+/** Solo-only path (unchanged). */
 export async function openSeatedBrowser(boot: SlBootstrap, room?: string): Promise<'opened' | 'signaled'> {
   const playUrl = standalonePlayUrl(boot)
   await copyText(playUrl)
   const popup = window.open(playUrl, '_blank', 'noopener')
   if (popup) return 'opened'
   window.location.assign(buildSessionUrl(boot, { action: 'browser', client: 'browser', room }))
+  return 'signaled'
+}
+
+/** Guest MP: open minted match URL and park this HUD. */
+export async function openMatchInBrowser(
+  boot: SlBootstrap,
+  room: string,
+  token: string,
+): Promise<'opened' | 'signaled'> {
+  const playUrl = buildMatchBrowserUrl(boot, room, token)
+  await copyText(playUrl)
+  const popup = window.open(playUrl, '_blank', 'noopener')
+  window.location.assign(buildParkedHudUrl(boot, room))
+  if (popup) return 'opened'
   return 'signaled'
 }

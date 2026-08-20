@@ -4,11 +4,14 @@ import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tab
 import { HandAndFootHouseFields } from './HouseFields'
 import { SeatMap } from './SeatMap'
 import type { SlBootstrap } from '../sl/bootstrap'
+import { openMatchInBrowser } from '../sl/sessionUrl'
 import {
+  tableClaimBrowser,
   tableCreate,
   tableEnter,
   tableJoin,
   tableLeave,
+  tableMintBrowser,
   tableStart,
   tableStatus,
   type TableStatus,
@@ -33,6 +36,8 @@ type Props = {
   onJoinedMp: (roomCode: string, tableStatus: TableStatus) => void | Promise<void>
   onHostStartMp: (tableStatus?: TableStatus) => void | Promise<void>
   onLeaveLobby?: () => void | Promise<void>
+  /** Drop local PeerJS before parking HUD for browser match. */
+  onDetachPeer?: () => void
   peerRoomCode?: string
   peerSeats?: { id: string; name: string; ready: boolean; isHost: boolean; avatarUid?: string; seat?: number }[]
   isPeerHost?: boolean
@@ -61,6 +66,7 @@ export function SlTableScreens({
   onJoinedMp,
   onHostStartMp,
   onLeaveLobby,
+  onDetachPeer,
   peerRoomCode,
   peerSeats,
   isPeerHost,
@@ -69,10 +75,12 @@ export function SlTableScreens({
   coachTips = true,
   onCoachTips,
 }: Props) {
+  const seatedBrowser = boot.client === 'browser' && !!boot.token
   const [entered, setEntered] = useState(false)
   const [table, setTable] = useState<TableStatus | null>(null)
   const [err, setErr] = useState('')
   const enterLock = useRef(false)
+  const browserClaimLock = useRef(false)
 
   const enterTable = async (name: string) => {
     if (!boot.slCap) throw new Error('Waiting for table HTTP-IN URL')
@@ -80,7 +88,7 @@ export function SlTableScreens({
     setTable(st)
     if (!st.ok) throw new Error(st.error || 'Enter failed')
     setEntered(true)
-    setStatus('Seated — this HUD drives the table.')
+    setStatus(seatedBrowser ? 'Browser match — linked to your table seat.' : 'Seated — this HUD drives the table.')
   }
 
   const refresh = async () => {
@@ -122,16 +130,48 @@ export function SlTableScreens({
     }
   }, [boot.slCap, boot.uid, boot.seat])
 
+  // Seated browser: claim minted token then attach PeerJS as guest.
+  useEffect(() => {
+    if (!seatedBrowser || !entered || !boot.slCap || !boot.token || !boot.room) return
+    if (browserClaimLock.current) return
+    browserClaimLock.current = true
+    let cancelled = false
+    void (async () => {
+      setBusy(true)
+      try {
+        const st = await tableClaimBrowser(boot.slCap, boot.uid, boot.seat, boot.token)
+        if (!st.ok) throw new Error(st.error || 'Browser claim failed')
+        if (cancelled) return
+        setTable(st)
+        const room = (st.roomCode || boot.room || '').toUpperCase()
+        await onJoinedMp(room, st)
+        setStatus(`Browser match · room ${room}`)
+      } catch (e) {
+        if (!cancelled) {
+          setErr(e instanceof Error ? e.message : 'Browser claim failed')
+          browserClaimLock.current = false
+        }
+      } finally {
+        if (!cancelled) setBusy(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [seatedBrowser, entered, boot.slCap, boot.uid, boot.seat, boot.token, boot.room])
+
   const mode = table?.mode || 'idle'
   const activeCount = table?.activeCount ?? 0
   const me = table?.roster?.find((r) => r.uid.toLowerCase() === boot.uid.toLowerCase())
   const iAmHost = (table?.hostUid || '').toLowerCase() === boot.uid.toLowerCase()
   const iJoined = !!me?.joined
   const tableBusy = mode !== 'idle'
-  const canSolo = entered && !tableBusy && activeCount <= 1
-  const canCreate = entered && !tableBusy && activeCount >= 2
-  const canJoin = entered && mode === 'lobby' && !iJoined
-  const showMpLobby = mode === 'lobby' || mode === 'match' || !!peerRoomCode
+  const canSolo = !seatedBrowser && entered && !tableBusy && activeCount <= 1
+  const canCreate = !seatedBrowser && entered && !tableBusy && activeCount >= 2
+  const canJoin = !seatedBrowser && entered && mode === 'lobby' && !iJoined
+  const canMintBrowser =
+    !seatedBrowser && entered && iJoined && !iAmHost && (mode === 'lobby' || mode === 'match')
+  const showMpLobby = mode === 'lobby' || mode === 'match' || !!peerRoomCode || !!boot.room
   const youSeat = me?.seat ?? (boot.seat >= 0 ? boot.seat : 0)
   const myPeer = (peerSeats || []).find((s) => (s.avatarUid || '').toLowerCase() === boot.uid.toLowerCase())
   const iAmReady = !!myPeer?.ready
@@ -180,7 +220,10 @@ export function SlTableScreens({
   return (
     <div className="shell-menu">
       <div className="menu-card">
-        <p className="brand-kicker">Seat {youSeat + 1} · {mode}</p>
+        <p className="brand-kicker">
+          Seat {youSeat + 1} · {mode}
+          {seatedBrowser ? ' · browser' : ''}
+        </p>
         <h1>Hand &amp; Foot / Canasta</h1>
         <label>
           Name
@@ -193,30 +236,40 @@ export function SlTableScreens({
             <option value="handAndFoot">Hand and Foot</option>
           </select>
         </label>
-        <label className="check">
-          <input type="checkbox" checked={partnership} onChange={(e) => onPartnership(e.target.checked)} />
-          Solo with AI partner (4 hands)
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={coachTips}
-            onChange={(e) => onCoachTips?.(e.target.checked)}
-          />
-          Coach — tips on how to play
-        </label>
+        {!seatedBrowser ? (
+          <>
+            <label className="check">
+              <input type="checkbox" checked={partnership} onChange={(e) => onPartnership(e.target.checked)} />
+              Solo with AI partner (4 hands)
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={coachTips}
+                onChange={(e) => onCoachTips?.(e.target.checked)}
+              />
+              Coach — tips on how to play
+            </label>
+          </>
+        ) : null}
         {variant === 'handAndFoot' ? <HandAndFootHouseFields house={house} onChange={onHouse} /> : null}
         <SeatMap occupants={seating} youSeat={youSeat} />
         <p className="muted">{matchup}</p>
-        <button
-          type="button"
-          className="btn primary"
-          disabled={!canSolo || busy}
-          onClick={() => void onStartSolo()}
-        >
-          Play Solo vs Computer
-        </button>
-        <p className="muted">Multiplayer is always four hands. Seating picks teams — empty chairs are computers.</p>
+        {!seatedBrowser ? (
+          <>
+            <button
+              type="button"
+              className="btn primary"
+              disabled={!canSolo || busy}
+              onClick={() => void onStartSolo()}
+            >
+              Play Solo vs Computer
+            </button>
+            <p className="muted">Multiplayer is always four hands. Seating picks teams — empty chairs are computers.</p>
+          </>
+        ) : (
+          <p className="muted">You joined from a minted link. Stay seated in Second Life. Host plays on the HUD.</p>
+        )}
         {canCreate ? (
           <button
             type="button"
@@ -263,7 +316,7 @@ export function SlTableScreens({
         {showMpLobby ? (
           <>
             <p>
-              Room <strong>{peerRoomCode || table?.roomCode}</strong>
+              Room <strong>{peerRoomCode || table?.roomCode || boot.room}</strong>
             </p>
             <ul>
               {(peerSeats || []).map((s) => (
@@ -282,6 +335,34 @@ export function SlTableScreens({
             >
               {iAmReady ? 'Not ready' : 'Ready'}
             </button>
+            {canMintBrowser ? (
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={busy}
+                onClick={() => {
+                  void (async () => {
+                    setBusy(true)
+                    setErr('')
+                    try {
+                      onDetachPeer?.()
+                      const st = await tableMintBrowser(boot.slCap, boot.uid, youSeat)
+                      if (!st.ok || !st.token) throw new Error(st.error || 'Mint failed')
+                      const room = (st.roomCode || table?.roomCode || '').toUpperCase()
+                      if (!room) throw new Error('No room code')
+                      setStatus('Opening browser match… HUD will park.')
+                      await openMatchInBrowser(boot, room, st.token)
+                    } catch (e) {
+                      setErr(e instanceof Error ? e.message : 'Mint failed')
+                    } finally {
+                      setBusy(false)
+                    }
+                  })()
+                }}
+              >
+                Play match in browser
+              </button>
+            ) : null}
             {isPeerHost && iAmHost ? (
               <button
                 type="button"
@@ -319,7 +400,6 @@ export function SlTableScreens({
                     await onLeaveLobby?.()
                     if (boot.slCap) {
                       await tableLeave(boot.slCap, boot.uid, youSeat)
-                      // Stay Active at the table so Join / Create can work again.
                       const enteredAgain = await tableEnter(boot.slCap, boot.uid, youSeat, displayName)
                       setTable(enteredAgain)
                       setStatus(

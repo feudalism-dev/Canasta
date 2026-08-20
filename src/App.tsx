@@ -19,7 +19,7 @@ import { cloneState } from './core/state'
 import type { HouseRules, MatchState, Variant } from './core/types'
 import { DEFAULT_HOUSE } from './core/types'
 import { createPeerHost, joinPeerRoom, type PeerSession } from './net/peerSession'
-import { isTableHudSession, readSlBootstrap, readWebNameHint } from './sl/bootstrap'
+import { isSeatedBrowserSession, isTableHudSession, readSlBootstrap, readWebNameHint } from './sl/bootstrap'
 import { emitDisplayPipes, emitPublicBoard } from './sl/displaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 
@@ -37,7 +37,8 @@ function AppInner() {
   const { push } = useToasts()
   const slBoot = useMemo(() => readSlBootstrap(), [])
   const tableHud = isTableHudSession(slBoot)
-  const [screen, setScreen] = useState<Screen>(tableHud ? 'sl' : 'menu')
+  const seatedBrowser = isSeatedBrowserSession(slBoot)
+  const [screen, setScreen] = useState<Screen>(tableHud || seatedBrowser ? 'sl' : 'menu')
   const [name, setName] = useState(slBoot?.name || readWebNameHint() || 'You')
   const [variant, setVariant] = useState<Variant>('canasta')
   const [partnership, setPartnership] = useState(true)
@@ -73,7 +74,7 @@ function AppInner() {
   const wrap = (node: ReactNode) => (
     <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
       <AppChrome
-        slBoot={tableHud || slBoot?.parked ? slBoot : null}
+        slBoot={tableHud || seatedBrowser || slBoot?.parked ? slBoot : null}
         parked={Boolean(slBoot?.parked)}
         roomCode={peer?.roomCode || slBoot?.room}
         showOppTray={showOppTray}
@@ -199,7 +200,7 @@ function AppInner() {
     )
   }
 
-  if (screen === 'sl' && tableHud && slBoot && !state) {
+  if (screen === 'sl' && (tableHud || seatedBrowser) && slBoot && !state) {
     return wrap(
       <SlTableScreens
         boot={slBoot}
@@ -249,6 +250,11 @@ function AppInner() {
           setTick((t) => t + 1)
         }}
         onLeaveLobby={async () => {
+          peer?.destroy()
+          setPeer(null)
+          slMatchKind.current = 'none'
+        }}
+        onDetachPeer={() => {
           peer?.destroy()
           setPeer(null)
           slMatchKind.current = 'none'

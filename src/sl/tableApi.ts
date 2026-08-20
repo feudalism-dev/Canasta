@@ -6,6 +6,7 @@ export type TableRosterEntry = {
   name: string
   active: boolean
   joined: boolean
+  browserClaimed?: boolean
 }
 
 export type TableStatus = {
@@ -20,6 +21,8 @@ export type TableStatus = {
   roster?: TableRosterEntry[]
   error?: string
   board?: string
+  token?: string
+  exp?: number
 }
 
 type JsonpParams = Record<string, string | number | boolean | undefined | null>
@@ -108,6 +111,21 @@ export async function tableJoin(slCap: string, uid: string, seat: number): Promi
 
 export async function tableStart(slCap: string, uid: string, seat: number): Promise<TableStatus> {
   return jsonpTable(slCap, { action: 'start', uid, seat })
+}
+
+/** Guest only: mint a one-time browser match URL token (after Join). */
+export async function tableMintBrowser(slCap: string, uid: string, seat: number): Promise<TableStatus> {
+  return jsonpTable(slCap, { action: 'mint_browser', uid, seat })
+}
+
+/** Redeem minted token from an external browser session. Token goes in `p`. */
+export async function tableClaimBrowser(
+  slCap: string,
+  uid: string,
+  seat: number,
+  token: string,
+): Promise<TableStatus> {
+  return jsonpTable(slCap, { action: 'claim_browser', uid, seat, p: token })
 }
 
 export async function tableEvent(

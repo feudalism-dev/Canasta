@@ -17,10 +17,12 @@ The HUD shows a chair map during Create / Join so you can see who is on which te
 1. Sit at the table (HUD auto-enters)
 2. Check the chair map. Switch seats if the teams are wrong.
 3. Host: Create Multiplayer → share code with seated Actives
-4. Guests: Join as your player number → Ready (toggle; click again for Not ready)
-5. Host: Start Match (picks Canasta or Hand and Foot first)
+4. Guests: Join as your player number → Ready (toggle; click again for Not ready). If MoAP/PeerJS is flaky, use **Play match in browser** (minted link; host stays on HUD).
+5. Host: Start Match (picks Canasta or Hand and Foot first) — **host always plays on the HUD**
 
 Everyone sitting must Join before Start. Ready is optional signaling; Start only checks Join. **Leave lobby** undoes Join (and tears down PeerJS) but keeps you Active at the table so you can Join again. If the **host** leaves, the table lobby ends for everyone.
+
+Seated browser match details: [BROWSER_MP_DESIGN.md](BROWSER_MP_DESIGN.md).
 
 Host is authoritative (applies moves, including computer turns, and broadcasts state).
 

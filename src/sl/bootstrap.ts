@@ -12,6 +12,7 @@ export type SlBootstrap = {
   room: string
   action: string
   view: 'table' | 'scores' | ''
+  token: string
 }
 
 function paramsFrom(raw: string): URLSearchParams {
@@ -52,6 +53,7 @@ export function readSlBootstrap(href = window.location.href): SlBootstrap | null
     room: (merged.get('room') || '').trim().toUpperCase(),
     action: (merged.get('action') || '').trim().toLowerCase(),
     view,
+    token: (merged.get('token') || '').trim(),
   }
 }
 
@@ -61,6 +63,15 @@ export function isTableHudSession(boot: SlBootstrap | null): boolean {
   if (boot.parked) return false
   if (boot.client === 'browser' || boot.client === 'web') return false
   return Boolean(boot.tableId && boot.uid)
+}
+
+/** Seated guest playing MP from an external browser via minted token. */
+export function isSeatedBrowserSession(boot: SlBootstrap | null): boolean {
+  if (!boot) return false
+  if (boot.parked) return false
+  if (boot.view === 'table' || boot.view === 'scores') return false
+  if (boot.client !== 'browser') return false
+  return Boolean(boot.tableId && boot.uid && boot.slCap && boot.token && boot.room)
 }
 
 export function readWebNameHint(href = window.location.href): string {

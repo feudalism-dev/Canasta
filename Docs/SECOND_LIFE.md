@@ -77,6 +77,8 @@ Query params: `action`, `cb`, `uid`, `name`, `seat`, plus action-specific fields
 | `create` | Mint room code; caller = host; table → lobby |
 | `join` | Join open lobby |
 | `start` | Host starts MP (need ≥2 joined) |
+| `mint_browser` | Guest (joined, not host): mint one-time browser match token (~10 min) |
+| `claim_browser` | External browser redeems `p=<token>` while still seated/Active/Joined |
 | `event` | Display bus: pipe payload in `p=` (see `TABLE_DISPLAY.md`) |
 
 Response shape: `callback({ ok, ... });`

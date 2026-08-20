@@ -73,13 +73,13 @@ export function AppChrome({ slBoot, parked, roomCode, onStatus, showOppTray = tr
                 void openSeatedBrowser(slBoot!, roomCode).then((how) => {
                   onStatus?.(
                     how === 'opened'
-                      ? 'Opened a solo game in your browser. This HUD is parked.'
-                      : 'Copied the web game link. Confirm the Second Life dialog to open your browser.',
+                      ? 'Opened a solo game in your browser. Use “Play match in browser” in the lobby for multiplayer.'
+                      : 'Copied the solo web link. Confirm the Second Life dialog to open your browser.',
                   )
                 })
               }}
             >
-              Play in Browser
+              Solo in Browser
             </button>
           )}
           {alreadyBrowser && slBoot ? (

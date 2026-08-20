@@ -1,6 +1,7 @@
 # Seated browser multiplayer — design & plan
 
-Status: **proposal for review** (not implemented).  
+Status: **implemented (guest browser; host HUD-only)**.  
+See phases below for residual polish.  
 Goal: let a player who is **physically seated / Active at a Canasta table** play the **multiplayer match in an external web browser**, using a **table-minted URL**, without opening public web multiplayer to anyone with a room code.
 
 Related problem: some SL MoAP/CEF clients fail PeerJS/WebRTC while the same user can play **solo** and a normal desktop browser often can PeerJS fine.
