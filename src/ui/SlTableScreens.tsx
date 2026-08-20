@@ -8,6 +8,7 @@ import {
   tableCreate,
   tableEnter,
   tableJoin,
+  tableLeave,
   tableStart,
   tableStatus,
   type TableStatus,
@@ -35,7 +36,7 @@ type Props = {
   peerRoomCode?: string
   peerSeats?: { id: string; name: string; ready: boolean; isHost: boolean; avatarUid?: string; seat?: number }[]
   isPeerHost?: boolean
-  onPeerReady?: () => void
+  onPeerReadyToggle?: (ready: boolean) => void
   onHowToPlay?: () => void
   coachTips?: boolean
   onCoachTips?: (on: boolean) => void
@@ -63,7 +64,7 @@ export function SlTableScreens({
   peerRoomCode,
   peerSeats,
   isPeerHost,
-  onPeerReady,
+  onPeerReadyToggle,
   onHowToPlay,
   coachTips = true,
   onCoachTips,
@@ -132,6 +133,8 @@ export function SlTableScreens({
   const canJoin = entered && mode === 'lobby' && !iJoined
   const showMpLobby = mode === 'lobby' || mode === 'match' || !!peerRoomCode
   const youSeat = me?.seat ?? (boot.seat >= 0 ? boot.seat : 0)
+  const myPeer = (peerSeats || []).find((s) => (s.avatarUid || '').toLowerCase() === boot.uid.toLowerCase())
+  const iAmReady = !!myPeer?.ready
   const occupants: Occupant[] = (table?.roster || [])
     .filter((r) => r.seat >= 0)
     .map((r) => {
@@ -271,8 +274,13 @@ export function SlTableScreens({
                 </li>
               ))}
             </ul>
-            <button type="button" className="btn secondary" onClick={onPeerReady}>
-              Ready
+            <button
+              type="button"
+              className="btn secondary"
+              disabled={!peerRoomCode && !(peerSeats && peerSeats.length)}
+              onClick={() => onPeerReadyToggle?.(!iAmReady)}
+            >
+              {iAmReady ? 'Not ready' : 'Ready'}
             </button>
             {isPeerHost && iAmHost ? (
               <button
@@ -299,7 +307,35 @@ export function SlTableScreens({
                 Start Match
               </button>
             ) : null}
-            <button type="button" className="btn ghost" onClick={() => void onLeaveLobby?.()}>
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={busy}
+              onClick={() => {
+                void (async () => {
+                  setBusy(true)
+                  setErr('')
+                  try {
+                    await onLeaveLobby?.()
+                    if (boot.slCap) {
+                      await tableLeave(boot.slCap, boot.uid, youSeat)
+                      // Stay Active at the table so Join / Create can work again.
+                      const enteredAgain = await tableEnter(boot.slCap, boot.uid, youSeat, displayName)
+                      setTable(enteredAgain)
+                      setStatus(
+                        enteredAgain.mode === 'lobby'
+                          ? 'Left the room — Join again when ready.'
+                          : 'Left the lobby.',
+                      )
+                    }
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : 'Leave failed')
+                  } finally {
+                    setBusy(false)
+                  }
+                })()
+              }}
+            >
               Leave lobby
             </button>
           </>

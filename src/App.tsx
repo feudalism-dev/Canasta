@@ -256,7 +256,7 @@ function AppInner() {
         peerRoomCode={peer?.roomCode}
         peerSeats={peer?.seats}
         isPeerHost={peer?.isHost}
-        onPeerReady={() => peer?.setReady(true)}
+        onPeerReadyToggle={(ready) => peer?.setReady(ready)}
         onHowToPlay={() => setScreen('help')}
         coachTips={coachTips}
         onCoachTips={(on) => {

@@ -320,10 +320,11 @@ function buildSession(
       return () => listeners.delete(cb)
     },
     setReady(ready) {
+      seats = seats.map((s) => (s.id === localId ? { ...s, ready } : s))
       if (isHost) {
-        seats = seats.map((s) => (s.id === localId ? { ...s, ready } : s))
         syncLobby()
       } else {
+        notify()
         const hostConn = [...conns.values()][0]
         if (hostConn) send(hostConn, { t: 'ready', id: localId, ready })
       }
