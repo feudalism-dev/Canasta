@@ -107,9 +107,9 @@ integer sayHello()
 string sessionHome(integer parked, string client)
 {
     string home = webBase()
-        + "?tableId=" + llEscapeURL(gTableId)
+        + "?tableId=" + gTableId
         + "&seat=" + (string)gSeat
-        + "&uid=" + llEscapeURL((string)gWearer)
+        + "&uid=" + (string)gWearer
         + "&rev=" + (string)HUD_PAGE_ASSET_REV;
     if (gNameHint != "") home += "&name=" + llEscapeURL(gNameHint);
     home += "&sl_cap=" + llEscapeURL(gSlCap);
@@ -159,16 +159,11 @@ integer applyMoap(integer force)
     integer sameHome = FALSE;
     if (home == gLastHomeUrl) sameHome = TRUE;
 
-    // Same session with media already up: do not cache-bust. A new &cb= plus
-    // ClearPrimMedia wipes CEF while the first load is still running.
-    if (!firstPaint && sameHome && hasMedia)
+    // Do not ClearPrimMedia here — clear+set in one event often returns OK
+    // while the HUD CEF never starts. Just set the URL.
+    if (!firstPaint && sameHome && hasMedia && !force)
     {
         debug("MoAP skip — same session already painted");
-        return FALSE;
-    }
-    if (!firstPaint && sameHome && !force)
-    {
-        debug("MoAP skip — not forced");
         return FALSE;
     }
 
@@ -176,7 +171,6 @@ integer applyMoap(integer force)
     debug("MoAP set face=" + (string)HUD_FACE + " caplen=" + (string)llStringLength(gSlCap)
         + " parked=" + (string)gParked + " " + llGetSubString(cur, 0, 140));
 
-    if (hasMedia) llClearPrimMedia(HUD_FACE);
     integer st = llSetPrimMediaParams(HUD_FACE, [
         PRIM_MEDIA_AUTO_PLAY, TRUE,
         PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
@@ -185,10 +179,12 @@ integer applyMoap(integer force)
         PRIM_MEDIA_FIRST_CLICK_INTERACT, TRUE,
         PRIM_MEDIA_WIDTH_PIXELS, HUD_MEDIA_PIXELS,
         PRIM_MEDIA_HEIGHT_PIXELS, HUD_MEDIA_PIXELS,
+        PRIM_MEDIA_WHITELIST_ENABLE, FALSE,
         PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_OWNER,
         PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_OWNER
     ]);
-    debug("MoAP status=" + (string)st);
+    list check = llGetLinkMedia(LINK_THIS, HUD_FACE, [PRIM_MEDIA_CURRENT_URL]);
+    debug("MoAP status=" + (string)st + " now=" + llGetSubString(llList2String(check, 0), 0, 80));
     gLastHomeUrl = home;
     return TRUE;
 }
@@ -536,27 +532,20 @@ default
 
         gWearer = id;
         llSetLinkAlpha(LINK_SET, 1.0, ALL_SIDES);
-        llClearPrimMedia(HUD_FACE);
         gLastHomeUrl = "";
         gParked = FALSE;
         if (gCmdListen) llListenRemove(gCmdListen);
         gCmdListen = llListen(commandChannel(gWearer), "", NULL_KEY, "");
         dropHsListen();
-        llSetTimerEvent(3.0);
         gHelloTicks = 0;
+        gMoapPending = TRUE;
+        gResyncLeft = 1;
+        llSetTimerEvent(0.5);
         llOwnerSay("Canasta HUD attached — click Enter Table when ready.");
         debug("attached table=" + llGetSubString(gTableId, 0, 7) + " seat=" + (string)gSeat
-            + " caplen=" + (string)llStringLength(gSlCap) + " parked=" + (string)gParked);
-        if (gTableId != "")
-        {
-            applyMoap(TRUE);
-            gResyncLeft = 1;
-            sayHello();
-        }
-        else
-        {
-            gMoapPending = TRUE;
-        }
+            + " caplen=" + (string)llStringLength(gSlCap) + " parked=" + (string)gParked
+            + " — media on next timer");
+        if (gTableId != "") sayHello();
     }
 
     timer()
