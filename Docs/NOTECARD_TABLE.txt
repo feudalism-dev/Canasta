@@ -1,0 +1,101 @@
+CANASTA / HAND & FOOT — TABLE QUICK START
+========================================
+Thank you for your purchase. This notecard covers how to rez the table and run games in Second Life. It does not teach card rules — play Classic Canasta or Hand & Foot as you already know them.
+
+The optional parlor Scoreboard is sold separately.
+
+
+1) REZZING THE TABLE
+--------------------
+• Rez the table from inventory onto a parcel you control (or where you have rez rights).
+• Keep the table as one linked set. Do not unlink the seats, display, or scripts.
+• The table uses an Experience and a small web HUD (media on a prim). The parcel must allow that Experience.
+• Whitelist this domain on the parcel (About Land → Media / Experience / Restricted as your estate requires):
+
+    feudalism-dev.github.io
+
+Without that whitelist, the HUD may stay blank or refuse to load.
+
+
+2) SITTING AND THE HUD
+----------------------
+• Sit in any chair. A “Canasta HUD” attaches temporarily and opens the game screen.
+• Sitting alone is not enough — wait until the HUD finishes loading and connects to the table (it usually “enters” automatically; use Retry if asked).
+• One table runs one game at a time (solo or multiplayer lobby/match).
+• Stand when you are done. Standing leaves the game/lobby as needed and parks or detaches the HUD.
+
+
+3) CHOOSING A GAME
+------------------
+On the HUD “Game” menu:
+
+• Classic Canasta — play to 5,000.
+• Pagat Hand & Foot — fixed standard Hand & Foot (4 rounds).
+• House Rules Hand & Foot — Hand & Foot with this table’s house settings (see section 7).
+
+Empty chairs in multiplayer are filled by computer players. Partners sit across (Player 1 with 3, Player 2 with 4).
+
+
+4) SOLO VS COMPUTER
+-------------------
+1. Sit alone (or with others, but only you will claim a solo lock).
+2. On the HUD, pick your game and options (partner AI, coach tips, difficulty as shown).
+3. Press “Play Solo vs Computer.”
+4. Play on the HUD. When finished, end/leave as the HUD offers so the table unlocks for the next game.
+
+Tip: Solo also works from the public web page for practice, but multiplayer requires this table.
+
+
+5) MULTIPLAYER (SAME TABLE)
+---------------------------
+Everyone who will play must sit at THIS table and have a working HUD.
+
+1. Sit and wait for the HUD to connect.
+2. Host (first to create the room):
+   • Choose the game (and house rules if using House Rules H&F).
+   • Press “Create Multiplayer.”
+   • Share the room only by playing at this table — guests Join from their seated HUDs.
+3. Guests:
+   • Press “Join …” for your seat when the lobby is open.
+4. Everyone:
+   • Press “Ready — accept these rules” when you agree with the current settings.
+   • Use “Not ready” while debating. If the host changes house rules or the game type, Ready clears and everyone must Ready again.
+5. Host:
+   • When every connected player is Ready (and seated players who should play have Joined), press “Start Match.”
+
+During play, follow the HUD for your turn. The table top may show a spectator view for bystanders.
+
+Leave lobby: use “Leave lobby” if you need to drop out before start. Standing also removes you from the active game/lobby.
+
+
+6) IF THE HUD WON’T CONNECT OR MULTIPLAYER FAILS
+------------------------------------------------
+• Confirm parcel Experience allow + feudalism-dev.github.io whitelist.
+• Stand, wait a moment, sit again so a fresh HUD rezzes.
+• Some viewers’ in-world browsers struggle with multiplayer networking. Guests (not the host) can use “Play match in browser” after Join — stay seated in SL; open the link in Chrome/Firefox/Edge. The host should keep playing on the HUD.
+• If a browser link does not open, the HUD may show a pasteable URL — copy it into an external browser.
+
+
+7) HOUSE RULES (TABLE OWNER)
+----------------------------
+• Only the object owner can “Save house rules to table.”
+• Pick “House Rules Hand & Foot,” set the toggles, then Save. Those settings stay with this table (even if you take it to inventory and rez it again).
+• When you sell or transfer the table, the new owner can Save their own defaults.
+• For a match, the host may tweak house rules in the lobby before Start. Tweaks apply to that match; Save writes the parlor default.
+
+
+8) SCOREBOARD (SOLD SEPARATELY)
+-------------------------------
+An optional Scoreboard object can show parlor and/or network tallies for Canasta and Hand & Foot. Rez and set it up per its own notecard. It is not required to play at the table.
+
+
+9) QUICK TROUBLESHOOTING
+------------------------
+Blank HUD ......... Whitelist feudalism-dev.github.io; allow Experience; re-sit.
+Can’t Create ...... Table already in a lobby/match, or not enough people Active — wait or finish/leave the current game.
+Can’t Join ........ Lobby not open, or you’re not Active on this table — sit and wait for HUD enter.
+Can’t Start ....... Not everyone Ready, or someone hasn’t Joined — check the lobby list.
+Wrong teams ....... Stand and sit in different chairs before Create/Join (1+3 vs 2+4).
+
+
+Enjoy the parlor.
