@@ -89,6 +89,12 @@ body,
   font: inherit;
 }
 
+.scale-btn.is-on,
+.tray-toggle.is-on {
+  border-color: var(--brass);
+  color: var(--brass);
+}
+
 .scale-control {
   display: flex;
   flex-wrap: wrap;
