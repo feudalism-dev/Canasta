@@ -89,11 +89,20 @@ body,
   font: inherit;
 }
 
-.scale-btn.is-on,
-.tray-toggle.is-on {
-  border-color: var(--brass);
-  color: var(--brass);
+.scale-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
 }
+
+.tray-toggle {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
 
 .scale-slider {
   width: 128px;

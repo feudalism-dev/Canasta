@@ -28,7 +28,8 @@ type Props = {
   onContinue: () => void
   onConsent: (accept: boolean) => void
   onGoOut?: () => void
-  showOppTray?: boolean
+  showOppBooks?: boolean
+  showOurBooks?: boolean
   coachTips?: boolean
   onCoachTips?: (on: boolean) => void
 }
@@ -53,7 +54,8 @@ export function GameBoard({
   onContinue,
   onConsent,
   onGoOut,
-  showOppTray = true,
+  showOppBooks = true,
+  showOurBooks = true,
   coachTips = false,
   onCoachTips,
 }: Props) {
@@ -73,9 +75,10 @@ export function GameBoard({
     pendingOut && state.phase === 'awaitingGoOutConsent' && partnerIndex(state, pendingOut.playerIndex) === localIndex,
   )
   const asker = pendingOut ? state.players[pendingOut.playerIndex] : null
+  const booksHidden = !showOppBooks || !showOurBooks
 
   return (
-    <div className={`table-root ${myTurn ? 'is-my-turn' : ''} ${showOppTray ? '' : 'is-tray-hidden'}`.trim()}>
+    <div className={`table-root ${myTurn ? 'is-my-turn' : ''} ${booksHidden ? 'is-tray-hidden' : ''}`.trim()}>
       <div className="table-felt" />
       <div className="table-brass" />
 
@@ -148,7 +151,7 @@ export function GameBoard({
         ))}
       </div>
 
-      {showOppTray ? (
+      {showOppBooks ? (
         <MeldTray
           title="Their books"
           melds={state.teams[otherTeam]!.melds}
@@ -159,14 +162,16 @@ export function GameBoard({
 
       <Piles state={state} localIndex={localIndex} selectedIds={selectedIds} onDraw={onDraw} onTakePile={onTakePile} />
 
-      <MeldTray
-        title={partner ? `Our books · with ${partner.displayName}` : 'Our books'}
-        melds={state.teams[myTeam]!.melds}
-        config={state.config}
-        redThrees={state.teams[myTeam]!.redThrees.length}
-        highlight
-        onMeldClick={onAdd}
-      />
+      {showOurBooks ? (
+        <MeldTray
+          title={partner ? `Our books · with ${partner.displayName}` : 'Our books'}
+          melds={state.teams[myTeam]!.melds}
+          config={state.config}
+          redThrees={state.teams[myTeam]!.redThrees.length}
+          highlight
+          onMeldClick={onAdd}
+        />
+      ) : null}
 
       <RankHand
         hand={me.hand}

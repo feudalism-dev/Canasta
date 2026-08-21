@@ -9,11 +9,22 @@ type Props = {
   parked?: boolean
   roomCode?: string
   onStatus?: (msg: string) => void
-  showOppTray?: boolean
-  onShowOppTray?: (on: boolean) => void
+  showOppBooks?: boolean
+  onShowOppBooks?: (on: boolean) => void
+  showOurBooks?: boolean
+  onShowOurBooks?: (on: boolean) => void
 }
 
-export function AppChrome({ slBoot, parked, roomCode, onStatus, showOppTray = true, onShowOppTray }: Props) {
+export function AppChrome({
+  slBoot,
+  parked,
+  roomCode,
+  onStatus,
+  showOppBooks = true,
+  onShowOppBooks,
+  showOurBooks = true,
+  onShowOurBooks,
+}: Props) {
   const [scale, setScale] = useState(() => defaultUiScale())
   const [helpOpen, setHelpOpen] = useState(false)
   const seated = Boolean(slBoot && slBoot.slCap && !parked)
@@ -45,19 +56,34 @@ export function AppChrome({ slBoot, parked, roomCode, onStatus, showOppTray = tr
             +
           </button>
           <span className="scale-pct">{Math.round(scale * 100)}%</span>
-          {onShowOppTray ? (
+          {onShowOppBooks ? (
             <button
               type="button"
-              className={`scale-btn tray-toggle ${showOppTray ? 'is-on' : ''}`}
-              onClick={() => onShowOppTray(!showOppTray)}
-              aria-pressed={showOppTray}
+              className={`scale-btn tray-toggle ${showOppBooks ? 'is-on' : ''}`}
+              onClick={() => onShowOppBooks(!showOppBooks)}
+              aria-pressed={showOppBooks}
               title={
-                showOppTray
-                  ? 'Hide their books on this HUD — watch them on the table top'
+                showOppBooks
+                  ? 'Hide their books on this HUD — still visible on the table top'
                   : 'Show their books on this HUD'
               }
             >
-              {showOppTray ? 'Hide tray' : 'Show tray'}
+              {showOppBooks ? 'Hide their books' : 'Show their books'}
+            </button>
+          ) : null}
+          {onShowOurBooks ? (
+            <button
+              type="button"
+              className={`scale-btn tray-toggle ${showOurBooks ? 'is-on' : ''}`}
+              onClick={() => onShowOurBooks(!showOurBooks)}
+              aria-pressed={showOurBooks}
+              title={
+                showOurBooks
+                  ? 'Hide our books on this HUD — still visible on the table top; use Meld to add'
+                  : 'Show our books on this HUD'
+              }
+            >
+              {showOurBooks ? 'Hide our books' : 'Show our books'}
             </button>
           ) : null}
         </div>
