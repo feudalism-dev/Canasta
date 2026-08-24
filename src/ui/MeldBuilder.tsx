@@ -124,7 +124,12 @@ export function MeldBuilder({
         </button>
         {addable.map((x) => (
           <button key={x.i} type="button" className="btn secondary" onClick={() => onAdd(x.i)}>
-            Add {selected.length} to {x.m.rank === 'WILD' ? 'wilds' : x.m.rank}
+            Add {selected.length} to{' '}
+            {isSequenceMeld(x.m)
+              ? `Run ${x.m.rank}${x.m.suit ? ` ${suitGlyph(x.m.suit)}` : ''}`
+              : x.m.rank === 'WILD'
+                ? 'wilds'
+                : x.m.rank}
           </button>
         ))}
         <button type="button" className="btn ghost" disabled={!one || !canDiscard} onClick={onDiscard}>
