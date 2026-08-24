@@ -103,3 +103,12 @@ House toggle: require **two clean and two dirty** instead of 1+1.
 - Black 3s left in Hand/Foot: configurable point penalty (default 5)
 
 Classic Canasta v1 has no house toggles. Modern American Canasta is deferred.
+
+## Planned variants (not implemented)
+
+Research and implementation plan only:
+
+- **[Samba](./RULES_SAMBA.md)** — three-deck Canasta with **sequence melds** (sambas) and groups (canastas); draw two / discard one; play to 10,000.
+- **[Bolivia](./RULES_BOLIVIA.md)** — Samba plus wild **Bolivia** books and a stricter go-out rule (two seven-card melds including at least one sequence); play to 15,000.
+
+See **[PLAN_SAMBA_BOLIVIA.md](./PLAN_SAMBA_BOLIVIA.md)** for engine gaps and phased rollout.

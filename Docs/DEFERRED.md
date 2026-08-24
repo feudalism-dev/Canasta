@@ -2,6 +2,7 @@
 
 - Second Life Experience Database for purchase entitlement / ELO
 - Modern American Canasta (CLA special hands, 8,500)
+- Samba / Bolivia implementation (rules documented in `RULES_SAMBA.md`, `RULES_BOLIVIA.md`; plan in `PLAN_SAMBA_BOLIVIA.md`)
 - 3-player cutthroat (no partners) and 5–6 player Hand and Foot
 - Private PeerServer if the public PeerJS broker is insufficient
 - Turn timeout / AFK forfeit

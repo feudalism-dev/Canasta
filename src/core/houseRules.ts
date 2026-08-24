@@ -44,10 +44,24 @@ export function isHouseRulesHandAndFoot(variant: Variant): boolean {
   return variant === 'handAndFootHouse'
 }
 
+export function isSambaFamily(variant: Variant): boolean {
+  return variant === 'samba' || variant === 'bolivia'
+}
+
+export function isSamba(variant: Variant): boolean {
+  return variant === 'samba'
+}
+
+export function isBolivia(variant: Variant): boolean {
+  return variant === 'bolivia'
+}
+
 export function variantLabel(variant: Variant): string {
   if (variant === 'canasta') return 'Classic Canasta'
   if (variant === 'handAndFoot') return 'Pagat Hand & Foot'
-  return 'House Rules Hand & Foot'
+  if (variant === 'handAndFootHouse') return 'House Rules Hand & Foot'
+  if (variant === 'samba') return 'Samba'
+  return 'Bolivia'
 }
 
 export function normalizeHouse(partial?: Partial<HouseRules> | null): HouseRules {
@@ -63,6 +77,36 @@ export function houseForVariant(variant: Variant, house?: Partial<HouseRules> | 
       goingOutClean: 0,
       goingOutDirty: 0,
       wildBooksAllowed: false,
+    }
+  }
+  if (variant === 'samba') {
+    return {
+      ...DEFAULT_HOUSE,
+      partnerConsent: true,
+      goingOutClean: 0,
+      goingOutDirty: 0,
+      wildBooksAllowed: false,
+      autoplayRedThreesOnDraw: false,
+      autoplayRedThreesOnFootOpen: false,
+      replaceRedThreesFromHand: false,
+      replaceRedThreesOnFootOpen: false,
+      requireDiscardToGoOut: true,
+      requireNaturalPairToTakePile: true,
+    }
+  }
+  if (variant === 'bolivia') {
+    return {
+      ...DEFAULT_HOUSE,
+      partnerConsent: true,
+      goingOutClean: 0,
+      goingOutDirty: 0,
+      wildBooksAllowed: true,
+      autoplayRedThreesOnDraw: false,
+      autoplayRedThreesOnFootOpen: false,
+      replaceRedThreesFromHand: false,
+      replaceRedThreesOnFootOpen: false,
+      requireDiscardToGoOut: true,
+      requireNaturalPairToTakePile: true,
     }
   }
   if (isPagatHandAndFoot(variant)) return { ...PAGAT_HOUSE }
@@ -141,6 +185,12 @@ export function decodeHouseCompact(raw: string | null | undefined): HouseRules |
 export function houseRulesSummary(house: HouseRules, variant: Variant): string[] {
   if (variant === 'canasta') {
     return ['Classic Canasta (fixed rules — no house toggles).']
+  }
+  if (isSamba(variant)) {
+    return ['Samba (fixed): sequences + canastas, draw two, play to 10,000.']
+  }
+  if (isBolivia(variant)) {
+    return ['Bolivia (fixed): Samba plus wild Bolivia books, play to 15,000.']
   }
   if (isPagatHandAndFoot(variant)) {
     return [

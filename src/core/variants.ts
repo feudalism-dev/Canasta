@@ -1,7 +1,28 @@
 import type { HouseRules, Variant, VariantConfig } from './types'
-import { houseForVariant, isHandAndFoot } from './houseRules'
+import { houseForVariant, isHandAndFoot, isSambaFamily } from './houseRules'
 
 export { DEFAULT_HOUSE } from './houseRules'
+
+/** Lobby/setup UI: Samba and Bolivia stay hidden until playable (plan phase 1e). */
+export const SHOW_SAMBA_VARIANTS = false
+
+const CLASSIC_SEQUENCE_FLAGS = {
+  sequencesEnabled: false,
+  allowMultipleGroupsSameRank: false,
+  sequencesCloseAtSeven: false,
+  goingOutRule: 'canasta' as const,
+  redThreeMode: 'classic' as const,
+  blockTakePileOnWildTop: false,
+}
+
+const HF_SEQUENCE_FLAGS = {
+  sequencesEnabled: false,
+  allowMultipleGroupsSameRank: false,
+  sequencesCloseAtSeven: false,
+  goingOutRule: 'handAndFoot' as const,
+  redThreeMode: 'handAndFoot' as const,
+  blockTakePileOnWildTop: false,
+}
 
 export function variantConfig(
   variant: Variant,
@@ -31,6 +52,38 @@ export function variantConfig(
       goingOutNeedsCanasta: true,
       concealedBonus: true,
       house: houseForVariant('canasta'),
+      ...CLASSIC_SEQUENCE_FLAGS,
+    }
+  }
+  if (variant === 'samba' || variant === 'bolivia') {
+    const houseRules = houseForVariant(variant)
+    return {
+      variant,
+      deckCount: 3,
+      handSize: 15,
+      footSize: 0,
+      stockDraw: 2,
+      playTo: variant === 'samba' ? 10000 : 15000,
+      rounds: null,
+      canastaSize: 7,
+      canastaMayExceed: true,
+      maxWildsPerMeld: variant === 'samba' ? 2 : 7,
+      minNaturalsToStart: 2,
+      minNaturalsForDirtyBook: 4,
+      freezeOnWildDiscard: false,
+      takePileNeedsTwoNaturalsAlways: true,
+      redThreeReplacement: false,
+      booksCloseAtSeven: false,
+      requireDiscardToGoOut: true,
+      goingOutNeedsCanasta: false,
+      concealedBonus: false,
+      sequencesEnabled: true,
+      allowMultipleGroupsSameRank: true,
+      sequencesCloseAtSeven: true,
+      goingOutRule: variant,
+      redThreeMode: 'samba',
+      blockTakePileOnWildTop: variant === 'bolivia',
+      house: houseRules,
     }
   }
   const houseRules = houseForVariant(variant, house)
@@ -55,6 +108,7 @@ export function variantConfig(
     goingOutNeedsCanasta: false,
     concealedBonus: false,
     house: houseRules,
+    ...HF_SEQUENCE_FLAGS,
   }
 }
 
@@ -63,6 +117,13 @@ export function initialMeldMinimum(config: VariantConfig, teamScore: number, rou
     const table = [50, 90, 120, 150]
     const idx = Math.min(Math.max(round - 1, 0), 3)
     return table[idx] ?? 50
+  }
+  if (isSambaFamily(config.variant)) {
+    if (teamScore < 0) return 15
+    if (teamScore < 1500) return 50
+    if (teamScore < 3000) return 90
+    if (teamScore < 7000) return 120
+    return 150
   }
   if (teamScore < 0) return 15
   if (teamScore < 1500) return 50

@@ -1,5 +1,18 @@
 import { cardPoints, isRedThree, isWild, meldCountPoints, type Card, type MeldRank } from './cards'
+import { validateSequenceCards } from './sequences'
 import type { Meld, VariantConfig } from './types'
+
+export function meldKind(meld: Meld): 'group' | 'sequence' {
+  return meld.kind === 'sequence' ? 'sequence' : 'group'
+}
+
+export function isGroupMeld(meld: Meld): boolean {
+  return meldKind(meld) === 'group'
+}
+
+export function isSequenceMeld(meld: Meld): boolean {
+  return meld.kind === 'sequence'
+}
 
 export function naturalCount(meld: Meld): number {
   return meld.cards.filter((c) => !isWild(c)).length
@@ -14,6 +27,7 @@ export function meldIsNatural(meld: Meld): boolean {
 }
 
 export function meldIsCanasta(meld: Meld, size: number): boolean {
+  if (isSequenceMeld(meld)) return false
   return meld.cards.length >= size
 }
 
@@ -41,20 +55,28 @@ export function sortMeldsForDisplay(melds: Meld[], canastaSize: number): { meld:
   return melds
     .map((meld, index) => ({ meld, index }))
     .sort((a, b) => {
-      const aDone = meldIsCanasta(a.meld, canastaSize) ? 0 : 1
-      const bDone = meldIsCanasta(b.meld, canastaSize) ? 0 : 1
+      const aSeq = isSequenceMeld(a.meld)
+      const bSeq = isSequenceMeld(b.meld)
+      if (aSeq !== bSeq) return aSeq ? 1 : -1
+      const aDone = aSeq ? (a.meld.closed ? 0 : 1) : meldIsCanasta(a.meld, canastaSize) ? 0 : 1
+      const bDone = bSeq ? (b.meld.closed ? 0 : 1) : meldIsCanasta(b.meld, canastaSize) ? 0 : 1
       if (aDone !== bDone) return aDone - bDone
       const byCount = b.meld.cards.length - a.meld.cards.length
       if (byCount !== 0) return byCount
+      if (aSeq && bSeq && a.meld.suit && b.meld.suit && a.meld.suit !== b.meld.suit) {
+        return a.meld.suit.localeCompare(b.meld.suit)
+      }
       return meldRankSortValue(a.meld.rank) - meldRankSortValue(b.meld.rank)
     })
 }
 
 export function meldIsWildBook(meld: Meld): boolean {
+  if (isSequenceMeld(meld)) return false
   return meld.rank === 'WILD' || (meld.cards.length > 0 && meld.cards.every((c) => isWild(c)))
 }
 
 export function canastaKind(meld: Meld, size: number): 'none' | 'natural' | 'mixed' | 'wild' {
+  if (isSequenceMeld(meld)) return 'none'
   if (meld.cards.length < size) return 'none'
   if (meldIsWildBook(meld)) return 'wild'
   if (meldIsNatural(meld)) return 'natural'
@@ -225,6 +247,12 @@ export function wouldClose(meld: Meld, adding: number, config: VariantConfig): b
 
 export function canAddCards(meld: Meld, cards: Card[], config: VariantConfig): string | null {
   if (cards.length === 0) return 'Select cards to add'
+  if (isSequenceMeld(meld)) {
+    if (!config.sequencesEnabled) return 'Sequences are not allowed in this variant'
+    if (meld.closed) return 'That samba is complete'
+    const combined = [...meld.cards, ...cards]
+    return validateSequenceCards(combined, config)
+  }
   if (!meldAcceptsAdds(meld, config)) return 'That book is already closed'
   const combined = [...meld.cards, ...cards]
   if (bookIsCappedAtSeven(config) && combined.length > config.canastaSize) return 'A book cannot exceed seven'
@@ -251,6 +279,12 @@ export function canAddCards(meld: Meld, cards: Card[], config: VariantConfig): s
 }
 
 export function closeIfNeeded(meld: Meld, config: VariantConfig): Meld {
+  if (isSequenceMeld(meld)) {
+    if (config.sequencesCloseAtSeven && meld.cards.length >= config.canastaSize) {
+      return { ...meld, closed: true }
+    }
+    return meld
+  }
   if (!config.booksCloseAtSeven) {
     return { ...meld, closed: meld.cards.length >= config.canastaSize ? meld.closed : meld.closed }
   }

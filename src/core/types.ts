@@ -1,6 +1,12 @@
-import type { Card, MeldRank } from './cards'
+import type { Card, MeldRank, Suit } from './cards'
 
-export type Variant = 'canasta' | 'handAndFoot' | 'handAndFootHouse'
+export type Variant = 'canasta' | 'handAndFoot' | 'handAndFootHouse' | 'samba' | 'bolivia'
+
+export type MeldKind = 'group' | 'sequence'
+
+export type GoingOutRule = 'canasta' | 'handAndFoot' | 'samba' | 'bolivia'
+
+export type RedThreeMode = 'classic' | 'handAndFoot' | 'samba'
 
 export type HouseRules = {
   goingOutClean: number
@@ -58,6 +64,16 @@ export type VariantConfig = {
   requireDiscardToGoOut: boolean
   goingOutNeedsCanasta: boolean
   concealedBonus: boolean
+  /** Samba/Bolivia: allow sequence melds (runs in suit). */
+  sequencesEnabled: boolean
+  /** Samba/Bolivia: more than one open group of the same rank. */
+  allowMultipleGroupsSameRank: boolean
+  /** Samba/Bolivia: sequences close at seven (sambas). Groups may still exceed seven when allowed. */
+  sequencesCloseAtSeven: boolean
+  goingOutRule: GoingOutRule
+  redThreeMode: RedThreeMode
+  /** Bolivia: cannot take discard pile when top card is wild. */
+  blockTakePileOnWildTop: boolean
   house: HouseRules
 }
 
@@ -65,6 +81,10 @@ export type Meld = {
   rank: MeldRank
   cards: Card[]
   closed: boolean
+  /** Omit or 'group' for Classic Canasta and Hand & Foot. */
+  kind?: MeldKind
+  /** Same-suit sequences only (Samba/Bolivia). */
+  suit?: Suit
 }
 
 export type PlayerState = {
