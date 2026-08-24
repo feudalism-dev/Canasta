@@ -574,6 +574,7 @@ integer handleAdmin(string str, key av)
     string cmd = llList2String(p, 0);
     if (cmd == "REFRESH")
     {
+        gXpReport = TRUE;
         enqueueReads();
         kickXp();
         llMessageLinked(LINK_SET, ADMIN_RSP, "OK|refresh", av);
