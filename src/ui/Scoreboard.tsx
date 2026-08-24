@@ -80,7 +80,7 @@ export function Scoreboard({ slCap }: Props) {
       }
     }
     void pull(true)
-    const id = window.setInterval(() => void pull(false), 4000)
+    const id = window.setInterval(() => void pull(false), 8000)
     return () => {
       alive = false
       window.clearInterval(id)

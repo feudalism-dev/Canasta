@@ -120,9 +120,9 @@ export function jsonpScores(apiBase: string, params: JsonpParams = {}, timeoutMs
 }
 
 export function fetchScores(slCap: string): Promise<ScorePayload> {
-  return jsonpScores(slCap, { action: 'scores' })
+  return jsonpScores(slCap, { action: 'scores' }, 10000)
 }
 
 export function refreshScores(slCap: string): Promise<ScorePayload> {
-  return jsonpScores(slCap, { action: 'refresh' })
+  return jsonpScores(slCap, { action: 'refresh' }, 12000)
 }

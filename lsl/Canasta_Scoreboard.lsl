@@ -45,6 +45,13 @@ key gRevReq = NULL_KEY;
 integer gRevDone = FALSE;
 integer gRevDeadline = 0;
 integer gXpReport = FALSE;
+integer gJsonDirty = TRUE;
+string gJson = "";
+
+markJsonDirty()
+{
+    gJsonDirty = TRUE;
+}
 
 integer effectiveRev()
 {
@@ -87,6 +94,9 @@ integer findScreenLink()
 
 string jsonEscape(string s)
 {
+    // Fast path — names are usually clean after cleanName().
+    if (llSubStringIndex(s, "\\") < 0 && llSubStringIndex(s, "\"") < 0 && llSubStringIndex(s, "\n") < 0)
+        return s;
     s = llDumpList2String(llParseStringKeepNulls(s, ["\\"], []), "\\\\");
     s = llDumpList2String(llParseStringKeepNulls(s, ["\""], []), "\\\"");
     return llDumpList2String(llParseStringKeepNulls(s, ["\n"], []), "\\n");
@@ -232,28 +242,6 @@ string mutatePacked(string packed, string uid, string nm, integer score, integer
     return out;
 }
 
-string rowsToJson(string packed)
-{
-    if (packed == "") return "[]";
-    list recs = llParseStringKeepNulls(packed, ["^"], []);
-    string json = "[";
-    integer i;
-    integer n = llGetListLength(recs);
-    integer wrote = 0;
-    for (i = 0; i < n; i++)
-    {
-        list f = llParseStringKeepNulls(llList2String(recs, i), ["~"], []);
-        if (llGetListLength(f) < 3) jump skiprow;
-        if (wrote) json += ",";
-        json += "{\"u\":\"" + jsonEscape(llList2String(f, 0))
-            + "\",\"n\":\"" + jsonEscape(llList2String(f, 1))
-            + "\",\"s\":" + llList2String(f, 2) + "}";
-        wrote += 1;
-        @skiprow;
-    }
-    return json + "]";
-}
-
 integer rotateLocal()
 {
     string wk = weekId();
@@ -265,6 +253,7 @@ integer rotateLocal()
         llLinksetDataWrite("lsw", "");
         llLinksetDataWrite("lbw", "");
         llLinksetDataWrite("lwk", wk);
+        markJsonDirty();
     }
     if (llLinksetDataRead("lmk") != mk)
     {
@@ -273,6 +262,7 @@ integer rotateLocal()
         llLinksetDataWrite("lsm", "");
         llLinksetDataWrite("lbm", "");
         llLinksetDataWrite("lmk", mk);
+        markJsonDirty();
     }
     return TRUE;
 }
@@ -285,6 +275,7 @@ string loadLocal(string game, string period)
 integer saveLocal(string game, string period, string packed)
 {
     llLinksetDataWrite(lsdKey(game, period), packed);
+    markJsonDirty();
     return TRUE;
 }
 
@@ -320,6 +311,7 @@ integer setNet(string game, string period, string packed)
         if (period == "w") gNetHW = packed;
         else if (period == "m") gNetHM = packed;
         else gNetHL = packed;
+        markJsonDirty();
         return TRUE;
     }
     if (game == "s")
@@ -327,6 +319,7 @@ integer setNet(string game, string period, string packed)
         if (period == "w") gNetSW = packed;
         else if (period == "m") gNetSM = packed;
         else gNetSL = packed;
+        markJsonDirty();
         return TRUE;
     }
     if (game == "b")
@@ -334,37 +327,111 @@ integer setNet(string game, string period, string packed)
         if (period == "w") gNetBW = packed;
         else if (period == "m") gNetBM = packed;
         else gNetBL = packed;
+        markJsonDirty();
         return TRUE;
     }
     if (period == "w") gNetCW = packed;
     else if (period == "m") gNetCM = packed;
     else gNetCL = packed;
+    markJsonDirty();
     return TRUE;
 }
 
-string bundleJson(string game)
+// Append one period's rows onto gJson (avoids huge nested return temps).
+appendRowsJson(string packed)
 {
-    return "{\"w\":" + rowsToJson(loadLocal(game, "w"))
-        + ",\"m\":" + rowsToJson(loadLocal(game, "m"))
-        + ",\"l\":" + rowsToJson(loadLocal(game, "l")) + "}";
+    if (packed == "")
+    {
+        gJson += "[]";
+        return;
+    }
+    list recs = llParseStringKeepNulls(packed, ["^"], []);
+    gJson += "[";
+    integer i;
+    integer n = llGetListLength(recs);
+    integer wrote = 0;
+    for (i = 0; i < n; i++)
+    {
+        list f = llParseStringKeepNulls(llList2String(recs, i), ["~"], []);
+        if (llGetListLength(f) < 3) jump skiprow;
+        if (wrote) gJson += ",";
+        gJson += "{\"u\":\"" + jsonEscape(llList2String(f, 0))
+            + "\",\"n\":\"" + jsonEscape(llList2String(f, 1))
+            + "\",\"s\":" + llList2String(f, 2) + "}";
+        wrote += 1;
+        @skiprow;
+    }
+    gJson += "]";
 }
 
-string netBundleJson(string game)
+appendBundleJson(integer isLocal, string game)
 {
-    return "{\"w\":" + rowsToJson(loadNet(game, "w"))
-        + ",\"m\":" + rowsToJson(loadNet(game, "m"))
-        + ",\"l\":" + rowsToJson(loadNet(game, "l")) + "}";
+    gJson += "{\"w\":";
+    if (isLocal) appendRowsJson(loadLocal(game, "w"));
+    else appendRowsJson(loadNet(game, "w"));
+    gJson += ",\"m\":";
+    if (isLocal) appendRowsJson(loadLocal(game, "m"));
+    else appendRowsJson(loadNet(game, "m"));
+    gJson += ",\"l\":";
+    if (isLocal) appendRowsJson(loadLocal(game, "l"));
+    else appendRowsJson(loadNet(game, "l"));
+    gJson += "}";
 }
 
-string scoresJson()
+rebuildScoresJson()
 {
     rotateLocal();
-    return "{\"ok\":true,\"week\":\"" + weekId()
-        + "\",\"month\":\"" + monthId()
-        + "\",\"local\":{\"c\":" + bundleJson("c") + ",\"h\":" + bundleJson("h")
-        + ",\"s\":" + bundleJson("s") + ",\"b\":" + bundleJson("b")
-        + "},\"net\":{\"c\":" + netBundleJson("c") + ",\"h\":" + netBundleJson("h")
-        + ",\"s\":" + netBundleJson("s") + ",\"b\":" + netBundleJson("b") + "}}";
+    gJson = "{\"ok\":true,\"week\":\"" + weekId() + "\",\"month\":\"" + monthId() + "\",\"local\":{";
+    gJson += "\"c\":";
+    appendBundleJson(TRUE, "c");
+    gJson += ",\"h\":";
+    appendBundleJson(TRUE, "h");
+    gJson += ",\"s\":";
+    appendBundleJson(TRUE, "s");
+    gJson += ",\"b\":";
+    appendBundleJson(TRUE, "b");
+    gJson += "},\"net\":{";
+    gJson += "\"c\":";
+    appendBundleJson(FALSE, "c");
+    gJson += ",\"h\":";
+    appendBundleJson(FALSE, "h");
+    gJson += ",\"s\":";
+    appendBundleJson(FALSE, "s");
+    gJson += ",\"b\":";
+    appendBundleJson(FALSE, "b");
+    gJson += "}}";
+    gJsonDirty = FALSE;
+}
+
+ensureScoresJson()
+{
+    if (gJsonDirty) rebuildScoresJson();
+}
+
+string qparam(string qs, string name)
+{
+    string needle = name + "=";
+    integer at = llSubStringIndex(qs, needle);
+    if (at < 0) return "";
+    integer start = at + llStringLength(needle);
+    string rest = llGetSubString(qs, start, -1);
+    integer amp = llSubStringIndex(rest, "&");
+    if (amp < 0) return llUnescapeURL(rest);
+    return llUnescapeURL(llGetSubString(rest, 0, amp - 1));
+}
+
+sendJsonp(key httpId, string callback)
+{
+    if (httpId == NULL_KEY) return;
+    if (callback == "" || llStringLength(callback) > 64)
+    {
+        llSetContentType(httpId, CONTENT_TYPE_TEXT);
+        llHTTPResponse(httpId, 400, "{\"ok\":false}");
+        return;
+    }
+    ensureScoresJson();
+    llSetContentType(httpId, CONTENT_TYPE_TEXT);
+    llHTTPResponse(httpId, 200, callback + "(" + gJson + ");");
 }
 
 integer countPacked(string packed)
@@ -457,15 +524,20 @@ integer kickXp()
     return TRUE;
 }
 
+ingestOnePeriod(string game, string period, string uid, string nm, integer score)
+{
+    saveLocal(game, period, mutatePacked(loadLocal(game, period), uid, nm, score, 0));
+}
+
 integer ingest(string game, string uid, string nm, integer score)
 {
     game = normGame(game);
     if (game != "c" && game != "h" && game != "s" && game != "b") return FALSE;
     rotateLocal();
     nm = cleanName(nm);
-    saveLocal(game, "w", mutatePacked(loadLocal(game, "w"), uid, nm, score, 0));
-    saveLocal(game, "m", mutatePacked(loadLocal(game, "m"), uid, nm, score, 0));
-    saveLocal(game, "l", mutatePacked(loadLocal(game, "l"), uid, nm, score, 0));
+    ingestOnePeriod(game, "w", uid, nm, score);
+    ingestOnePeriod(game, "m", uid, nm, score);
+    ingestOnePeriod(game, "l", uid, nm, score);
     enqueueXp("M" + game + "w", uid, nm, score);
     enqueueXp("M" + game + "m", uid, nm, score);
     enqueueXp("M" + game + "l", uid, nm, score);
@@ -512,47 +584,6 @@ string pickPacked(string scope, string game, string period)
     if (period == "a") period = "l";
     if (scope == "N") return loadNet(game, period);
     return loadLocal(game, period);
-}
-
-list parseQuery(string qs)
-{
-    list out = [];
-    list pairs = llParseString2List(qs, ["&"], []);
-    integer i;
-    integer n = llGetListLength(pairs);
-    for (i = 0; i < n; i++)
-    {
-        string pair = llList2String(pairs, i);
-        integer eq = llSubStringIndex(pair, "=");
-        if (eq >= 0)
-        {
-            out += [
-                llUnescapeURL(llGetSubString(pair, 0, eq - 1)),
-                llDumpList2String(llParseStringKeepNulls(llUnescapeURL(llGetSubString(pair, eq + 1, -1)), ["+"], []), " ")
-            ];
-        }
-    }
-    return out;
-}
-
-string qget(list params, string name)
-{
-    integer idx = llListFindList(params, [name]);
-    if (idx < 0) return "";
-    return llList2String(params, idx + 1);
-}
-
-sendJsonp(key httpId, string callback, string json)
-{
-    if (httpId == NULL_KEY) return;
-    if (callback == "" || llStringLength(callback) > 64)
-    {
-        llSetContentType(httpId, CONTENT_TYPE_TEXT);
-        llHTTPResponse(httpId, 400, "{\"ok\":false}");
-        return;
-    }
-    llSetContentType(httpId, CONTENT_TYPE_TEXT);
-    llHTTPResponse(httpId, 200, callback + "(" + json + ");");
 }
 
 integer applyMoap()
@@ -777,13 +808,13 @@ default
             llOwnerSay("Canasta scoreboard: HTTP-IN denied.");
             return;
         }
-        list q = parseQuery(llGetHTTPHeader(id, "x-query-string"));
-        if (qget(q, "action") == "refresh")
+        string qs = llGetHTTPHeader(id, "x-query-string");
+        if (qparam(qs, "action") == "refresh")
         {
             enqueueReads();
             kickXp();
         }
-        sendJsonp(id, qget(q, "cb"), scoresJson());
+        sendJsonp(id, qparam(qs, "cb"));
     }
 
     dataserver(key query, string data)
