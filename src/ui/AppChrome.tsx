@@ -15,6 +15,11 @@ type Props = {
   onShowOppBooks?: (on: boolean) => void
   showOurBooks?: boolean
   onShowOurBooks?: (on: boolean) => void
+  /** Solo coach tips — only while a local match is active. */
+  coachTips?: boolean
+  onCoachTips?: (on: boolean) => void
+  /** Leave match / return to menu — only while playing. */
+  onMenu?: () => void
 }
 
 export function AppChrome({
@@ -26,6 +31,9 @@ export function AppChrome({
   onShowOppBooks,
   showOurBooks = true,
   onShowOurBooks,
+  coachTips,
+  onCoachTips,
+  onMenu,
 }: Props) {
   const [scale, setScale] = useState(() => defaultUiScale())
   const [helpOpen, setHelpOpen] = useState(false)
@@ -114,8 +122,24 @@ export function AppChrome({
               {showOurBooks ? 'Hide our books' : 'Show our books'}
             </button>
           ) : null}
+          {onCoachTips ? (
+            <button
+              type="button"
+              className={`scale-btn tray-toggle ${coachTips ? 'is-on' : ''}`}
+              onClick={() => onCoachTips(!coachTips)}
+              aria-pressed={Boolean(coachTips)}
+              title={coachTips ? 'Turn off coach tips under the status bar' : 'Turn on coach tips under the status bar'}
+            >
+              {coachTips ? 'Coach on' : 'Coach off'}
+            </button>
+          ) : null}
         </div>
         <div className="chrome-actions">
+          {onMenu ? (
+            <button type="button" className="chrome-help-btn" onClick={onMenu} title="Leave match and return to the menu">
+              Menu
+            </button>
+          ) : null}
           <button type="button" className="chrome-help-btn" onClick={() => setHelpOpen(true)}>
             Help
           </button>

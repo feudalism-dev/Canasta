@@ -53,6 +53,7 @@ body,
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.6rem;
   padding: 0.28rem 0.65rem;
   min-height: var(--chrome-h);
@@ -354,13 +355,6 @@ select {
   width: auto;
   margin: 0;
   padding: calc(0.25 * var(--rem)) calc(0.5 * var(--rem));
-}
-
-.board-top-actions {
-  display: flex;
-  align-items: center;
-  gap: calc(0.35 * var(--rem));
-  flex-shrink: 0;
 }
 
 .hand-count-strip {

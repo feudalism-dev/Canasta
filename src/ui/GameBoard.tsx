@@ -36,7 +36,6 @@ type Props = {
   showOppBooks?: boolean
   showOurBooks?: boolean
   coachTips?: boolean
-  onCoachTips?: (on: boolean) => void
 }
 
 export function GameBoard({
@@ -64,7 +63,6 @@ export function GameBoard({
   showOppBooks = true,
   showOurBooks = true,
   coachTips = false,
-  onCoachTips,
 }: Props) {
   const me = state.players[localIndex]!
   const myTeam = me.team
@@ -110,20 +108,6 @@ export function GameBoard({
           <div>
             <em>Meld</em> {state.teams[myTeam]!.hasInitialMeld ? '✓' : need}
           </div>
-        </div>
-        <div className="board-top-actions">
-          {onCoachTips ? (
-            <button
-              type="button"
-              className={`btn ghost tiny-btn ${coachTips ? 'is-on' : ''}`}
-              onClick={() => onCoachTips(!coachTips)}
-            >
-              {coachTips ? 'Coach on' : 'Coach off'}
-            </button>
-          ) : null}
-          <button type="button" className="btn ghost tiny-btn" onClick={onMenu}>
-            Menu
-          </button>
         </div>
       </header>
 

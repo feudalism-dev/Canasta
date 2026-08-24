@@ -96,6 +96,16 @@ function AppInner() {
           writeOurBooks(on)
           setShowOurBooks(on)
         }}
+        coachTips={Boolean(local) && screen === 'game' ? coachTips : undefined}
+        onCoachTips={
+          local && screen === 'game'
+            ? (on) => {
+                writeCoachTips(on)
+                setCoachTips(on)
+              }
+            : undefined
+        }
+        onMenu={screen === 'game' && state ? () => void leaveToMenu() : undefined}
         onStatus={(msg) => {
           setStatus(msg)
           push(msg)
@@ -446,14 +456,6 @@ function AppInner() {
       showOppBooks={showOppBooks}
       showOurBooks={showOurBooks}
       coachTips={Boolean(local) && coachTips}
-      onCoachTips={
-        local
-          ? (on) => {
-              writeCoachTips(on)
-              setCoachTips(on)
-            }
-          : undefined
-      }
     />,
   )
 }
