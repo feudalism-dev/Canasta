@@ -1,8 +1,8 @@
 # Samba — Rules reference
 
-Samba is a three-deck Canasta variant that adds **sequence melds** (sambas) alongside the usual **group melds** (canastas). This document follows [Pagat Samba](https://www.pagat.com/rummy/samba.html) (Dutch / standard rules). Use it as the target ruleset for a future in-game variant.
+Samba is a three-deck Canasta variant that adds **sequence melds** (sambas) alongside the usual **group melds** (canastas). This document follows [Pagat Samba](https://www.pagat.com/rummy/samba.html) (Dutch / standard rules).
 
-Our engine today supports **rank-only melds** (Classic Canasta and Hand & Foot). Samba is the first variant that requires **runs in suit**.
+**In this product:** Samba is a **beta** game in the selector (playable). Rules or scoring may still change before it graduates. Classic Canasta and Hand & Foot remain the supported product line.
 
 ---
 

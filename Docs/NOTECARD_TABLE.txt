@@ -1,6 +1,6 @@
 CANASTA / HAND & FOOT — TABLE QUICK START
 ========================================
-Thank you for your purchase. This notecard covers how to rez the table and run games in Second Life. It does not teach card rules — play Classic Canasta or Hand & Foot as you already know them.
+Thank you for your purchase. This notecard covers how to rez the table and run games in Second Life. It does not teach full card rules — play Classic Canasta or Hand & Foot as you already know them. Samba and Bolivia are offered as labeled beta games (see section 3).
 
 The optional parlor Scoreboard is sold separately.
 
@@ -10,17 +10,13 @@ The optional parlor Scoreboard is sold separately.
 • Rez the table from inventory onto a parcel you control (or where you have rez rights).
 • Keep the table as one linked set. Do not unlink the seats, display, or scripts.
 • The table uses an Experience and a small web HUD (media on a prim). The parcel must allow that Experience.
-• Whitelist this domain on the parcel (About Land → Media / Experience / Restricted as your estate requires):
-
-    feudalism-dev.github.io
-
-Without that whitelist, the HUD may stay blank or refuse to load.
+• The experience you need to activate on your parcel or region is Debauchery RPG.
 
 
 2) SITTING AND THE HUD
 ----------------------
 • Sit in any chair. A “Canasta HUD” attaches temporarily and opens the game screen.
-• Sitting alone is not enough — wait until the HUD finishes loading and connects to the table (it usually “enters” automatically; use Retry if asked).
+• Sitting is not enough — wait until the HUD finishes loading and connects to the table (it usually “enters” automatically; use Retry if asked).
 • One table runs one game at a time (solo or multiplayer lobby/match).
 • Stand when you are done. Standing leaves the game/lobby as needed and parks or detaches the HUD.
 
@@ -29,11 +25,15 @@ Without that whitelist, the HUD may stay blank or refuse to load.
 ------------------
 On the HUD “Game” menu:
 
-• Classic Canasta — play to 5,000.
-• Pagat Hand & Foot — fixed standard Hand & Foot (4 rounds).
-• House Rules Hand & Foot — Hand & Foot with this table’s house settings (see section 7).
+• Classic Canasta — play to 5,000. Supported product.
+• Pagat Hand & Foot — fixed standard Hand & Foot (4 rounds). Supported product.
+• House Rules Hand & Foot — Hand & Foot with this table’s house settings (see section 7). Supported product.
+• Samba (Beta) — three-deck Canasta with sequences (sambas) and canastas; play to 10,000. Rules may change; please report bugs.
+• Bolivia (Beta) — Samba plus wild Bolivia books; play to 15,000. Same beta policy.
 
 Empty chairs in multiplayer are filled by computer players. Partners sit across (Player 1 with 3, Player 2 with 4).
+
+Beta note: Samba and Bolivia high scores are not recorded on the parlor Scoreboard yet (those tabs say Coming soon). Classic and Hand & Foot scoring is unchanged.
 
 
 4) SOLO VS COMPUTER
@@ -71,6 +71,7 @@ Leave lobby: use “Leave lobby” if you need to drop out before start. Standin
 6) IF THE HUD WON’T CONNECT OR MULTIPLAYER FAILS
 ------------------------------------------------
 • Confirm parcel Experience allow + feudalism-dev.github.io whitelist.
+• Ensure you have MEDIA enabled in your Browser Settings.
 • Stand, wait a moment, sit again so a fresh HUD rezzes.
 • Some viewers’ in-world browsers struggle with multiplayer networking. Guests (not the host) can use “Play match in browser” after Join — stay seated in SL; open the link in Chrome/Firefox/Edge. The host should keep playing on the HUD.
 • If a browser link does not open, the HUD may show a pasteable URL — copy it into an external browser.
@@ -80,13 +81,13 @@ Leave lobby: use “Leave lobby” if you need to drop out before start. Standin
 ----------------------------
 • Only the object owner can “Save house rules to table.”
 • Pick “House Rules Hand & Foot,” set the toggles, then Save. Those settings stay with this table (even if you take it to inventory and rez it again).
-• When you sell or transfer the table, the new owner can Save their own defaults.
 • For a match, the host may tweak house rules in the lobby before Start. Tweaks apply to that match; Save writes the parlor default.
+• Samba and Bolivia use fixed rulesets (no house-rules editor).
 
 
 8) SCOREBOARD (SOLD SEPARATELY)
 -------------------------------
-An optional Scoreboard object can show parlor and/or network tallies for Canasta and Hand & Foot. Rez and set it up per its own notecard. It is not required to play at the table.
+An optional Scoreboard object can show parlor and/or network tallies for Canasta and Hand & Foot. Samba and Bolivia appear as Coming soon until those beta games graduate. Rez and set it up per its own notecard. It is not required to play at the table.
 
 
 9) QUICK TROUBLESHOOTING

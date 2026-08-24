@@ -2,7 +2,7 @@
 
 Bolivia is a Samba derivative: same three-deck base, **groups + sequences**, draw two / discard one, but with **expanded wild-card melds** and a **stricter going-out requirement**. This document follows [Pagat’s Bolivia summary](https://www.pagat.com/rummy/samba.html#bolivia) plus common table rules cited in club and commercial rule sets.
 
-Implement **Samba first**; Bolivia builds on the same sequence engine with rule deltas listed in [PLAN_SAMBA_BOLIVIA.md](./PLAN_SAMBA_BOLIVIA.md).
+**In this product:** Bolivia is a **beta** game in the selector (playable), sharing Samba’s sequence engine. Rules or scoring may still change before it graduates.
 
 ---
 
