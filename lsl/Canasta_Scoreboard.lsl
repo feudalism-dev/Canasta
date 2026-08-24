@@ -96,14 +96,15 @@ string cleanName(string s)
 
 string normGame(string g)
 {
+    // First a–z / 0–9 character (passthrough). Empty / junk → Canasta.
     g = llToLower(llStringTrim(g, STRING_TRIM));
     integer i;
     integer n = llStringLength(g);
+    string ok = "abcdefghijklmnopqrstuvwxyz0123456789";
     for (i = 0; i < n; i++)
     {
         string ch = llGetSubString(g, i, i);
-        if (ch >= "a" && ch <= "z") return ch;
-        if (ch >= "0" && ch <= "9") return ch;
+        if (llSubStringIndex(ok, ch) >= 0) return ch;
     }
     return "c";
 }
