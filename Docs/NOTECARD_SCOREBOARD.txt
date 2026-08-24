@@ -11,6 +11,7 @@ The Scoreboard is a separate wall panel. It hears finished games from a nearby C
 - Computer players are skipped.
 - Keeps the top 10 scores per board. If you already have an entry, only a higher score replaces it.
 - Canasta and Hand & Foot are tracked separately (different score scales).
+- Samba and Bolivia tabs are on the screen as Coming soon (beta — scores are not recorded yet).
 
 Boards you can view on the screen:
 
@@ -46,7 +47,7 @@ Prim roles (already set in the product):
 -------------------
 On the media page, use the tabs to pick:
 
-- Game: Canasta or Hand & Foot
+- Game: Canasta, Hand & Foot, Samba, or Bolivia (Samba and Bolivia say Coming soon)
 - Scope: This parlor or Network
 - Period: Weekly, Monthly, or Lifetime
 
@@ -85,7 +86,7 @@ The new object owner can use the gear for Local parlor boards. Network boards st
 ------------------------
 Blank screen .......... Allow Experience; whitelist feudalism-dev.github.io; enable Media; reset scripts if needed.
 No new scores ......... Scoreboard more than ~100 m from the table; table missing scores script; match not finished yet.
-Wrong game list ....... Use the Canasta / Hand & Foot tabs on the screen.
+Wrong game list ....... Use the Canasta / Hand & Foot tabs. Samba and Bolivia are Coming soon.
 Network empty ......... Parcel must allow the Experience; Local parlor tabs still work without it.
 Can't open admin ...... Touch the gear prim while you are the object owner.
 

@@ -97,7 +97,14 @@ string cleanName(string s)
 string normGame(string g)
 {
     g = llToLower(llStringTrim(g, STRING_TRIM));
-    if (g == "h" || g == "hf") return "h";
+    integer i;
+    integer n = llStringLength(g);
+    for (i = 0; i < n; i++)
+    {
+        string ch = llGetSubString(g, i, i);
+        if (ch >= "a" && ch <= "z") return ch;
+        if (ch >= "0" && ch <= "9") return ch;
+    }
     return "c";
 }
 
@@ -360,6 +367,9 @@ integer kickXp()
 integer ingest(string game, string uid, string nm, integer score)
 {
     game = normGame(game);
+    // Samba/Bolivia stay off the boards until those variants leave beta.
+    if (game == "s") return FALSE;
+    if (game == "b") return FALSE;
     rotateLocal();
     nm = cleanName(nm);
     saveLocal(game, "w", mutatePacked(loadLocal(game, "w"), uid, nm, score, 0));

@@ -1458,7 +1458,8 @@ ul {
 .scoreboard-head,
 .scoreboard-tabs,
 .scoreboard-list,
-.scoreboard-err {
+.scoreboard-err,
+.scoreboard-soon {
   position: relative;
   z-index: 1;
 }
@@ -1493,6 +1494,14 @@ ul {
   margin: 0.12rem 0;
 }
 
+.scoreboard-tabs-games {
+  flex-wrap: wrap;
+}
+
+.scoreboard-tabs-games button {
+  flex: 1 1 42%;
+}
+
 .scoreboard-tabs button {
   flex: 1;
   font: inherit;
@@ -1518,6 +1527,18 @@ ul {
   text-align: center;
   font-size: 0.75rem;
   margin: 0.15rem 0 0;
+}
+
+.scoreboard-soon {
+  position: relative;
+  z-index: 1;
+  margin: 1.2rem 0.4rem 0;
+  text-align: center;
+  letter-spacing: 0.08em;
+  line-height: 1.45;
+  color: var(--cream);
+  opacity: 0.9;
+  font-size: clamp(0.72rem, 2vw, 0.95rem);
 }
 
 .scoreboard-list {

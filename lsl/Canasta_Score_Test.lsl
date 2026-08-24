@@ -122,7 +122,7 @@ integer handleDlg(key av, string msg)
         }
         if (msg == "Custom…")
         {
-            return openText(av, 3, "Enter:\ngame|Name|score\nor\ngame|uuid|Name|score\n\ngame = c or h");
+            return openText(av, 3, "Enter:\ngame|Name|score\nor\ngame|uuid|Name|score\n\ngame = first letter (c, h, s, b…)");
         }
         return showRoot(av);
     }
@@ -162,7 +162,8 @@ integer handleDlg(key av, string msg)
             llRegionSayTo(av, 0, "Bad format. Use game|Name|score");
             return showRoot(av);
         }
-        if (game != "h") game = "c";
+        if (llStringLength(game) > 1) game = llGetSubString(game, 0, 0);
+        if (game == "") game = "c";
         shoutScore(game, uid, nm, sc, av);
         closeDlg();
         return TRUE;

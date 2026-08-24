@@ -1,6 +1,8 @@
 // Canasta — shout final scores for a nearby (unlinked) scoreboard.
 // Drop in the table linkset (root is fine). Compile: Mono.
-// On GAME_OVER, llShout (100 m): CN_SCORE|c|uuid|Name|8441  (c=Canasta, h=Hand&Foot)
+// On GAME_OVER, llShout (100 m): CN_SCORE|<game>|uuid|Name|8441
+// Game is a 1-letter code from HUD field 6 (c=Canasta, h=Hand&Foot, s=Samba, b=Bolivia).
+// Unknown letters pass through so new games do not need this table script again.
 // Channel SCORE_CH must match Canasta_Scoreboard.lsl.
 
 integer DISPLAY_CMD_EVENT = 91001;
@@ -30,7 +32,14 @@ string cleanName(string s)
 string normGame(string g)
 {
     g = llToLower(llStringTrim(g, STRING_TRIM));
-    if (g == "h" || g == "hf" || g == "hand" || g == "handandfoot") return "h";
+    integer i;
+    integer n = llStringLength(g);
+    for (i = 0; i < n; i++)
+    {
+        string ch = llGetSubString(g, i, i);
+        if (ch >= "a" && ch <= "z") return ch;
+        if (ch >= "0" && ch <= "9") return ch;
+    }
     return "c";
 }
 

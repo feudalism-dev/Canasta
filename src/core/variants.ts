@@ -7,7 +7,7 @@ export { DEFAULT_HOUSE } from './houseRules'
 export const SHOW_SAMBA_VARIANTS = true
 
 export const BETA_VARIANT_NOTICE =
-  'Beta variant — rules and scoring may change. Please report bugs you find while testing.'
+  'Beta variant — rules and scoring may change. High scores are not recorded yet. Please report bugs you find while testing.'
 
 export type VariantOption = {
   value: Variant

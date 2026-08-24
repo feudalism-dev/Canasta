@@ -11,6 +11,7 @@ import { applyUiScale } from './uiScale'
 
 type Scope = 'local' | 'net'
 type Period = 'w' | 'm' | 'l'
+type ScoreTab = ScoreGame | 's' | 'b'
 
 type Props = {
   slCap: string
@@ -26,8 +27,15 @@ function periodLabel(period: Period): string {
   return 'Lifetime'
 }
 
-function gameLabel(game: ScoreGame): string {
-  return game === 'h' ? 'Hand & Foot' : 'Canasta'
+function gameLabel(tab: ScoreTab): string {
+  if (tab === 'h') return 'Hand & Foot'
+  if (tab === 's') return 'Samba'
+  if (tab === 'b') return 'Bolivia'
+  return 'Canasta'
+}
+
+function isComingSoon(tab: ScoreTab): boolean {
+  return tab === 's' || tab === 'b'
 }
 
 function formatScore(n: number): string {
@@ -35,7 +43,7 @@ function formatScore(n: number): string {
 }
 
 export function Scoreboard({ slCap }: Props) {
-  const [game, setGame] = useState<ScoreGame>('c')
+  const [game, setGame] = useState<ScoreTab>('c')
   const [scope, setScope] = useState<Scope>('local')
   const [period, setPeriod] = useState<Period>('w')
   const [local, setLocal] = useState<ScoreGames>(emptyGames)
@@ -74,7 +82,8 @@ export function Scoreboard({ slCap }: Props) {
     }
   }, [slCap])
 
-  const rows: ScoreRow[] = (scope === 'local' ? local : net)[game][period] || []
+  const rows: ScoreRow[] =
+    isComingSoon(game) ? [] : ((scope === 'local' ? local : net)[game][period] || [])
   const scopeLabel = scope === 'local' ? 'This parlor' : 'Network'
   const sub =
     period === 'm' && month
@@ -88,18 +97,24 @@ export function Scoreboard({ slCap }: Props) {
       <div className="scoreboard-panel">
         <div className="table-felt" />
         <header className="scoreboard-head">
-          <p className="brand-kicker">Hand &amp; Foot / Canasta</p>
+          <p className="brand-kicker">Canasta parlor</p>
           <h1>High scores</h1>
           <p className="scoreboard-sub">
             {gameLabel(game)} · {scopeLabel} · {periodLabel(period)} · {sub}
           </p>
         </header>
-        <div className="scoreboard-tabs" role="tablist" aria-label="Game">
+        <div className="scoreboard-tabs scoreboard-tabs-games" role="tablist" aria-label="Game">
           <button type="button" className={game === 'c' ? 'is-on' : ''} onClick={() => setGame('c')}>
             Canasta
           </button>
           <button type="button" className={game === 'h' ? 'is-on' : ''} onClick={() => setGame('h')}>
             Hand &amp; Foot
+          </button>
+          <button type="button" className={game === 's' ? 'is-on' : ''} onClick={() => setGame('s')}>
+            Samba
+          </button>
+          <button type="button" className={game === 'b' ? 'is-on' : ''} onClick={() => setGame('b')}>
+            Bolivia
           </button>
         </div>
         <div className="scoreboard-tabs" role="tablist" aria-label="Scoreboard range">
@@ -121,19 +136,25 @@ export function Scoreboard({ slCap }: Props) {
             Lifetime
           </button>
         </div>
-        {err ? <p className="scoreboard-err">{err}</p> : null}
-        <ol className="scoreboard-list">
-          {Array.from({ length: 10 }, (_, i) => {
-            const row = rows[i]
-            return (
-              <li key={i} className={row ? '' : 'is-empty'}>
-                <span className="scoreboard-rank">{i + 1}</span>
-                <span className="scoreboard-name">{row ? row.n : '—'}</span>
-                <span className="scoreboard-pts">{row ? formatScore(row.s) : ''}</span>
-              </li>
-            )
-          })}
-        </ol>
+        {err && !isComingSoon(game) ? <p className="scoreboard-err">{err}</p> : null}
+        {isComingSoon(game) ? (
+          <p className="scoreboard-soon" role="status">
+            Coming soon — {gameLabel(game)} is in beta. High scores will be recorded when the variant leaves beta, on its own board.
+          </p>
+        ) : (
+          <ol className="scoreboard-list">
+            {Array.from({ length: 10 }, (_, i) => {
+              const row = rows[i]
+              return (
+                <li key={i} className={row ? '' : 'is-empty'}>
+                  <span className="scoreboard-rank">{i + 1}</span>
+                  <span className="scoreboard-name">{row ? row.n : '—'}</span>
+                  <span className="scoreboard-pts">{row ? formatScore(row.s) : ''}</span>
+                </li>
+              )
+            })}
+          </ol>
+        )}
       </div>
     </div>
   )

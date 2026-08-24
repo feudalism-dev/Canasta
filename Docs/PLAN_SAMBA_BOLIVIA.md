@@ -4,7 +4,7 @@ Research docs: [RULES_SAMBA.md](./RULES_SAMBA.md), [RULES_BOLIVIA.md](./RULES_BO
 
 **Status:** Samba beta playable (sequences, draw-2, go-out, scoring). Bolivia uses same engine with wild Bolivia books and stricter go-out.
 
-**LSL constraint:** Do **not** change table scripts (`Canasta_Scores.lsl`, table/HUD). Redistributing the sold game table is off the table. Scoreboard LSL is a separate object and *may* change later without a table reissue — still skip it unless Samba/Bolivia need their own leaderboards. Until then, existing tables shout unknown game letters as Canasta (`c`), so Samba/Bolivia match scores land on the Canasta tab.
+**Table + scoreboard (this update):** `Canasta_Scores.lsl` passes a one-letter game code through to `CN_SCORE` so future variants do not need another table script. Scoreboard LSL ignores `s` / `b` ingest for now (Samba/Bolivia scoring is still beta). Scoreboard MoAP has Samba and Bolivia tabs that say Coming soon. Classic / Hand & Foot recording is unchanged. When beta graduates, drop the ingest skip on the scoreboard only — no second table change.
 
 **Beta policy:** Samba and Bolivia appear in setup/lobby with a **Beta** label and notice. Classic Canasta and Hand & Foot are unchanged and not beta. Beta variants may change rules, scoring, or UI without a version bump; player feedback drives fixes before they graduate to full support.
 
@@ -25,7 +25,7 @@ The product is already on sale. Treat Samba/Bolivia as an **additive product lin
 3. **Additive types.** Prefer optional fields with defaults over breaking unions. Example: keep today’s group melds as `{ rank, cards, closed }` and add `kind?: 'group' | 'sequence'` (default `'group'` when missing) plus sequence-only fields. Existing Classic/H&F code that ignores `kind` keeps working.
 4. **Regression gate before every merge.** Full `npm test` must pass. Expand Classic and H&F coverage (golden-path: deal, take pile, initial meld, go out, score) so Samba refactors cannot silently change them.
 5. **Ship as beta in the dropdown.** Samba and Bolivia are selectable with **Beta** labeling and an in-HUD notice so testers can report bugs. Classic / H&F behavior stays production-stable.
-6. **Do not change table LSL.** Shipped tables stay as-is. Web still emits `GAME_OVER` `s`/`b`; existing `Canasta_Scores.lsl` maps those to `c` and shouts Canasta scores. Scoreboard LSL is optional and separate (no table reissue). If we ever add Samba/Bolivia boards, do it additively (`s`/`b` keys) without breaking `c`/`h`. Never reuse existing Experience keys.
+6. **Minimize table LSL.** This pass updates only `Canasta_Scores.lsl` to **pass through** a 1-letter game code (not a hardcoded `c`/`h` whitelist). Do not recompile HUD/Display/Table for Samba. Scoreboard LSL may change independently. When recording Samba/Bolivia scores later, enable ingest on the scoreboard only. Never reuse existing Experience keys.
 7. **Small, reviewable phases.** One PR family per phase in the table below. Prefer “sequences exist but unused” before “Samba is selectable.” Avoid large all-in-one PRs that touch melds + pile + score + UI + LSL together.
 8. **Peer / lobby compatibility.** Older HUDs must ignore unknown `variant` strings safely (fall back or refuse join with a clear message). Do not change the meaning of existing lobby fields (`house`, `c`/`h` scores).
 9. **Manual smoke after each ship.** Quick Classic 2p and Pagat H&F 4p (or solo) smoke on HUD + table MoAP after any core meld/rules change, even if unit tests pass.
@@ -204,20 +204,20 @@ Optional later: house toggle for “melded black threes during play / −100 dea
 
 Today: `c` = Canasta, `h` = Hand & Foot (`Docs/SCOREBOARD.md`).
 
-**Shipped tables:** `Canasta_Scores.lsl` only knows `c` and `h`. Web already sends `GAME_OVER|…|s` and `|b`; the table’s `normGame` treats anything else as Canasta and shouts `CN_SCORE|c|…`. Scoreboard LSL that only knows `c`/`h` therefore files Samba/Bolivia under Canasta. That is the intended beta path — **no table redistribution**.
+**Table (`Canasta_Scores.lsl`):** pass through a **one-letter** game code from `GAME_OVER` field 6 (first `a–z`/`0–9`; empty → `c`). Shout `CN_SCORE|<code>|uuid|name|score`. Do not whitelist only `c`/`h` — new games must not require another table compile.
 
-**Why scoreboard LSL alone cannot split Samba/Bolivia:** The table is what shouts `CN_SCORE`. Scoreboard HTTP-IN only serves JSONP (`scores` / `refresh`); it does not ingest scores from the web. Updating only the scoreboard script would still receive `c` from existing tables.
+**Scoreboard (beta):** ingest **ignores** `s` and `b` so Samba/Bolivia cannot land on Canasta or start a misleading leaderboard. MoAP tabs for Samba and Bolivia show **Coming soon**.
 
-**Optional later (scoreboard object only, no table reissue):**
+When beta graduates: remove the ingest skip; store `cn.sc.s.*` / `cn.sc.b.*`. Table script already shouts the right letter.
 
-| Variant | `GAME_OVER` code | Experience keys |
-|---------|------------------|-----------------|
-| Samba | `s` | `cn.sc.s.*` |
-| Bolivia | `b` | `cn.sc.b.*` |
+| Variant | `GAME_OVER` code | Recorded now |
+|---------|------------------|--------------|
+| Classic | `c` | Yes |
+| Hand & Foot | `h` | Yes |
+| Samba | `s` | No (coming soon) |
+| Bolivia | `b` | No (coming soon) |
 
-Would also need either a table `Canasta_Scores.lsl` update (table reissue — avoided) **or** a new scoreboard HTTP ingest plus web POST on match end (scoreboard-only LSL). Prefer leaving scores on the Canasta tab until that is worth the scoreboard update.
-
-**Do not change:** table, HUD, or `Canasta_Scores.lsl` for Samba/Bolivia.
+**Do not change** HUD, Display, or Table scripts for this — only Scores (in the table linkset) and Scoreboard core.
 
 ---
 
@@ -243,7 +243,7 @@ Would also need either a table `Canasta_Scores.lsl` update (table reissue — av
 
 - After any core PR: smoke Classic + one H&F mode (solo or table).
 - When Samba is selectable: 4p partnership Samba to 10k; MoAP sequences.
-- When Bolivia ships: wild book + samba go-out. Scores file under Canasta on existing boards (no table LSL).
+- When Bolivia ships: wild book + samba go-out. Scores stay off the parlor board until beta ends.
 
 ---
 
@@ -258,7 +258,7 @@ Would also need either a table `Canasta_Scores.lsl` update (table reissue — av
 | **1d** | Sequence UI (builder/display); Samba still gated | Medium | Classic/H&F UI unchanged |
 | **1e** | Un-gate **Samba** in dropdown; AI or “computers limited” note | Product risk | Full Samba playtest |
 | **2a** | Bolivia config + wild Bolivia + go-out | Low if Samba solid | Samba + Classic/H&F green |
-| **2b** | Optional scoreboard-only `s`/`b` (never table LSL) | Low | `c`/`h` still record; no table reissue |
+| **2b** | Table scores passthrough + scoreboard skip `s`/`b` + Coming soon tabs | Low | `c`/`h` still record; Samba off Canasta |
 | **2c** | Notecards + RULES.md | None | — |
 
 **Recommendation:** Land engine support with the variant **hidden**, prove Classic/H&F untouched, then expose Samba. Ship Bolivia only after Samba is stable in production.

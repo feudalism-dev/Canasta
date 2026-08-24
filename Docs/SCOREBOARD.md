@@ -23,9 +23,11 @@ Drop `lsl/Canasta_Scores.lsl` in the **game table** linkset (root is fine). Comp
 CN_SCORE|c|<avatar-uuid>|Bandor Tyrell|8441
 ```
 
-on channel **`-18475021`**. Game code is `c` (Canasta) or `h` (Hand & Foot), taken from the HUD’s `GAME_OVER|…|c` / `|h` pipe. Same channel is hard-coded in the scoreboard script. Place the panel within shout range of the table.
+on channel **`-18475021`**. Game code is a **one-letter** token from the HUD’s `GAME_OVER|…|<code>` pipe (`c` Canasta, `h` Hand & Foot, `s` Samba, `b` Bolivia). `Canasta_Scores.lsl` passes that letter through (first `a–z` / `0–9` character; empty → `c`) so future games do not need another table compile. Same channel is hard-coded in the scoreboard script. Place the panel within shout range of the table.
 
-Shipped tables map any other `GAME_OVER` letter (including Samba `s` and Bolivia `b`) to `c`, so those matches record on the **Canasta** tab. Splitting Samba/Bolivia onto their own boards would require table `Canasta_Scores.lsl` (table reissue — avoided) or a later scoreboard-only ingest; leave them on Canasta until then.
+**Samba / Bolivia (beta):** the table may shout `s` / `b`. The scoreboard **does not record** those yet (scoring may still change). The MoAP page has Samba and Bolivia tabs that say **Coming soon**. Classic and Hand & Foot boards are unchanged.
+
+**Update both objects** if you already sold a copy: drop the new Scores script in the **table**, and the new core script in the **scoreboard**. An old scoreboard maps unknown letters to Canasta and would mix Samba scores into Classic.
 
 Recompile order on the table is still Display → Http → Table; Scores can compile anytime.
 
@@ -44,7 +46,7 @@ Recommended link order (select all, then **click the frame last** so it becomes 
 3. Whitelist `feudalism-dev.github.io` for media on the parcel.
 4. Touch the **gear** (owner or super-user) for admin menus — not the MoAP screen.
 
-The MoAP page has tabs for **Canasta** / **Hand & Foot**, **This parlor** / **Network**, and **Weekly** / **Monthly** / **Lifetime**. Spectators use the screen; admins use the gear. Network numbers refresh from Experience every few seconds.
+The MoAP page has tabs for **Canasta** / **Hand & Foot** / **Samba** / **Bolivia**, **This parlor** / **Network**, and **Weekly** / **Monthly** / **Lifetime**. Samba and Bolivia show Coming soon until those variants leave beta. Spectators use the screen; admins use the gear. Network numbers refresh from Experience every few seconds.
 
 Bump `public/asset-rev.txt` when Pages deploys so MoAP reloads **without** recompiling scripts. Script `PAGE_ASSET_REV` values are fallbacks only.
 
