@@ -6,6 +6,7 @@ import { initialMeldMinimum } from '../core/variants'
 import { MeldBuilder } from './MeldBuilder'
 import { MeldTray } from './MeldTray'
 import { Piles } from './Piles'
+import { PlayerHandCounts } from './PlayerHandCounts'
 import { RankHand } from './RankHand'
 
 type Props = {
@@ -117,6 +118,8 @@ export function GameBoard({
         </div>
       </header>
 
+      <PlayerHandCounts state={state} localIndex={localIndex} />
+
       <p className={`turn-banner ${myTurn ? 'is-you' : 'is-other'}`}>
         {aiThinking
           ? `${state.players[state.currentPlayer]!.displayName}'s turn`
@@ -144,7 +147,6 @@ export function GameBoard({
           >
             <strong>{i === localIndex ? `You · ${p.seat + 1}` : p.displayName}</strong>
             {state.currentPlayer === i ? <span className="turn-pill">Turn</span> : null}
-            <span>{p.hand.length} in hand</span>
             {state.config.footSize > 0 ? <span>{p.footPickedUp ? 'Foot open' : 'Foot sealed'}</span> : null}
             {i === localIndex ? <em>You</em> : p.team === myTeam ? <em>Partner</em> : <em>Opp</em>}
           </div>

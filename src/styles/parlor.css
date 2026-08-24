@@ -363,6 +363,69 @@ select {
   flex-shrink: 0;
 }
 
+.hand-count-strip {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: calc(0.35 * var(--rem));
+  margin: calc(0.2 * var(--rem)) 0 calc(0.35 * var(--rem));
+}
+
+.hand-count-chip {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(0.05 * var(--rem));
+  padding: calc(0.22 * var(--rem)) calc(0.25 * var(--rem));
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(201, 162, 39, 0.22);
+  text-align: center;
+}
+
+.hand-count-chip.is-turn {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.45);
+}
+
+.hand-count-chip.is-you {
+  background: rgba(201, 162, 39, 0.14);
+}
+
+.hand-count-chip.is-partner {
+  background: rgba(201, 162, 39, 0.08);
+}
+
+.hand-count-label {
+  font-size: calc(0.58 * var(--rem));
+  letter-spacing: 0.06em;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.hand-count-num {
+  font-family: var(--font-display);
+  font-size: calc(1.35 * var(--rem));
+  line-height: 1;
+  color: var(--brass);
+  font-weight: 700;
+}
+
+.hand-count-sub {
+  font-size: calc(0.52 * var(--rem));
+  letter-spacing: 0.05em;
+  opacity: 0.65;
+  text-transform: uppercase;
+}
+
+.hand-count-chip.is-turn .hand-count-num {
+  color: #f4e4b8;
+}
+
 .tiny-btn.is-on {
   border-color: var(--brass);
   color: var(--brass);
