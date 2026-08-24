@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   fetchScores,
+  mergeGames,
   normalizeGames,
   refreshScores,
   type ScoreGame,
@@ -60,7 +61,7 @@ export function Scoreboard({ slCap }: Props) {
     let alive = true
     const pull = async (refreshNet: boolean) => {
       try {
-        const data = refreshNet ? await refreshScores(slCap) : await fetchScores(slCap)
+        const data = refreshNet ? await refreshScores(slCap, game) : await fetchScores(slCap, game)
         if (!alive) return
         if (!data.ok) {
           setErr(data.error || 'Scoreboard error')
@@ -69,8 +70,8 @@ export function Scoreboard({ slCap }: Props) {
         }
         setErr('')
         setLinked(true)
-        if (data.local) setLocal(normalizeGames(data.local))
-        if (data.net) setNet(normalizeGames(data.net))
+        if (data.local) setLocal((prev) => mergeGames(prev, data.local))
+        if (data.net) setNet((prev) => mergeGames(prev, data.net))
         if (data.month) setMonth(data.month)
       } catch (e) {
         if (alive) {
@@ -85,7 +86,7 @@ export function Scoreboard({ slCap }: Props) {
       alive = false
       window.clearInterval(id)
     }
-  }, [slCap])
+  }, [slCap, game])
 
   const rows: ScoreRow[] = (scope === 'local' ? local : net)[game][period] || []
   const scopeLabel = scope === 'local' ? 'This parlor' : 'Network'

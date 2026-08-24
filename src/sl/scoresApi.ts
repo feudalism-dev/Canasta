@@ -26,8 +26,9 @@ export type ScorePayload = {
   ok: boolean
   week?: string
   month?: string
-  local?: ScoreGames
-  net?: ScoreGames
+  game?: ScoreGame
+  local?: Partial<ScoreGames>
+  net?: Partial<ScoreGames>
   error?: string
 }
 
@@ -64,19 +65,27 @@ function asBundle(raw: unknown): ScoreBundle {
   }
 }
 
-/** Accept nested {c,h,s,b} payloads; ignore flat legacy boards. */
+/** Full empty boards (initial UI state). */
 export function normalizeGames(raw: unknown): ScoreGames {
   if (!raw || typeof raw !== 'object') return emptyGames()
   const o = raw as Record<string, unknown>
-  if (o.c || o.h || o.s || o.b) {
-    return {
-      c: asBundle(o.c),
-      h: asBundle(o.h),
-      s: asBundle(o.s),
-      b: asBundle(o.b),
-    }
+  return {
+    c: asBundle(o.c),
+    h: asBundle(o.h),
+    s: asBundle(o.s),
+    b: asBundle(o.b),
   }
-  return emptyGames()
+}
+
+/** Merge a one-game payload into existing boards (LSL returns one game per poll). */
+export function mergeGames(base: ScoreGames, patch: unknown): ScoreGames {
+  if (!patch || typeof patch !== 'object') return base
+  const o = patch as Record<string, unknown>
+  const next: ScoreGames = { ...base }
+  ;(['c', 'h', 's', 'b'] as const).forEach((g) => {
+    if (o[g] != null) next[g] = asBundle(o[g])
+  })
+  return next
 }
 
 export function jsonpScores(apiBase: string, params: JsonpParams = {}, timeoutMs = 8000): Promise<ScorePayload> {
@@ -119,10 +128,10 @@ export function jsonpScores(apiBase: string, params: JsonpParams = {}, timeoutMs
   })
 }
 
-export function fetchScores(slCap: string): Promise<ScorePayload> {
-  return jsonpScores(slCap, { action: 'scores' }, 10000)
+export function fetchScores(slCap: string, game: ScoreGame = 'c'): Promise<ScorePayload> {
+  return jsonpScores(slCap, { action: 'scores', game }, 10000)
 }
 
-export function refreshScores(slCap: string): Promise<ScorePayload> {
-  return jsonpScores(slCap, { action: 'refresh' }, 12000)
+export function refreshScores(slCap: string, game: ScoreGame = 'c'): Promise<ScorePayload> {
+  return jsonpScores(slCap, { action: 'refresh', game }, 12000)
 }

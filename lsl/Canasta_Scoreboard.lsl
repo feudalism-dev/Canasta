@@ -9,7 +9,7 @@ integer MEDIA_FACE = 0;
 integer MEDIA_W = 1024;
 integer MEDIA_H = 720;
 // Fallback if asset-rev.txt fetch fails. Prefer bumping public/asset-rev.txt on Pages deploys.
-integer PAGE_ASSET_REV = 63;
+integer PAGE_ASSET_REV = 66;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
 integer ADMIN_CMD = 93001;
@@ -20,18 +20,6 @@ string gCapUrl = "";
 string gLastHome = "";
 integer gMoapPending = FALSE;
 integer gScreenLink = LINK_THIS;
-string gNetCW = "";
-string gNetCM = "";
-string gNetCL = "";
-string gNetHW = "";
-string gNetHM = "";
-string gNetHL = "";
-string gNetSW = "";
-string gNetSM = "";
-string gNetSL = "";
-string gNetBW = "";
-string gNetBM = "";
-string gNetBL = "";
 string gInUid = "";
 string gInName = "";
 integer gInScore = 0;
@@ -45,13 +33,7 @@ key gRevReq = NULL_KEY;
 integer gRevDone = FALSE;
 integer gRevDeadline = 0;
 integer gXpReport = FALSE;
-integer gJsonDirty = TRUE;
 string gJson = "";
-
-markJsonDirty()
-{
-    gJsonDirty = TRUE;
-}
 
 integer effectiveRev()
 {
@@ -136,6 +118,7 @@ string monthId()
     return llGetSubString(llGetTimestamp(), 0, 6);
 }
 
+// Experience keys cn.sc.{game}.{period}…
 string xpKey(string game, string period)
 {
     if (period == "w") return "cn.sc." + game + ".w." + weekId();
@@ -143,17 +126,15 @@ string xpKey(string game, string period)
     return "cn.sc." + game + ".l";
 }
 
-// Pre-split Experience keys (before Canasta / Hand & Foot boards).
-string xpKeyLegacy(string period)
-{
-    if (period == "w") return "cn.sc.w." + weekId();
-    if (period == "m") return "cn.sc.m." + monthId();
-    return "cn.sc.l";
-}
-
 string lsdKey(string game, string period)
 {
     return "l" + game + period;
+}
+
+// Network packs live in Linkset Data (not script heap) — keys n{game}{period}.
+string netKey(string game, string period)
+{
+    return "n" + game + period;
 }
 
 integer hasXp()
@@ -253,7 +234,6 @@ integer rotateLocal()
         llLinksetDataWrite("lsw", "");
         llLinksetDataWrite("lbw", "");
         llLinksetDataWrite("lwk", wk);
-        markJsonDirty();
     }
     if (llLinksetDataRead("lmk") != mk)
     {
@@ -262,7 +242,6 @@ integer rotateLocal()
         llLinksetDataWrite("lsm", "");
         llLinksetDataWrite("lbm", "");
         llLinksetDataWrite("lmk", mk);
-        markJsonDirty();
     }
     return TRUE;
 }
@@ -275,65 +254,17 @@ string loadLocal(string game, string period)
 integer saveLocal(string game, string period, string packed)
 {
     llLinksetDataWrite(lsdKey(game, period), packed);
-    markJsonDirty();
     return TRUE;
 }
 
 string loadNet(string game, string period)
 {
-    if (game == "h")
-    {
-        if (period == "w") return gNetHW;
-        if (period == "m") return gNetHM;
-        return gNetHL;
-    }
-    if (game == "s")
-    {
-        if (period == "w") return gNetSW;
-        if (period == "m") return gNetSM;
-        return gNetSL;
-    }
-    if (game == "b")
-    {
-        if (period == "w") return gNetBW;
-        if (period == "m") return gNetBM;
-        return gNetBL;
-    }
-    if (period == "w") return gNetCW;
-    if (period == "m") return gNetCM;
-    return gNetCL;
+    return llLinksetDataRead(netKey(game, period));
 }
 
 integer setNet(string game, string period, string packed)
 {
-    if (game == "h")
-    {
-        if (period == "w") gNetHW = packed;
-        else if (period == "m") gNetHM = packed;
-        else gNetHL = packed;
-        markJsonDirty();
-        return TRUE;
-    }
-    if (game == "s")
-    {
-        if (period == "w") gNetSW = packed;
-        else if (period == "m") gNetSM = packed;
-        else gNetSL = packed;
-        markJsonDirty();
-        return TRUE;
-    }
-    if (game == "b")
-    {
-        if (period == "w") gNetBW = packed;
-        else if (period == "m") gNetBM = packed;
-        else gNetBL = packed;
-        markJsonDirty();
-        return TRUE;
-    }
-    if (period == "w") gNetCW = packed;
-    else if (period == "m") gNetCM = packed;
-    else gNetCL = packed;
-    markJsonDirty();
+    llLinksetDataWrite(netKey(game, period), packed);
     return TRUE;
 }
 
@@ -378,34 +309,18 @@ appendBundleJson(integer isLocal, string game)
     gJson += "}";
 }
 
-rebuildScoresJson()
+// One game only — full 4-game payloads stack-heap on Mono.
+buildGameJson(string game)
 {
+    if (game != "c" && game != "h" && game != "s" && game != "b") game = "c";
     rotateLocal();
-    gJson = "{\"ok\":true,\"week\":\"" + weekId() + "\",\"month\":\"" + monthId() + "\",\"local\":{";
-    gJson += "\"c\":";
-    appendBundleJson(TRUE, "c");
-    gJson += ",\"h\":";
-    appendBundleJson(TRUE, "h");
-    gJson += ",\"s\":";
-    appendBundleJson(TRUE, "s");
-    gJson += ",\"b\":";
-    appendBundleJson(TRUE, "b");
-    gJson += "},\"net\":{";
-    gJson += "\"c\":";
-    appendBundleJson(FALSE, "c");
-    gJson += ",\"h\":";
-    appendBundleJson(FALSE, "h");
-    gJson += ",\"s\":";
-    appendBundleJson(FALSE, "s");
-    gJson += ",\"b\":";
-    appendBundleJson(FALSE, "b");
+    gJson = "{\"ok\":true,\"week\":\"" + weekId() + "\",\"month\":\"" + monthId() + "\",\"game\":\"" + game + "\",\"local\":{\"";
+    gJson += game + "\":";
+    appendBundleJson(TRUE, game);
+    gJson += "},\"net\":{\"";
+    gJson += game + "\":";
+    appendBundleJson(FALSE, game);
     gJson += "}}";
-    gJsonDirty = FALSE;
-}
-
-ensureScoresJson()
-{
-    if (gJsonDirty) rebuildScoresJson();
 }
 
 string qparam(string qs, string name)
@@ -420,7 +335,7 @@ string qparam(string qs, string name)
     return llUnescapeURL(llGetSubString(rest, 0, amp - 1));
 }
 
-sendJsonp(key httpId, string callback)
+sendJsonp(key httpId, string callback, string game)
 {
     if (httpId == NULL_KEY) return;
     if (callback == "" || llStringLength(callback) > 64)
@@ -429,9 +344,10 @@ sendJsonp(key httpId, string callback)
         llHTTPResponse(httpId, 400, "{\"ok\":false}");
         return;
     }
-    ensureScoresJson();
+    buildGameJson(game);
     llSetContentType(httpId, CONTENT_TYPE_TEXT);
     llHTTPResponse(httpId, 200, callback + "(" + gJson + ");");
+    gJson = "";
 }
 
 integer countPacked(string packed)
@@ -442,12 +358,19 @@ integer countPacked(string packed)
 
 integer reportXpCaches()
 {
-    llOwnerSay("Canasta scoreboard Network cache: c="
-        + (string)countPacked(gNetCW) + "/" + (string)countPacked(gNetCM) + "/" + (string)countPacked(gNetCL)
-        + " h=" + (string)countPacked(gNetHW) + "/" + (string)countPacked(gNetHM) + "/" + (string)countPacked(gNetHL)
-        + " s=" + (string)countPacked(gNetSW) + "/" + (string)countPacked(gNetSM) + "/" + (string)countPacked(gNetSL)
-        + " b=" + (string)countPacked(gNetBW) + "/" + (string)countPacked(gNetBM) + "/" + (string)countPacked(gNetBL)
-        + " (w/m/l)");
+    llOwnerSay("Canasta scoreboard Network (LSD): c="
+        + (string)countPacked(loadNet("c", "w")) + "/"
+        + (string)countPacked(loadNet("c", "m")) + "/"
+        + (string)countPacked(loadNet("c", "l"))
+        + " h=" + (string)countPacked(loadNet("h", "w")) + "/"
+        + (string)countPacked(loadNet("h", "m")) + "/"
+        + (string)countPacked(loadNet("h", "l"))
+        + " s=" + (string)countPacked(loadNet("s", "w")) + "/"
+        + (string)countPacked(loadNet("s", "m")) + "/"
+        + (string)countPacked(loadNet("s", "l"))
+        + " b=" + (string)countPacked(loadNet("b", "w")) + "/"
+        + (string)countPacked(loadNet("b", "m")) + "/"
+        + (string)countPacked(loadNet("b", "l")));
     return TRUE;
 }
 
@@ -473,10 +396,6 @@ integer enqueueReads()
     enqueueXp("Rbw", "", "", 0);
     enqueueXp("Rbm", "", "", 0);
     enqueueXp("Rbl", "", "", 0);
-    // Legacy unscoped keys → Canasta Network only when the new key is still empty.
-    enqueueXp("Lcw", "", "", 0);
-    enqueueXp("Lcm", "", "", 0);
-    enqueueXp("Lcl", "", "", 0);
     return TRUE;
 }
 
@@ -514,11 +433,6 @@ integer kickXp()
             reportXpCaches();
         }
         return FALSE;
-    }
-    if (llGetSubString(gXpOp, 0, 0) == "L")
-    {
-        gXpReq = llReadKeyValue(xpKeyLegacy(llGetSubString(gXpOp, 2, 2)));
-        return TRUE;
     }
     gXpReq = llReadKeyValue(xpKey(llGetSubString(gXpOp, 1, 1), llGetSubString(gXpOp, 2, 2)));
     return TRUE;
@@ -814,7 +728,9 @@ default
             enqueueReads();
             kickXp();
         }
-        sendJsonp(id, qparam(qs, "cb"));
+        string game = qparam(qs, "game");
+        if (game == "") game = "c";
+        sendJsonp(id, qparam(qs, "cb"), game);
     }
 
     dataserver(key query, string data)
@@ -834,15 +750,6 @@ default
         if (kind == "R")
         {
             if (ok) setNet(game, period, payload);
-            gXpOp = "";
-            gXpStep = 0;
-            kickXp();
-            return;
-        }
-        if (kind == "L")
-        {
-            // Only fill Canasta Network when the scoped key had nothing.
-            if (ok && payload != "" && loadNet("c", period) == "") setNet("c", period, payload);
             gXpOp = "";
             gXpStep = 0;
             kickXp();
