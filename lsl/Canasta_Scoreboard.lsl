@@ -126,6 +126,14 @@ string xpKey(string game, string period)
     return "cn.sc." + game + ".l";
 }
 
+// Pre-split Experience keys (before Canasta / Hand & Foot boards).
+string xpKeyLegacy(string period)
+{
+    if (period == "w") return "cn.sc.w." + weekId();
+    if (period == "m") return "cn.sc.m." + monthId();
+    return "cn.sc.l";
+}
+
 string lsdKey(string game, string period)
 {
     return "l" + game + period;
@@ -336,6 +344,10 @@ integer enqueueReads()
     enqueueXp("Rhw", "", "", 0);
     enqueueXp("Rhm", "", "", 0);
     enqueueXp("Rhl", "", "", 0);
+    // Legacy unscoped keys → Canasta Network only when the new key is still empty.
+    enqueueXp("Lcw", "", "", 0);
+    enqueueXp("Lcm", "", "", 0);
+    enqueueXp("Lcl", "", "", 0);
     return TRUE;
 }
 
@@ -361,6 +373,11 @@ integer kickXp()
         gXpStep = 0;
     }
     if (gXpOp == "") return FALSE;
+    if (llGetSubString(gXpOp, 0, 0) == "L")
+    {
+        gXpReq = llReadKeyValue(xpKeyLegacy(llGetSubString(gXpOp, 2, 2)));
+        return TRUE;
+    }
     gXpReq = llReadKeyValue(xpKey(llGetSubString(gXpOp, 1, 1), llGetSubString(gXpOp, 2, 2)));
     return TRUE;
 }
@@ -489,6 +506,8 @@ integer applyMoap()
         PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_ANYONE
     ]);
     gLastHome = home;
+    llOwnerSay("Canasta scoreboard: media on link " + (string)gScreenLink
+        + " rev=" + (string)effectiveRev() + ".");
     return TRUE;
 }
 
@@ -697,6 +716,15 @@ default
         if (kind == "R")
         {
             if (ok) setNet(game, period, payload);
+            gXpOp = "";
+            gXpStep = 0;
+            kickXp();
+            return;
+        }
+        if (kind == "L")
+        {
+            // Only fill Canasta Network when the scoped key had nothing.
+            if (ok && payload != "" && loadNet("c", period) == "") setNet("c", period, payload);
             gXpOp = "";
             gXpStep = 0;
             kickXp();

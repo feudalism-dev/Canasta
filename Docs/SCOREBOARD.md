@@ -13,7 +13,7 @@ Each seated **human**’s team score at **match end** (not after every hand). Co
 | This parlor · Weekly / Monthly / Lifetime | Linkset Data on the scoreboard prim | Calendar week (Mon-aligned Unix week) / calendar month / forever |
 | Network · Weekly / Monthly / Lifetime | Experience Key-Value | Same windows, shared by every scoreboard compiled with that Experience |
 
-Experience keys are `cn.sc.c.*` (Canasta) and `cn.sc.h.*` (Hand & Foot). Older unscoped `cn.sc.w.*` / `cn.sc.m.*` / `cn.sc.l` keys are left alone (not shown).
+Experience keys are `cn.sc.c.*` (Canasta) and `cn.sc.h.*` (Hand & Foot). Older unscoped `cn.sc.w.*` / `cn.sc.m.*` / `cn.sc.l` keys are still **read as a fallback** into the Canasta Network boards when the scoped Canasta key is empty (so a freshly rezzed panel can show pre-split network scores). New writes always use the scoped keys.
 
 ## Table side (shout)
 

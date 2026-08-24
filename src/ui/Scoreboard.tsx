@@ -50,13 +50,18 @@ export function Scoreboard({ slCap }: Props) {
   const [net, setNet] = useState<ScoreGames>(emptyGames)
   const [err, setErr] = useState('')
   const [month, setMonth] = useState('')
+  const [linked, setLinked] = useState(false)
 
   useEffect(() => {
     applyUiScale(1)
   }, [])
 
   useEffect(() => {
-    if (!slCap) return
+    if (!slCap) {
+      setErr('Waiting for the scoreboard link… Reset the scoreboard scripts if this stays blank.')
+      setLinked(false)
+      return
+    }
     let alive = true
     const pull = async (refreshNet: boolean) => {
       try {
@@ -64,14 +69,19 @@ export function Scoreboard({ slCap }: Props) {
         if (!alive) return
         if (!data.ok) {
           setErr(data.error || 'Scoreboard error')
+          setLinked(false)
           return
         }
         setErr('')
+        setLinked(true)
         if (data.local) setLocal(normalizeGames(data.local))
         if (data.net) setNet(normalizeGames(data.net))
         if (data.month) setMonth(data.month)
       } catch (e) {
-        if (alive) setErr(e instanceof Error ? e.message : 'Cannot reach scoreboard')
+        if (alive) {
+          setLinked(false)
+          setErr(e instanceof Error ? e.message : 'Cannot reach scoreboard')
+        }
       }
     }
     void pull(true)
@@ -142,18 +152,27 @@ export function Scoreboard({ slCap }: Props) {
             Coming soon — {gameLabel(game)} is in beta. High scores will be recorded when the variant leaves beta, on its own board.
           </p>
         ) : (
-          <ol className="scoreboard-list">
-            {Array.from({ length: 10 }, (_, i) => {
-              const row = rows[i]
-              return (
-                <li key={i} className={row ? '' : 'is-empty'}>
-                  <span className="scoreboard-rank">{i + 1}</span>
-                  <span className="scoreboard-name">{row ? row.n : '—'}</span>
-                  <span className="scoreboard-pts">{row ? formatScore(row.s) : ''}</span>
-                </li>
-              )
-            })}
-          </ol>
+          <>
+            {linked && rows.length === 0 ? (
+              <p className="scoreboard-empty" role="status">
+                {scope === 'local'
+                  ? 'No parlor scores yet — finish a Canasta or Hand & Foot match within ~100 m, or use the gear to set a score.'
+                  : 'No network scores yet — parcel must allow the Experience, and the core script must be compiled with it. Try Lifetime, or wait a few seconds for refresh.'}
+              </p>
+            ) : null}
+            <ol className="scoreboard-list">
+              {Array.from({ length: 10 }, (_, i) => {
+                const row = rows[i]
+                return (
+                  <li key={i} className={row ? '' : 'is-empty'}>
+                    <span className="scoreboard-rank">{i + 1}</span>
+                    <span className="scoreboard-name">{row ? row.n : '—'}</span>
+                    <span className="scoreboard-pts">{row ? formatScore(row.s) : ''}</span>
+                  </li>
+                )
+              })}
+            </ol>
+          </>
         )}
       </div>
     </div>

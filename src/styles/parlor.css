@@ -1536,6 +1536,18 @@ ul {
   margin: 0.15rem 0 0;
 }
 
+.scoreboard-empty {
+  position: relative;
+  z-index: 1;
+  margin: 0.35rem 0.4rem 0.15rem;
+  text-align: center;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  color: var(--cream);
+  opacity: 0.85;
+  font-size: clamp(0.68rem, 1.8vw, 0.82rem);
+}
+
 .scoreboard-soon {
   position: relative;
   z-index: 1;

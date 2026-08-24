@@ -87,9 +87,10 @@ The new object owner can use the gear for Local parlor boards. Network boards st
 8) QUICK TROUBLESHOOTING
 ------------------------
 Blank screen .......... Allow Experience; whitelist feudalism-dev.github.io; enable Media; reset scripts if needed.
+Empty dashes .......... A new rez starts with an empty This parlor board. Switch to Network / Lifetime, or finish a match nearby (table Scores script required). Owner chat should say "HTTP-IN ready" and "media on link…".
 No new scores ......... Scoreboard more than ~100 m from the table; table missing scores script; match not finished yet.
 Wrong game list ....... Use the Canasta / Hand & Foot tabs. Samba and Bolivia are Coming soon.
-Network empty ......... Parcel must allow the Experience; Local parlor tabs still work without it.
+Network empty ......... Parcel must allow the Experience; core script must be compiled with that Experience. Local parlor tabs still work without it.
 Can't open admin ...... Touch the gear prim while you are the object owner.
 
 
