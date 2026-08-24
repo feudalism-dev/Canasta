@@ -2,7 +2,9 @@
 
 Research docs: [RULES_SAMBA.md](./RULES_SAMBA.md), [RULES_BOLIVIA.md](./RULES_BOLIVIA.md).
 
-**Status:** Phase 1a in progress — additive meld types, sequence validation, hidden variant configs (UI not exposed).
+**Status:** Phase 1a landed; Samba and Bolivia are **beta** variants in the game selector (testable, may have bugs).
+
+**Beta policy:** Samba and Bolivia appear in setup/lobby with a **Beta** label and notice. Classic Canasta and Hand & Foot are unchanged and not beta. Beta variants may change rules, scoring, or UI without a version bump; player feedback drives fixes before they graduate to full support.
 
 **Goal:** Add **Samba** and **Bolivia** to the game-selection dropdown alongside Classic Canasta, Pagat Hand & Foot, and House Rules Hand & Foot. Fixed rulesets (like Pagat H&F), not a new house-rules editor.
 
@@ -20,7 +22,7 @@ The product is already on sale. Treat Samba/Bolivia as an **additive product lin
 2. **Branch on `variant` / config flags**, do not “fix” Classic/H&F to look more like Samba. Prefer `if (config.sequencesEnabled)` / `if (variant === 'samba')` over rewriting shared functions’ defaults.
 3. **Additive types.** Prefer optional fields with defaults over breaking unions. Example: keep today’s group melds as `{ rank, cards, closed }` and add `kind?: 'group' | 'sequence'` (default `'group'` when missing) plus sequence-only fields. Existing Classic/H&F code that ignores `kind` keeps working.
 4. **Regression gate before every merge.** Full `npm test` must pass. Expand Classic and H&F coverage (golden-path: deal, take pile, initial meld, go out, score) so Samba refactors cannot silently change them.
-5. **Ship behind the dropdown until ready.** Do not expose `samba` / `bolivia` in the live lobby/setup UI until that variant is playable and tested. Core work can land first with options commented out or gated (`SHOW_SAMBA` / build flag) so Pages deploys do not advertise unfinished modes.
+5. **Ship as beta in the dropdown.** Samba and Bolivia are selectable with **Beta** labeling and an in-HUD notice so testers can report bugs. Classic / H&F behavior stays production-stable.
 6. **LSL last and additive.** Do not recompile table/HUD/scoreboard scripts until web `GAME_OVER` letters and scoreboard tabs are ready. New codes `s`/`b` must **accept** without breaking `c`/`h` parsing. Never reuse or redefine existing Experience keys.
 7. **Small, reviewable phases.** One PR family per phase in the table below. Prefer “sequences exist but unused” before “Samba is selectable.” Avoid large all-in-one PRs that touch melds + pile + score + UI + LSL together.
 8. **Peer / lobby compatibility.** Older HUDs must ignore unknown `variant` strings safely (fall back or refuse join with a clear message). Do not change the meaning of existing lobby fields (`house`, `c`/`h` scores).
@@ -61,8 +63,8 @@ Sequence logic runs only when `config.sequencesEnabled` is true. Classic/H&F nev
 | `canasta` | Classic Canasta — to 5,000 |
 | `handAndFoot` | Pagat Hand & Foot — 4 rounds |
 | `handAndFootHouse` | House Rules Hand & Foot — 4 rounds |
-| `samba` | Samba — to 10,000 |
-| `bolivia` | Bolivia — to 15,000 |
+| `samba` | Samba (Beta) — to 10,000 |
+| `bolivia` | Bolivia (Beta) — to 15,000 |
 
 Touch points (same pattern as existing variants):
 

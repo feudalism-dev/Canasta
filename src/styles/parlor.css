@@ -426,6 +426,46 @@ select {
   color: #f4e4b8;
 }
 
+.beta-badge {
+  display: inline-block;
+  margin-left: 0.25em;
+  padding: 0.08em 0.4em;
+  font-size: 0.62em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  color: #1a1204;
+  background: #e8c547;
+  border-radius: 2px;
+}
+
+.beta-badge.inline {
+  margin-left: 0.35em;
+  font-size: 0.55em;
+}
+
+.beta-notice {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 calc(0.35 * var(--rem));
+  padding: calc(0.28 * var(--rem)) calc(0.45 * var(--rem));
+  font-size: calc(0.72 * var(--rem));
+  line-height: 1.35;
+  background: rgba(232, 197, 71, 0.12);
+  border: 1px solid rgba(232, 197, 71, 0.35);
+  border-left: 3px solid #e8c547;
+}
+
+.beta-notice.board-beta {
+  margin-top: calc(0.15 * var(--rem));
+}
+
+.beta-notice .beta-badge {
+  margin-right: 0.45em;
+  margin-left: 0;
+}
+
 .tiny-btn.is-on {
   border-color: var(--brass);
   color: var(--brass);

@@ -1,10 +1,34 @@
 import type { HouseRules, Variant, VariantConfig } from './types'
 import { houseForVariant, isHandAndFoot, isSambaFamily } from './houseRules'
+import type { Variant } from './types'
 
 export { DEFAULT_HOUSE } from './houseRules'
 
-/** Lobby/setup UI: Samba and Bolivia stay hidden until playable (plan phase 1e). */
-export const SHOW_SAMBA_VARIANTS = false
+/** Samba and Bolivia appear in game selectors as beta variants. */
+export const SHOW_SAMBA_VARIANTS = true
+
+export const BETA_VARIANT_NOTICE =
+  'Beta variant — rules and scoring may change. Please report bugs you find while testing.'
+
+export type VariantOption = {
+  value: Variant
+  label: string
+  beta: boolean
+}
+
+/** Options for setup / lobby dropdowns (stable games first, then beta). */
+export function variantOptions(): VariantOption[] {
+  const opts: VariantOption[] = [
+    { value: 'canasta', label: 'Classic Canasta — to 5,000', beta: false },
+    { value: 'handAndFoot', label: 'Pagat Hand & Foot — 4 rounds', beta: false },
+    { value: 'handAndFootHouse', label: 'House Rules Hand & Foot — 4 rounds', beta: false },
+  ]
+  if (SHOW_SAMBA_VARIANTS) {
+    opts.push({ value: 'samba', label: 'Samba (Beta) — to 10,000', beta: true })
+    opts.push({ value: 'bolivia', label: 'Bolivia (Beta) — to 15,000', beta: true })
+  }
+  return opts
+}
 
 const CLASSIC_SEQUENCE_FLAGS = {
   sequencesEnabled: false,

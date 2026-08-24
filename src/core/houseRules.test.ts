@@ -5,9 +5,12 @@ import {
   decodeHouseCompact,
   encodeHouseCompact,
   houseForVariant,
+  isBetaVariant,
   isHandAndFoot,
+  isSambaFamily,
   PAGAT_HOUSE,
 } from './houseRules'
+import { variantOptions } from './variants'
 import { peekDiscard, tryApply, type MatchState } from './rules'
 import { createMatch } from './state'
 
@@ -34,6 +37,18 @@ describe('houseRules compact', () => {
     expect(isHandAndFoot('handAndFoot')).toBe(true)
     expect(isHandAndFoot('handAndFootHouse')).toBe(true)
     expect(isHandAndFoot('canasta')).toBe(false)
+    expect(isHandAndFoot('samba')).toBe(false)
+  })
+
+  it('marks Samba and Bolivia as beta', () => {
+    expect(isBetaVariant('samba')).toBe(true)
+    expect(isBetaVariant('bolivia')).toBe(true)
+    expect(isBetaVariant('canasta')).toBe(false)
+    expect(isSambaFamily('samba')).toBe(true)
+    const opts = variantOptions()
+    expect(opts.some((o) => o.value === 'samba' && o.beta)).toBe(true)
+    expect(opts.some((o) => o.value === 'bolivia' && o.beta)).toBe(true)
+    expect(opts.find((o) => o.value === 'canasta')?.beta).toBe(false)
   })
 })
 

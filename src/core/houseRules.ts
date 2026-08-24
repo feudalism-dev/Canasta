@@ -56,6 +56,11 @@ export function isBolivia(variant: Variant): boolean {
   return variant === 'bolivia'
 }
 
+/** Samba and Bolivia ship as beta variants — playable but rules/UI may change. */
+export function isBetaVariant(variant: Variant): boolean {
+  return isSambaFamily(variant)
+}
+
 export function variantLabel(variant: Variant): string {
   if (variant === 'canasta') return 'Classic Canasta'
   if (variant === 'handAndFoot') return 'Pagat Hand & Foot'
@@ -187,10 +192,16 @@ export function houseRulesSummary(house: HouseRules, variant: Variant): string[]
     return ['Classic Canasta (fixed rules — no house toggles).']
   }
   if (isSamba(variant)) {
-    return ['Samba (fixed): sequences + canastas, draw two, play to 10,000.']
+    return [
+      'Samba (beta): sequences + canastas, draw two, play to 10,000.',
+      'Report bugs — rules and scoring may change while beta.',
+    ]
   }
   if (isBolivia(variant)) {
-    return ['Bolivia (fixed): Samba plus wild Bolivia books, play to 15,000.']
+    return [
+      'Bolivia (beta): Samba plus wild Bolivia books, play to 15,000.',
+      'Report bugs — rules and scoring may change while beta.',
+    ]
   }
   if (isPagatHandAndFoot(variant)) {
     return [

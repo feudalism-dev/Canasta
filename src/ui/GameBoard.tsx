@@ -1,8 +1,10 @@
 import { coachAdvice } from '../core/coach'
+import { isBetaVariant, variantLabel } from '../core/houseRules'
 import { legalHandIndexes } from '../core/rules'
 import { partnerIndex } from '../core/score'
 import type { MatchState } from '../core/types'
 import { initialMeldMinimum } from '../core/variants'
+import { BetaVariantNotice } from './BetaVariantNotice'
 import { MeldBuilder } from './MeldBuilder'
 import { MeldTray } from './MeldTray'
 import { Piles } from './Piles'
@@ -69,7 +71,8 @@ export function GameBoard({
   const coachLine = aiThinking ? `${state.players[state.currentPlayer]!.displayName} is thinking…` : advice.headline
   const myTurn = state.currentPlayer === localIndex && (state.phase === 'awaitingDraw' || state.phase === 'awaitingPlay')
   const need = initialMeldMinimum(state.config, state.teams[myTeam]!.score, state.round)
-  const variant = state.config.variant === 'canasta' ? 'Canasta' : 'Hand & Foot'
+  const variantName = variantLabel(state.config.variant)
+  const betaGame = isBetaVariant(state.config.variant)
   const partner = state.players.find((p, i) => p.team === myTeam && i !== localIndex)
   const pendingOut = state.pendingGoOut
   const iAnswerGoOut = Boolean(
@@ -96,7 +99,9 @@ export function GameBoard({
             <em>They</em> {state.teams[otherTeam]!.score}
           </div>
           <div>
-            <em>{variant}</em> {state.config.rounds ? `R${state.round}/4` : `to ${state.config.playTo}`}
+            <em>{variantName}</em>
+            {betaGame ? <span className="beta-badge inline">Beta</span> : null}{' '}
+            {state.config.rounds ? `R${state.round}/4` : `to ${state.config.playTo}`}
           </div>
           <div>
             <em>Meld</em> {state.teams[myTeam]!.hasInitialMeld ? '✓' : need}
@@ -119,6 +124,8 @@ export function GameBoard({
       </header>
 
       <PlayerHandCounts state={state} localIndex={localIndex} />
+
+      {betaGame ? <BetaVariantNotice compact className="board-beta" /> : null}
 
       <p className={`turn-banner ${myTurn ? 'is-you' : 'is-other'}`}>
         {aiThinking

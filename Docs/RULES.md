@@ -108,7 +108,7 @@ Classic Canasta v1 has no house toggles. Modern American Canasta is deferred.
 
 Research and implementation plan only:
 
-- **[Samba](./RULES_SAMBA.md)** — three-deck Canasta with **sequence melds** (sambas) and groups (canastas); draw two / discard one; play to 10,000.
-- **[Bolivia](./RULES_BOLIVIA.md)** — Samba plus wild **Bolivia** books and a stricter go-out rule (two seven-card melds including at least one sequence); play to 15,000.
+- **[Samba](./RULES_SAMBA.md)** — three-deck Canasta with **sequence melds** (sambas) and groups (canastas); draw two / discard one; play to 10,000. **Beta** in the game selector while rules engine and UI are still landing.
+- **[Bolivia](./RULES_BOLIVIA.md)** — Samba plus wild **Bolivia** books and a stricter go-out rule (two seven-card melds including at least one sequence); play to 15,000. **Beta** alongside Samba.
 
-See **[PLAN_SAMBA_BOLIVIA.md](./PLAN_SAMBA_BOLIVIA.md)** for engine gaps and phased rollout.
+See **[PLAN_SAMBA_BOLIVIA.md](./PLAN_SAMBA_BOLIVIA.md)** for engine gaps and phased rollout. Classic Canasta and Hand & Foot remain the supported, non-beta product line.

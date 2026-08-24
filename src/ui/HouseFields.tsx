@@ -1,5 +1,5 @@
 import type { HouseRules } from '../core/types'
-import { houseRulesSummary } from '../core/houseRules'
+import { houseRulesSummary, isBetaVariant } from '../core/houseRules'
 import type { Variant } from '../core/types'
 
 type Props = {
@@ -225,9 +225,10 @@ export function HandAndFootHouseFields({ house, onChange, editable = true }: Pro
 
 export function HouseRulesPreview({ house, variant }: { house: HouseRules; variant: Variant }) {
   const lines = houseRulesSummary(house, variant)
+  const beta = isBetaVariant(variant)
   return (
     <div className="house-preview">
-      <p className="brand-kicker">House rules</p>
+      <p className="brand-kicker">{beta ? 'Beta rules' : 'House rules'}</p>
       <ul>
         {lines.map((line) => (
           <li key={line}>{line}</li>

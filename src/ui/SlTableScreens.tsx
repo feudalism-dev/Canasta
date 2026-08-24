@@ -2,13 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import type { HouseRules, Variant } from '../core/types'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
+import { BetaVariantNotice } from './BetaVariantNotice'
+import { VariantSelect } from './VariantSelect'
 import { SeatMap } from './SeatMap'
 import type { SlBootstrap } from '../sl/bootstrap'
 import { openMatchInBrowser } from '../sl/sessionUrl'
 import {
   decodeHouseCompact,
   encodeHouseCompact,
+  isBetaVariant,
   isHouseRulesHandAndFoot,
+  isSambaFamily,
   normalizeHouse,
 } from '../core/houseRules'
 import {
@@ -264,23 +268,17 @@ export function SlTableScreens({
         </label>
         <label>
           Game
-          <select
-            value={variant}
-            disabled={!canEditRules}
-            onChange={(e) => {
-              const next = e.target.value as Variant
+          <VariantSelect value={variant} disabled={!canEditRules} onChange={(next) => {
               onVariant(next)
               if (isHouseRulesHandAndFoot(next) && table?.house) {
                 const decoded = decodeHouseCompact(table.house)
                 if (decoded) onHouse(decoded)
               }
             }}
-          >
-            <option value="canasta">Classic Canasta</option>
-            <option value="handAndFoot">Pagat Hand &amp; Foot</option>
-            <option value="handAndFootHouse">House Rules Hand &amp; Foot</option>
-          </select>
+          />
         </label>
+        {isBetaVariant(variant) ? <BetaVariantNotice compact /> : null}
+        {isSambaFamily(variant) ? <HouseRulesPreview house={house} variant={variant} /> : null}
         {!seatedBrowser ? (
           <>
             <label className="check">

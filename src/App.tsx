@@ -6,7 +6,8 @@ import { readOppBooks, readOurBooks, writeOppBooks, writeOurBooks } from './ui/o
 import { GameBoard } from './ui/GameBoard'
 import { HowToPlay } from './ui/HowToPlay'
 import { HandAndFootHouseFields, HouseRulesPreview } from './ui/HouseFields'
-import { ParkedHud } from './ui/ParkedHud'
+import { BetaVariantNotice } from './ui/BetaVariantNotice'
+import { VariantSelect } from './ui/VariantSelect'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { Scoreboard } from './ui/Scoreboard'
 import { SpectatorTable } from './ui/SpectatorTable'
@@ -16,7 +17,7 @@ import { startSolo, soloSeatCount, type LocalControllers } from './ui/localSessi
 import type { AiDifficulty } from './ai/heuristic'
 import { planPileTake } from './core/rules'
 import { cloneState } from './core/state'
-import { DEFAULT_HOUSE, isHouseRulesHandAndFoot, normalizeHouse } from './core/houseRules'
+import { DEFAULT_HOUSE, isBetaVariant, isHouseRulesHandAndFoot, isSambaFamily, normalizeHouse } from './core/houseRules'
 import type { HouseRules, MatchState, Variant } from './core/types'
 import { createPeerHost, joinPeerRoom, type PeerSession } from './net/peerSession'
 import { isSeatedBrowserSession, isTableHudSession, readSlBootstrap, readWebNameHint } from './sl/bootstrap'
@@ -340,12 +341,10 @@ function AppInner() {
           </label>
           <label>
             Game
-            <select value={variant} onChange={(e) => setVariant(e.target.value as Variant)}>
-              <option value="canasta">Classic Canasta — to 5,000</option>
-              <option value="handAndFoot">Pagat Hand &amp; Foot — 4 rounds</option>
-              <option value="handAndFootHouse">House Rules Hand &amp; Foot — 4 rounds</option>
-            </select>
+            <VariantSelect value={variant} onChange={setVariant} />
           </label>
+          {isBetaVariant(variant) ? <BetaVariantNotice /> : null}
+          {isSambaFamily(variant) ? <HouseRulesPreview house={house} variant={variant} /> : null}
           <label className="check">
             <input type="checkbox" checked={partnership} onChange={(e) => setPartnership(e.target.checked)} />
             Play with an AI partner vs two AI (recommended)
