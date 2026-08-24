@@ -26,7 +26,12 @@ import {
   isSequenceMeld,
 } from './melds'
 import { partnerIndex, partnerOf, scoreTeamHand, isRedThreeMeld } from './score'
-import { sequenceAcceptsCard, sortSequenceCards, findSequenceRuns } from './sequences'
+import {
+  findSequenceRuns,
+  sequenceAcceptsCard,
+  sortSequenceCards,
+  validateSequenceCards,
+} from './sequences'
 import { stockDrawCount, teamMeetsGoOutRule } from './sambaRules'
 import { flushRedThrees, maybeAutoplayRedThreesFromHand, maybePickupFoot, resetHandKeepScores } from './state'
 import type { ApplyResult, GameMove, MatchState, Meld, TeamState } from './types'
@@ -63,16 +68,6 @@ export function pileFrozenFor(state: MatchState, playerIndex: number): boolean {
 function existingOpenMeld(team: TeamState, rank: MeldRank, config: MatchState['config']): Meld | undefined {
   if (config.allowMultipleGroupsSameRank) return undefined
   return team.melds.find((m) => !isSequenceMeld(m) && m.rank === rank && meldAcceptsAdds(m, config))
-}
-
-function openSequenceForTop(state: MatchState, playerIndex: number, top: Card): { meld: Meld; index: number } | null {
-  if (!state.config.sequencesEnabled) return null
-  const team = state.teams[state.players[playerIndex]!.team]!
-  for (let i = 0; i < team.melds.length; i++) {
-    const meld = team.melds[i]!
-    if (sequenceAcceptsCard(meld, top, state.config)) return { meld, index: i }
-  }
-  return null
 }
 
 export function claimCardsForPile(state: MatchState, playerIndex: number): string[] | null {

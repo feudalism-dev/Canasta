@@ -1,5 +1,5 @@
 import { buildMeldFromPack, canAddCards, inferMeldRank, isSequenceMeld, validateMeldCards } from '../core/melds'
-import { meldCountPoints, rankLabel, suitGlyph, type Card } from '../core/cards'
+import { meldCountPoints, rankLabel, suitGlyph, type Card, type MeldRank } from '../core/cards'
 import type { MatchState } from '../core/types'
 import { initialMeldMinimum } from '../core/variants'
 import { CardView } from './CardView'
@@ -24,7 +24,7 @@ function inspectGroup(ids: string[], hand: Card[], config: MatchState['config'])
     return {
       cards,
       pts,
-      rank: null as string | null,
+      rank: null as MeldRank | null,
       label: `${suitGlyph(built.meld.suit ?? 'S')} sequence`,
       ok: true,
     }

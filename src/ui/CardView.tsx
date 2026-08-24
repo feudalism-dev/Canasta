@@ -4,6 +4,8 @@ import { CardFace } from './CardFace'
 
 type Size = 'sm' | 'md' | 'book' | 'lg'
 
+export type BookStamp = 'clean' | 'dirty' | 'wild' | 'samba' | 'bolivia'
+
 type Props = {
   card?: Card
   facedown?: boolean
@@ -13,8 +15,16 @@ type Props = {
   parked?: boolean
   dimmed?: boolean
   sideways?: boolean
-  stamp?: 'clean' | 'dirty' | 'wild'
+  stamp?: BookStamp
   onClick?: () => void
+}
+
+function stampLabel(stamp: BookStamp): string {
+  if (stamp === 'clean') return 'CLEAN'
+  if (stamp === 'dirty') return 'DIRTY'
+  if (stamp === 'samba') return 'SAMBA'
+  if (stamp === 'bolivia') return 'BOLIVIA'
+  return 'WILD'
 }
 
 function cardToneClass(card: Card): string {
@@ -63,7 +73,7 @@ export function CardView({
   return (
     <Tag className={cls} {...clickProps} aria-label={`${rankLabel(card.rank)} of ${card.suit}`}>
       <CardFace card={card} />
-      {stamp ? <span className="cn-stamp">{stamp === 'clean' ? 'CLEAN' : stamp === 'dirty' ? 'DIRTY' : 'WILD'}</span> : null}
+      {stamp ? <span className="cn-stamp">{stampLabel(stamp)}</span> : null}
     </Tag>
   )
 }

@@ -1,7 +1,7 @@
 import { isRedThree } from './cards'
 import { canastaKind, isSequenceMeld, meldIsCanasta, meldIsWildBook, teamCanastaCounts } from './melds'
 import { meldIsSamba } from './sequences'
-import type { GoingOutRule, Meld, VariantConfig } from './types'
+import type { Meld, VariantConfig } from './types'
 
 export type MajorMeldCounts = {
   sambas: number

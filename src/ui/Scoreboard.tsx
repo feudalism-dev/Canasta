@@ -82,8 +82,8 @@ export function Scoreboard({ slCap }: Props) {
     }
   }, [slCap])
 
-  const rows: ScoreRow[] =
-    isComingSoon(game) ? [] : ((scope === 'local' ? local : net)[game][period] || [])
+  const liveGame: ScoreGame | null = game === 'c' || game === 'h' ? game : null
+  const rows: ScoreRow[] = liveGame ? (scope === 'local' ? local : net)[liveGame][period] || [] : []
   const scopeLabel = scope === 'local' ? 'This parlor' : 'Network'
   const sub =
     period === 'm' && month

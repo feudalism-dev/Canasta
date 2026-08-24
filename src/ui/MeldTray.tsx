@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion'
 import { isRedSuit, isWild, suitGlyph, type Card } from '../core/cards'
-import { canastaKind, isSequenceMeld, meldIsSamba, sortMeldsForDisplay } from '../core/melds'
+import { canastaKind, isSequenceMeld, sortMeldsForDisplay } from '../core/melds'
+import { meldIsSamba } from '../core/sequences'
 import type { Meld, VariantConfig } from '../core/types'
-import { CardView } from './CardView'
+import { CardView, type BookStamp } from './CardView'
 
 type Props = {
   title: string
@@ -41,7 +42,7 @@ export function MeldTray({ title, melds, config, redThrees, highlight, onMeldCli
               ? 'samba'
               : 'none'
             : canastaKind(m, config.canastaSize)
-          const stamp =
+          const stamp: BookStamp | undefined =
             kind === 'samba'
               ? 'samba'
               : kind === 'natural'

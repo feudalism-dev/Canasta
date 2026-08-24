@@ -1,6 +1,6 @@
 import { makeCard, type Card, type MeldRank, type Rank, type Suit } from './cards'
 import { canastaKind } from './melds'
-import { isHandAndFoot, isBolivia, isSamba, isSambaFamily } from './houseRules'
+import { isHandAndFoot, isBolivia, isSamba } from './houseRules'
 import type { Meld, MatchState, Phase, Variant } from './types'
 import { variantConfig } from './variants'
 
