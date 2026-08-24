@@ -400,10 +400,10 @@ function AppInner() {
   const toggle = (id: string) => {
     const card = byId.get(id)
     if (!card) return
-    setMeldGroups((prev) => addCardToGroups(prev, card, byId))
+    setMeldGroups((prev) => addCardToGroups(prev, card, byId, state.config))
   }
   const toggleRank = (ids: string[]) => {
-    setMeldGroups((prev) => addRankToGroups(prev, ids, byId))
+    setMeldGroups((prev) => addRankToGroups(prev, ids, byId, state.config))
   }
 
   return wrap(

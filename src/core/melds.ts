@@ -1,5 +1,5 @@
 import { cardPoints, isRedThree, isWild, meldCountPoints, type Card, type MeldRank } from './cards'
-import { buildSequenceMeld, validateSequenceCards } from './sequences'
+import { buildSequenceMeld, findSequenceRuns, validateSequenceCards } from './sequences'
 import type { Meld, VariantConfig } from './types'
 
 export function meldKind(meld: Meld): 'group' | 'sequence' {
@@ -222,6 +222,15 @@ export function planOpeningMeldGroups(hand: Card[], config: VariantConfig, need:
   }
   const groups: Card[][] = triples.map((g) => [...g])
   const scoreOf = (packs: Card[][]) => packs.flat().reduce((n, c) => n + meldCountPoints(c), 0)
+  if (config.sequencesEnabled) {
+    const runs = findSequenceRuns(hand)
+      .filter((run) => validateSequenceCards(run, config) === null)
+      .sort((a, b) => scoreOf([b]) - scoreOf([a]))
+    for (const run of runs) {
+      if (run.length >= 3) groups.push([...run])
+      if (groups.length && scoreOf(groups) >= need) return groups
+    }
+  }
   if (groups.length && scoreOf(groups) >= need) return groups
   pairs.sort((a, b) => {
     const pa = a.reduce((n, c) => n + meldCountPoints(c), 0)

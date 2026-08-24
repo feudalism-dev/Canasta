@@ -31,8 +31,6 @@ string normGame(string g)
 {
     g = llToLower(llStringTrim(g, STRING_TRIM));
     if (g == "h" || g == "hf" || g == "hand" || g == "handandfoot") return "h";
-    if (g == "s" || g == "samba") return "s";
-    if (g == "b" || g == "bolivia") return "b";
     return "c";
 }
 
