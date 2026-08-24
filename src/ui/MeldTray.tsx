@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
-import { isRedSuit, isWild, type Card } from '../core/cards'
-import { canastaKind, sortMeldsForDisplay } from '../core/melds'
+import { isRedSuit, isWild, suitGlyph, type Card } from '../core/cards'
+import { canastaKind, isSequenceMeld, meldIsSamba, sortMeldsForDisplay } from '../core/melds'
 import type { Meld, VariantConfig } from '../core/types'
 import { CardView } from './CardView'
 
@@ -35,11 +35,31 @@ export function MeldTray({ title, melds, config, redThrees, highlight, onMeldCli
       <div className="meld-row">
         {melds.length === 0 ? <p className="muted tiny">No melds yet</p> : null}
         {ordered.map(({ meld: m, index: i }) => {
-          const kind = canastaKind(m, config.canastaSize)
-          const stamp = kind === 'natural' ? 'clean' : kind === 'mixed' ? 'dirty' : kind === 'wild' ? 'wild' : undefined
-          const closed = kind !== 'none'
+          const seq = isSequenceMeld(m)
+          const kind = seq
+            ? meldIsSamba(m, config.canastaSize)
+              ? 'samba'
+              : 'none'
+            : canastaKind(m, config.canastaSize)
+          const stamp =
+            kind === 'samba'
+              ? 'samba'
+              : kind === 'natural'
+                ? 'clean'
+                : kind === 'mixed'
+                  ? 'dirty'
+                  : kind === 'wild'
+                    ? config.goingOutRule === 'bolivia'
+                      ? 'bolivia'
+                      : 'wild'
+                    : undefined
+          const closed = kind !== 'none' || (seq && m.closed)
           const face = bookFaceCard(m, config.canastaSize)
-          const rankText = m.rank === 'WILD' ? 'Wild' : m.rank
+          const rankText = seq
+            ? `${suitGlyph(m.suit ?? 'S')} run`
+            : m.rank === 'WILD'
+              ? 'Wild'
+              : m.rank
           return (
             <motion.button
               type="button"

@@ -138,6 +138,8 @@ export type GameMove =
   | { kind: 'meld'; cardIds: string[]; groups?: string[][] }
   | { kind: 'addToMeld'; meldIndex: number; cardIds: string[] }
   | { kind: 'discard'; cardId: string }
+  | { kind: 'takeSequenceTop'; meldIndex: number }
+  | { kind: 'pass' }
   | { kind: 'consentGoOut'; accept: boolean }
   | { kind: 'goOut' }
   | { kind: 'continue' }

@@ -422,6 +422,8 @@ function AppInner() {
         if (plan.ok && plan.cardIds !== undefined) submit({ kind: 'takePile', cardIds: plan.cardIds })
         else push(!plan.ok ? plan.error : 'Select two matching naturals, or the pile is stopped.')
       }}
+      onTakeSequenceTop={(meldIndex) => submit({ kind: 'takeSequenceTop', meldIndex })}
+      onPass={() => submit({ kind: 'pass' })}
       onMeld={() =>
         submit({
           kind: 'meld',

@@ -104,3 +104,26 @@ export function sequenceFitsSambaWindow(cards: Card[]): boolean {
   const high = sorted[6]!.rank
   return SAMBA_WINDOWS.some((w) => w.low === low && w.high === high)
 }
+
+/** Maximal consecutive runs (3+ cards) per suit in a hand — for legal-move hints. */
+export function findSequenceRuns(hand: Card[]): Card[][] {
+  const runs: Card[][] = []
+  for (const suit of ['H', 'D', 'S', 'C'] as const) {
+    const naturals = hand.filter((c) => c.suit === suit && isSequenceNatural(c))
+    if (naturals.length < 3) continue
+    const sorted = sortSequenceCards(naturals)
+    let run: Card[] = [sorted[0]!]
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = naturalSequenceValue(sorted[i - 1]!.rank)
+      const curr = naturalSequenceValue(sorted[i]!.rank)
+      if (prev !== null && curr === prev + 1) {
+        run.push(sorted[i]!)
+      } else {
+        if (run.length >= 3) runs.push([...run])
+        run = [sorted[i]!]
+      }
+    }
+    if (run.length >= 3) runs.push([...run])
+  }
+  return runs
+}

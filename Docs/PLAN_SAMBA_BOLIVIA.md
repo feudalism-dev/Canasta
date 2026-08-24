@@ -2,7 +2,7 @@
 
 Research docs: [RULES_SAMBA.md](./RULES_SAMBA.md), [RULES_BOLIVIA.md](./RULES_BOLIVIA.md).
 
-**Status:** Phase 1a landed; Samba and Bolivia are **beta** variants in the game selector (testable, may have bugs).
+**Status:** Samba beta playable (sequences, draw-2, go-out, scoring). Bolivia uses same engine with wild Bolivia books and stricter go-out. Scoreboard leaderboard tabs for `s`/`b` still deferred; LSL accepts `s`/`b` GAME_OVER codes.
 
 **Beta policy:** Samba and Bolivia appear in setup/lobby with a **Beta** label and notice. Classic Canasta and Hand & Foot are unchanged and not beta. Beta variants may change rules, scoring, or UI without a version bump; player feedback drives fixes before they graduate to full support.
 

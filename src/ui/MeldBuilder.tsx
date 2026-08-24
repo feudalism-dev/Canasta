@@ -1,5 +1,5 @@
-import { meldCountPoints, rankLabel, type Card } from '../core/cards'
-import { canAddCards, inferMeldRank, validateMeldCards } from '../core/melds'
+import { buildMeldFromPack, canAddCards, inferMeldRank, isSequenceMeld, validateMeldCards } from '../core/melds'
+import { meldCountPoints, rankLabel, suitGlyph, type Card } from '../core/cards'
 import type { MatchState } from '../core/types'
 import { initialMeldMinimum } from '../core/variants'
 import { CardView } from './CardView'
@@ -11,6 +11,7 @@ type Props = {
   onMeld: () => void
   onAdd: (meldIndex: number) => void
   onDiscard: () => void
+  onPass?: () => void
   onClear: () => void
   onDropGroup: (index: number) => void
 }
@@ -18,9 +19,19 @@ type Props = {
 function inspectGroup(ids: string[], hand: Card[], config: MatchState['config']) {
   const cards = ids.map((id) => hand.find((c) => c.id === id)).filter((c): c is Card => Boolean(c))
   const pts = cards.reduce((n, c) => n + meldCountPoints(c), 0)
+  const built = buildMeldFromPack(cards, config)
+  if (!built.error && isSequenceMeld(built.meld)) {
+    return {
+      cards,
+      pts,
+      rank: null as string | null,
+      label: `${suitGlyph(built.meld.suit ?? 'S')} sequence`,
+      ok: true,
+    }
+  }
   const rank = inferMeldRank(cards)
   const err = rank ? validateMeldCards(cards, rank, config) : cards.length ? 'Need a complete set' : 'Empty'
-  return { cards, pts, rank, ok: !err && Boolean(rank) }
+  return { cards, pts, rank, label: null as string | null, ok: !err && Boolean(rank) }
 }
 
 export function MeldBuilder({
@@ -30,6 +41,7 @@ export function MeldBuilder({
   onMeld,
   onAdd,
   onDiscard,
+  onPass,
   onClear,
   onDropGroup,
 }: Props) {
@@ -48,12 +60,19 @@ export function MeldBuilder({
           .filter((x) => !x.err)
       : []
   const one = selected.length === 1 && groups.length === 1
+  const canPass =
+    Boolean(onPass) &&
+    state.phase === 'awaitingPlay' &&
+    state.currentPlayer === localIndex &&
+    me.hand.length === 1
   const canDiscard = one && state.phase === 'awaitingPlay' && state.currentPlayer === localIndex
   const showStaging = !team.hasInitialMeld && selected.length >= 2
   const meldLabel = !inspected.length
     ? 'Meld'
-    : inspected.length === 1 && inspected[0]!.rank
-      ? `Meld ${inspected[0]!.cards.length} ${inspected[0]!.rank === 'WILD' ? 'wilds' : inspected[0]!.rank}`
+    : inspected.length === 1 && (inspected[0]!.label || inspected[0]!.rank)
+      ? inspected[0]!.label
+        ? `Meld ${inspected[0]!.cards.length}-card ${inspected[0]!.label}`
+        : `Meld ${inspected[0]!.cards.length} ${inspected[0]!.rank === 'WILD' ? 'wilds' : inspected[0]!.rank}`
       : `Meld ${inspected.length} sets`
 
   return (
@@ -86,7 +105,13 @@ export function MeldBuilder({
                   ))}
                 </div>
                 <span>
-                  {g.ok ? `${g.rank === 'WILD' ? 'Wild' : g.rank} · ${g.pts}` : g.rank ? `${rankLabel(g.rank)} · short` : 'Short'}
+                  {g.ok
+                    ? g.label
+                      ? `${g.label} · ${g.pts}`
+                      : `${g.rank === 'WILD' ? 'Wild' : g.rank} · ${g.pts}`
+                    : g.rank
+                      ? `${rankLabel(g.rank)} · short`
+                      : 'Short'}
                 </span>
               </button>
             ))}
@@ -105,6 +130,11 @@ export function MeldBuilder({
         <button type="button" className="btn ghost" disabled={!one || !canDiscard} onClick={onDiscard}>
           Discard
         </button>
+        {onPass ? (
+          <button type="button" className="btn ghost" disabled={!canPass} onClick={onPass}>
+            Pass
+          </button>
+        ) : null}
         <button type="button" className="btn ghost" onClick={onClear}>
           Clear
         </button>

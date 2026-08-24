@@ -1,5 +1,5 @@
 import { cardPoints, isRedThree, isWild, meldCountPoints, type Card, type MeldRank } from './cards'
-import { validateSequenceCards } from './sequences'
+import { buildSequenceMeld, validateSequenceCards } from './sequences'
 import type { Meld, VariantConfig } from './types'
 
 export function meldKind(meld: Meld): 'group' | 'sequence' {
@@ -110,6 +110,9 @@ export function validateMeldCards(cards: Card[], rank: MeldRank, config: Variant
     if (naturals.length < 2) return 'A meld needs at least two natural cards'
   }
   if (naturals.length < 2) return 'A meld needs at least two natural cards'
+  if (config.goingOutRule === 'samba' && wilds.length > 0 && naturals.length < wilds.length * 2) {
+    return 'Need twice as many natural cards as wilds'
+  }
   if (wilds.length > config.maxWildsPerMeld) return `At most ${config.maxWildsPerMeld} wilds in a meld`
   if (bookIsCappedAtSeven(config) && cards.length > config.canastaSize) return 'A book cannot exceed seven'
   return null
@@ -140,9 +143,23 @@ function attachSpareWild(groups: Card[][], wild: Card, config: VariantConfig): b
   return false
 }
 
-/** Split mixed cards into complete rank-sets, assigning wilds to pairs first. */
+export function buildMeldFromPack(cards: Card[], config: VariantConfig): { meld: Meld; error: string | null } {
+  if (config.sequencesEnabled && validateSequenceCards(cards, config) === null) {
+    return buildSequenceMeld(cards, config)
+  }
+  const rank = inferMeldRank(cards)
+  if (!rank) return { meld: { rank: '4', cards: [], closed: false }, error: 'Those cards are not a meld.' }
+  const err = validateMeldCards(cards, rank, config)
+  if (err) return { meld: { rank: '4', cards: [], closed: false }, error: err }
+  return { meld: closeIfNeeded({ rank, cards: [...cards], closed: false }, config), error: null }
+}
+
+/** Split mixed cards into complete rank-sets or one sequence, assigning wilds to pairs first. */
 export function partitionMeldCards(cards: Card[], config: VariantConfig): { groups: Card[][]; error: string | null } {
   if (cards.length === 0) return { groups: [], error: 'Select cards to meld.' }
+  if (config.sequencesEnabled && validateSequenceCards(cards, config) === null) {
+    return { groups: [cards], error: null }
+  }
   const single = inferMeldRank(cards)
   if (single) {
     const err = validateMeldCards(cards, single, config)
@@ -284,6 +301,9 @@ export function closeIfNeeded(meld: Meld, config: VariantConfig): Meld {
       return { ...meld, closed: true }
     }
     return meld
+  }
+  if (meldIsWildBook(meld) && config.goingOutRule === 'bolivia' && meld.cards.length >= config.canastaSize) {
+    return { ...meld, closed: true }
   }
   if (!config.booksCloseAtSeven) {
     return { ...meld, closed: meld.cards.length >= config.canastaSize ? meld.closed : meld.closed }

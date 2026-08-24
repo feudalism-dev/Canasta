@@ -22,6 +22,8 @@ type Props = {
   onToggleRank: (ids: string[]) => void
   onDraw: () => void
   onTakePile: () => void
+  onTakeSequenceTop?: (meldIndex: number) => void
+  onPass?: () => void
   onMeld: () => void
   onAdd: (meldIndex: number) => void
   onDiscard: () => void
@@ -48,6 +50,8 @@ export function GameBoard({
   onToggleRank,
   onDraw,
   onTakePile,
+  onTakeSequenceTop,
+  onPass,
   onMeld,
   onAdd,
   onDiscard,
@@ -178,7 +182,14 @@ export function GameBoard({
           config={state.config}
           redThrees={state.teams[myTeam]!.redThrees.length}
           highlight
-          onMeldClick={onAdd}
+          onMeldClick={
+            myTurn && !aiThinking
+              ? (i) => {
+                  if (state.phase === 'awaitingDraw' && onTakeSequenceTop) onTakeSequenceTop(i)
+                  else if (state.phase === 'awaitingPlay') onAdd(i)
+                }
+              : undefined
+          }
         />
       ) : null}
 
@@ -199,6 +210,7 @@ export function GameBoard({
         onMeld={onMeld}
         onAdd={onAdd}
         onDiscard={onDiscard}
+        onPass={onPass}
         onClear={onClear}
         onDropGroup={onDropGroup}
       />

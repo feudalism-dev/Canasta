@@ -9,6 +9,7 @@ import {
   type PublicBoard,
   type PublicPlayer,
 } from '../core/publicBoard'
+import { isHandAndFoot, variantLabel } from '../core/houseRules'
 import { tableGetBoard, tableStatus } from '../sl/tableApi'
 import { CardView } from './CardView'
 import { MeldTray } from './MeldTray'
@@ -126,8 +127,12 @@ export function SpectatorTable({ slCap }: Props) {
   }, [slCap])
 
   const config = spectatorConfig(board)
-  const variant = board.variant === 'canasta' ? 'Canasta' : 'Hand & Foot'
-  const roundLine = board.variant === 'canasta' ? (board.playTo ? `to ${board.playTo}` : '') : `R${board.round}/4`
+  const variant = variantLabel(board.variant)
+  const roundLine = isHandAndFoot(board.variant)
+    ? `R${board.round}/4`
+    : board.playTo
+      ? `to ${board.playTo}`
+      : ''
   const top = board.top ? { id: 'spec-top', rank: board.top.rank, suit: board.top.suit } : null
   const sideways = Boolean(top && (isWild(top) || board.frozen))
 

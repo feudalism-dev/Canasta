@@ -20,14 +20,18 @@ import {
   meldIsCanasta,
   partitionMeldCards,
   planOpeningMeldGroups,
+  buildMeldFromPack,
   teamCanastaCounts,
   validateMeldCards,
+  isSequenceMeld,
 } from './melds'
-import { partnerIndex, partnerOf, scoreTeamHand } from './score'
+import { partnerIndex, partnerOf, scoreTeamHand, isRedThreeMeld } from './score'
+import { sequenceAcceptsCard, sortSequenceCards, findSequenceRuns } from './sequences'
+import { stockDrawCount, teamMeetsGoOutRule } from './sambaRules'
 import { flushRedThrees, maybeAutoplayRedThreesFromHand, maybePickupFoot, resetHandKeepScores } from './state'
 import type { ApplyResult, GameMove, MatchState, Meld, TeamState } from './types'
 import { initialMeldMinimum } from './variants'
-import { isHandAndFoot } from './houseRules'
+import { isHandAndFoot, isSambaFamily } from './houseRules'
 
 export { cloneState } from './state'
 export { createMatch } from './state'
@@ -44,6 +48,8 @@ export function currentTeam(state: MatchState): TeamState {
 export function pileIsStopped(state: MatchState): boolean {
   const top = peekDiscard(state)
   if (!top) return true
+  if (state.config.blockTakePileOnWildTop && isWild(top)) return true
+  if (isSambaFamily(state.config.variant) && isRedThree(top)) return true
   return isWild(top) || isBlackThree(top)
 }
 
@@ -55,7 +61,18 @@ export function pileFrozenFor(state: MatchState, playerIndex: number): boolean {
 }
 
 function existingOpenMeld(team: TeamState, rank: MeldRank, config: MatchState['config']): Meld | undefined {
-  return team.melds.find((m) => m.rank === rank && meldAcceptsAdds(m, config))
+  if (config.allowMultipleGroupsSameRank) return undefined
+  return team.melds.find((m) => !isSequenceMeld(m) && m.rank === rank && meldAcceptsAdds(m, config))
+}
+
+function openSequenceForTop(state: MatchState, playerIndex: number, top: Card): { meld: Meld; index: number } | null {
+  if (!state.config.sequencesEnabled) return null
+  const team = state.teams[state.players[playerIndex]!.team]!
+  for (let i = 0; i < team.melds.length; i++) {
+    const meld = team.melds[i]!
+    if (sequenceAcceptsCard(meld, top, state.config)) return { meld, index: i }
+  }
+  return null
 }
 
 export function claimCardsForPile(state: MatchState, playerIndex: number): string[] | null {
@@ -302,10 +319,7 @@ function endTurn(state: MatchState): void {
 }
 
 function booksAllowGoingOut(state: MatchState, melds: Meld[]): boolean {
-  const cfg = state.config
-  const counts = teamCanastaCounts(melds, cfg.canastaSize)
-  if (cfg.variant === 'canasta') return counts.clean + counts.dirty + counts.wild >= 1
-  return counts.clean >= cfg.house.goingOutClean && counts.dirty + counts.wild >= cfg.house.goingOutDirty
+  return teamMeetsGoOutRule(melds, state.config)
 }
 
 function teamHasGoingOutBooks(state: MatchState, teamIndex: 0 | 1): boolean {
@@ -333,7 +347,13 @@ function canPlayerGoOut(state: MatchState, playerIndex: number): ApplyResult {
     return { ok: false, error: 'Pick up your Foot before going out.' }
   }
   if (!teamHasGoingOutBooks(state, player.team)) {
-    if (cfg.variant === 'canasta') return { ok: false, error: 'Your team needs a canasta to go out.' }
+    if (cfg.goingOutRule === 'canasta') return { ok: false, error: 'Your team needs a canasta to go out.' }
+    if (cfg.goingOutRule === 'samba') {
+      return { ok: false, error: 'Need two sambas, two canastas, or one of each to go out.' }
+    }
+    if (cfg.goingOutRule === 'bolivia') {
+      return { ok: false, error: 'Need two seven-card melds including at least one sequence to go out.' }
+    }
     return { ok: false, error: 'Your team does not have the required books to go out.' }
   }
   const partner = partnerOf(state, playerIndex)
@@ -346,7 +366,7 @@ function canPlayerGoOut(state: MatchState, playerIndex: number): ApplyResult {
 function needsConsent(state: MatchState, playerIndex: number): boolean {
   const cfg = state.config
   if (!cfg.house.partnerConsent) return false
-  if (!isHandAndFoot(cfg.variant)) return false
+  if (!isHandAndFoot(cfg.variant) && !isSambaFamily(cfg.variant)) return false
   const mate = partnerIndex(state, playerIndex)
   if (mate < 0) return false
   return state.players[mate]!.isHuman
@@ -399,8 +419,8 @@ function finishMatch(state: MatchState): void {
 function applyDrawStock(state: MatchState, playerIndex: number): ApplyResult {
   if (state.phase !== 'awaitingDraw') return { ok: false, error: 'It is not time to draw.' }
   if (playerIndex !== state.currentPlayer) return { ok: false, error: 'Not your turn.' }
-  const need = state.config.stockDraw
-  if (state.stock.length < need) {
+  const need = stockDrawCount(state.config, state.stock.length)
+  if (need === 0) {
     finishRound(state, -1)
     return { ok: true }
   }
@@ -414,6 +434,40 @@ function applyDrawStock(state: MatchState, playerIndex: number): ApplyResult {
   player.hand = sortHand(player.hand)
   state.phase = 'awaitingPlay'
   state.lastMessage = `${player.displayName} draws.`
+  return { ok: true }
+}
+
+function applyTakeSequenceTop(state: MatchState, playerIndex: number, meldIndex: number): ApplyResult {
+  if (state.phase !== 'awaitingDraw') return { ok: false, error: 'It is not time to draw.' }
+  if (playerIndex !== state.currentPlayer) return { ok: false, error: 'Not your turn.' }
+  if (pileIsStopped(state)) return { ok: false, error: 'The discard pile cannot be taken.' }
+  const top = peekDiscard(state)
+  if (!top) return { ok: false, error: 'The discard pile is empty.' }
+  const player = state.players[playerIndex]!
+  const team = state.teams[player.team]!
+  const meld = team.melds[meldIndex]
+  if (!meld || !sequenceAcceptsCard(meld, top, state.config)) {
+    return { ok: false, error: 'That card does not extend your sequence.' }
+  }
+  player.concealedEligible = !player.meldedThisHand
+  state.discard.pop()
+  meld.cards = sortSequenceCards([...meld.cards, top])
+  const closed = closeIfNeeded(meld, state.config)
+  meld.closed = closed.closed
+  player.meldedThisHand = true
+  state.phase = 'awaitingPlay'
+  state.lastMessage = `${player.displayName} takes ${rankLabel(top.rank)} for the sequence.`
+  return { ok: true }
+}
+
+function applyPass(state: MatchState, playerIndex: number): ApplyResult {
+  if (state.phase !== 'awaitingPlay') return { ok: false, error: 'You cannot pass now.' }
+  if (playerIndex !== state.currentPlayer) return { ok: false, error: 'Not your turn.' }
+  const player = state.players[playerIndex]!
+  if (player.hand.length !== 1) return { ok: false, error: 'Pass only when one card remains and you cannot go out.' }
+  if (canPlayerGoOut(state, playerIndex).ok) return { ok: false, error: 'You can go out — discard or meld out.' }
+  endTurn(state)
+  state.lastMessage = `${player.displayName} passes with one card.`
   return { ok: true }
 }
 
@@ -488,10 +542,9 @@ function packsFromMeldMove(
     }
     if (seen.size !== taken.length) return { packs: [], error: 'Select each card in only one set.' }
     for (const pack of packs) {
-      const rank = inferMeldRank(pack)
-      if (!rank) return { packs: [], error: 'Those cards are not a single rank.' }
-      const err = validateMeldCards(pack, rank, config)
-      if (err) return { packs: [], error: err }
+      if (config.redThreeMode === 'samba' && isRedThreeMeld(pack)) continue
+      const built = buildMeldFromPack(pack, config)
+      if (built.error) return { packs: [], error: built.error }
     }
     return { packs, error: null }
   }
@@ -500,7 +553,8 @@ function packsFromMeldMove(
 }
 
 function openMeldOf(melds: Meld[], rank: MeldRank, config: MatchState['config']): Meld | undefined {
-  return melds.find((m) => m.rank === rank && meldAcceptsAdds(m, config))
+  if (config.allowMultipleGroupsSameRank) return undefined
+  return melds.find((m) => !isSequenceMeld(m) && m.rank === rank && meldAcceptsAdds(m, config))
 }
 
 function previewMeldsAfterPacks(
@@ -510,9 +564,17 @@ function previewMeldsAfterPacks(
 ): { next: Meld[]; error: string | null } {
   const next: Meld[] = melds.map((m) => ({ ...m, cards: [...m.cards] }))
   for (const pack of packs) {
-    const rank = inferMeldRank(pack)
-    if (!rank) return { next: [], error: 'Those cards are not a single rank.' }
-    const existing = openMeldOf(next, rank, config)
+    if (config.redThreeMode === 'samba' && isRedThreeMeld(pack)) {
+      continue
+    }
+    const built = buildMeldFromPack(pack, config)
+    if (built.error) return { next: [], error: built.error }
+    const meld = built.meld
+    if (isSequenceMeld(meld)) {
+      next.push(meld)
+      continue
+    }
+    const existing = openMeldOf(next, meld.rank, config)
     if (existing) {
       const err = canAddCards(existing, pack, config)
       if (err) return { next: [], error: err }
@@ -520,9 +582,7 @@ function previewMeldsAfterPacks(
       const closed = closeIfNeeded(existing, config)
       existing.closed = closed.closed
     } else {
-      const err = validateMeldCards(pack, rank, config)
-      if (err) return { next: [], error: err }
-      next.push(closeIfNeeded({ rank, cards: [...pack], closed: false }, config))
+      next.push(meld)
     }
   }
   return { next, error: null }
@@ -549,7 +609,14 @@ function applyMeld(state: MatchState, playerIndex: number, cardIds: string[], gr
   if (split.error) return { ok: false, error: split.error }
   const packs = split.packs
   if (!packs.length) return { ok: false, error: 'Select cards to meld.' }
-  for (const pack of packs) {
+
+  const redSingles = packs.filter((p) => state.config.redThreeMode === 'samba' && isRedThreeMeld(p))
+  const meldPacks = packs.filter((p) => !redSingles.includes(p))
+
+  for (const pack of meldPacks) {
+    const built = buildMeldFromPack(pack, state.config)
+    if (built.error) return { ok: false, error: built.error }
+    if (isSequenceMeld(built.meld)) continue
     const rank = inferMeldRank(pack)
     if (rank === '3') {
       const going = canPlayerGoOut(state, playerIndex)
@@ -565,7 +632,7 @@ function applyMeld(state: MatchState, playerIndex: number, cardIds: string[], gr
     const need = initialMeldMinimum(state.config, team.score, state.round)
     if (count < need) return { ok: false, error: `Initial meld needs ${need}; these sets are ${count}.` }
   }
-  const preview = previewMeldsAfterPacks(team.melds, packs, state.config)
+  const preview = previewMeldsAfterPacks(team.melds, meldPacks, state.config)
   if (preview.error) return { ok: false, error: preview.error }
   const keep = minCardsToKeep(state, playerIndex, preview.next)
   if (rest.length < keep) {
@@ -573,15 +640,31 @@ function applyMeld(state: MatchState, playerIndex: number, cardIds: string[], gr
   }
   player.hand = rest
   team.melds = preview.next
+  for (const r of redSingles) team.redThrees.push(r[0]!)
   team.hasInitialMeld = true
   player.meldedThisHand = true
-  const touched = packs.map((pack) => inferMeldRank(pack))
-  const changed = preview.next.filter((m) => touched.includes(m.rank))
-  if (changed.length === 1) {
-    const meld = changed[0]!
-    const kind = canastaKind(meld, state.config.canastaSize)
-    const stamp = kind === 'natural' ? 'Clean canasta!' : kind === 'mixed' ? 'Dirty canasta!' : kind === 'wild' ? 'Wild book!' : 'Meld laid.'
-    state.lastMessage = `${player.displayName}: ${stamp}`
+  if (redSingles.length && !meldPacks.length) {
+    state.lastMessage = `${player.displayName} melds ${redSingles.length} red three(s).`
+  } else if (meldPacks.length === 1) {
+    const built = buildMeldFromPack(meldPacks[0]!, state.config)
+    const meld = built.meld
+    if (isSequenceMeld(meld)) {
+      state.lastMessage =
+        meld.closed ? `${player.displayName}: Samba!` : `${player.displayName} starts a sequence.`
+    } else {
+      const kind = canastaKind(meld, state.config.canastaSize)
+      const stamp =
+        kind === 'natural'
+          ? 'Clean canasta!'
+          : kind === 'mixed'
+            ? 'Dirty canasta!'
+            : kind === 'wild'
+              ? state.config.goingOutRule === 'bolivia'
+                ? 'Bolivia!'
+                : 'Wild book!'
+              : 'Meld laid.'
+      state.lastMessage = `${player.displayName}: ${stamp}`
+    }
   } else {
     state.lastMessage = `${player.displayName} lays ${packs.length} melds.`
   }
@@ -610,15 +693,31 @@ function applyAdd(state: MatchState, playerIndex: number, meldIndex: number, car
     return { ok: false, error: keepCardsError(state, nextMelds) }
   }
   player.hand = rest
-  meld.cards.push(...taken)
+  if (isSequenceMeld(meld)) {
+    meld.cards = sortSequenceCards([...meld.cards, ...taken])
+  } else {
+    meld.cards.push(...taken)
+  }
   const closed = closeIfNeeded(meld, state.config)
   meld.closed = closed.closed
   player.meldedThisHand = true
-  const kind = canastaKind(meld, state.config.canastaSize)
+  const kind = isSequenceMeld(meld)
+    ? meld.closed
+      ? 'samba'
+      : 'none'
+    : canastaKind(meld, state.config.canastaSize)
   state.lastMessage =
-    kind === 'natural' ? `${player.displayName} closes a clean book!` :
-    kind === 'mixed' ? `${player.displayName} closes a dirty book!` :
-    `${player.displayName} adds to the meld.`
+    kind === 'samba'
+      ? `${player.displayName} completes a samba!`
+      : kind === 'natural'
+        ? `${player.displayName} closes a clean book!`
+        : kind === 'mixed'
+          ? `${player.displayName} closes a dirty book!`
+          : kind === 'wild'
+            ? state.config.goingOutRule === 'bolivia'
+              ? `${player.displayName} completes a Bolivia!`
+              : `${player.displayName} closes a wild book!`
+            : `${player.displayName} adds to the meld.`
   maybePickupFoot(state, playerIndex, false)
   tryAutoGoOut(state, playerIndex)
   return { ok: true }
@@ -746,6 +845,10 @@ export function tryApply(state: MatchState, move: GameMove, playerIndex?: number
       return applyDrawStock(state, who)
     case 'takePile':
       return applyTakePile(state, who, move.cardIds)
+    case 'takeSequenceTop':
+      return applyTakeSequenceTop(state, who, move.meldIndex)
+    case 'pass':
+      return applyPass(state, who)
     case 'meld':
       return applyMeld(state, who, move.cardIds, move.groups)
     case 'addToMeld':
@@ -799,6 +902,15 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
     moves.push({ kind: 'drawStock' })
     const plan = planPileTake(state, playerIndex)
     if (plan.ok && plan.cardIds !== undefined) moves.push({ kind: 'takePile', cardIds: plan.cardIds })
+    const top = peekDiscard(state)
+    if (top && !pileIsStopped(state) && state.config.sequencesEnabled) {
+      const drawTeam = state.teams[state.players[playerIndex]!.team]!
+      drawTeam.melds.forEach((m, meldIndex) => {
+        if (sequenceAcceptsCard(m, top, state.config)) {
+          moves.push({ kind: 'takeSequenceTop', meldIndex })
+        }
+      })
+    }
     return moves
   }
   if (state.phase !== 'awaitingPlay') return moves
@@ -872,8 +984,48 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
       }
     }
   }
+  if (state.config.sequencesEnabled) {
+    for (const run of findSequenceRuns(player.hand)) {
+      if (validateSequenceCards(run, state.config)) continue
+      if (!team.hasInitialMeld) {
+        const count = run.reduce((n, c) => n + meldCountPoints(c), 0)
+        if (count < initialMeldMinimum(state.config, team.score, state.round)) continue
+      }
+      const preview = previewMeldsAfterPacks(team.melds, [run], state.config)
+      if (preview.error) continue
+      if (player.hand.length - run.length < minCardsToKeep(state, playerIndex, preview.next)) continue
+      moves.push({ kind: 'meld', cardIds: run.map((c) => c.id) })
+    }
+    team.melds.forEach((m, meldIndex) => {
+      if (!isSequenceMeld(m) || m.closed) return
+      for (const c of player.hand) {
+        if (!sequenceAcceptsCard(m, c, state.config)) continue
+        const trial = sortSequenceCards([...m.cards, c])
+        const preview = team.melds.map((mm, i) =>
+          i === meldIndex ? { ...mm, cards: trial } : mm,
+        )
+        if (player.hand.length - 1 < minCardsToKeep(state, playerIndex, preview)) continue
+        moves.push({ kind: 'addToMeld', meldIndex, cardIds: [c.id] })
+      }
+    })
+  }
+  if (state.config.redThreeMode === 'samba') {
+    for (const c of player.hand) {
+      if (!isRedThree(c)) continue
+      const preview = previewMeldsAfterPacks(team.melds, [], state.config)
+      if (player.hand.length - 1 < minCardsToKeep(state, playerIndex, preview.next)) continue
+      moves.push({ kind: 'meld', cardIds: [c.id] })
+    }
+  }
   for (const c of player.hand) {
     if (discardIsLegal(state, playerIndex, c.id)) moves.push({ kind: 'discard', cardId: c.id })
+  }
+  if (
+    isSambaFamily(state.config.variant) &&
+    player.hand.length === 1 &&
+    !canPlayerGoOut(state, playerIndex).ok
+  ) {
+    moves.push({ kind: 'pass' })
   }
   return moves
 }
