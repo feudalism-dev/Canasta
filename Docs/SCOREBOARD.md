@@ -25,6 +25,8 @@ CN_SCORE|c|<avatar-uuid>|Bandor Tyrell|8441
 
 on channel **`-18475021`**. Game code is `c` (Canasta) or `h` (Hand & Foot), taken from the HUD’s `GAME_OVER|…|c` / `|h` pipe. Same channel is hard-coded in the scoreboard script. Place the panel within shout range of the table.
 
+Shipped tables map any other `GAME_OVER` letter (including Samba `s` and Bolivia `b`) to `c`, so those matches record on the **Canasta** tab. Splitting Samba/Bolivia onto their own boards would require table `Canasta_Scores.lsl` (table reissue — avoided) or a later scoreboard-only ingest; leave them on Canasta until then.
+
 Recompile order on the table is still Display → Http → Table; Scores can compile anytime.
 
 ## Scoreboard object (3-prim linkset)
