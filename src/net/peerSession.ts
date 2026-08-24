@@ -1,11 +1,12 @@
 import Peer, { type DataConnection } from 'peerjs'
 import { pumpComputers } from '../ai/computerTurns'
 import type { AiDifficulty } from '../ai/heuristic'
-import { createMatch } from '../core/state'
+import { cloneState, createMatch } from '../core/state'
 import { fourHandRoster, type Occupant } from '../core/tableSeating'
 import { tryApply, type GameMove, type MatchState } from '../core/rules'
 import { DEFAULT_HOUSE, normalizeHouse } from '../core/houseRules'
 import type { HouseRules, Variant } from '../core/types'
+import { playDealSfx, playSfxForMove } from '../ui/sfx'
 
 export type LobbySeat = {
   id: string
@@ -220,8 +221,9 @@ function buildSession(
           aiThinking = on
           notify()
         },
-        onStep: () => {
+        onStep: ({ move, playerIndex, prev }) => {
           if (!state) return
+          playSfxForMove(prev, state, move, playerIndex)
           broadcast({ t: 'state', state })
           status = state.lastMessage
           notify()
@@ -317,12 +319,14 @@ function buildSession(
     }
     if (msg.t === 'move' && isHost && state) {
       const idx = msg.playerIndex ?? state.currentPlayer
+      const prev = cloneState(state)
       const res = tryApply(state, msg.move, idx)
       if (!res.ok) {
         status = res.error
         notify()
         return
       }
+      playSfxForMove(prev, state, msg.move, idx)
       broadcast({ t: 'state', state })
       status = state.lastMessage
       notify()
@@ -445,6 +449,7 @@ function buildSession(
       state = createMatch({ variant, names: roster.names, humans: roster.humans, house })
       const occupantRows = humans.map((h) => ({ uid: h.uid || '', seat: h.seat }))
       applyOccupantSeats(occupantRows)
+      playDealSfx()
       broadcast({ t: 'start', state, occupants: occupantRows })
       status = state.lastMessage
       notify()
@@ -456,17 +461,21 @@ function buildSession(
     },
     submit(move) {
       if (isHost && state) {
-        const res = tryApply(state, move, localIndexOf())
+        const prev = cloneState(state)
+        const who = localIndexOf()
+        const res = tryApply(state, move, who)
         if (!res.ok) {
           status = res.error
           notify()
           return
         }
+        playSfxForMove(prev, state, move, who)
         broadcast({ t: 'state', state })
         status = state.lastMessage
         notify()
         void pumpAi()
       } else {
+        playSfxForMove(null, null, move, localIndexOf())
         const hostConn = [...conns.values()][0]
         if (hostConn) send(hostConn, { t: 'move', move, playerIndex: localIndexOf() })
       }

@@ -3,6 +3,8 @@ import type { SlBootstrap } from '../sl/bootstrap'
 import { openSeatedBrowser } from '../sl/sessionUrl'
 import { HowToPlayOverlay } from './HowToPlay'
 import { applyUiScale, clampUiScale, defaultUiScale, UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP } from './uiScale'
+import { preloadSfx, unlockSfx } from './sfx'
+import { readSfxEnabled, writeSfxEnabled } from './sfxPref'
 
 type Props = {
   slBoot: SlBootstrap | null
@@ -27,12 +29,24 @@ export function AppChrome({
 }: Props) {
   const [scale, setScale] = useState(() => defaultUiScale())
   const [helpOpen, setHelpOpen] = useState(false)
+  const [sfxOn, setSfxOn] = useState(() => readSfxEnabled())
   const seated = Boolean(slBoot && slBoot.slCap && !parked)
   const alreadyBrowser = slBoot?.client === 'browser'
 
   useEffect(() => {
     applyUiScale(scale)
   }, [scale])
+
+  useEffect(() => {
+    preloadSfx()
+    const unlock = () => unlockSfx()
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+  }, [])
 
   return (
     <>
@@ -56,6 +70,20 @@ export function AppChrome({
             +
           </button>
           <span className="scale-pct">{Math.round(scale * 100)}%</span>
+          <button
+            type="button"
+            className={`scale-btn tray-toggle ${sfxOn ? 'is-on' : ''}`}
+            onClick={() => {
+              const next = !sfxOn
+              setSfxOn(next)
+              writeSfxEnabled(next)
+              if (next) unlockSfx()
+            }}
+            aria-pressed={sfxOn}
+            title={sfxOn ? 'Mute card sounds' : 'Unmute card sounds'}
+          >
+            {sfxOn ? 'Sound on' : 'Sound off'}
+          </button>
           {onShowOppBooks ? (
             <button
               type="button"

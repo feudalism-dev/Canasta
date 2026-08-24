@@ -1,6 +1,7 @@
 import { pickAiMove, type AiDifficulty } from './heuristic'
 import { forcePass, getLegalMoves, tryApply } from '../core/rules'
-import type { MatchState } from '../core/types'
+import { cloneState } from '../core/state'
+import type { GameMove, MatchState } from '../core/types'
 
 export function nextComputerIndex(state: MatchState): number | null {
   if (state.phase === 'matchEnd' || state.phase === 'roundEnd') return null
@@ -15,16 +16,22 @@ export function nextComputerIndex(state: MatchState): number | null {
   return null
 }
 
-export function stepComputer(state: MatchState, difficulty: AiDifficulty): boolean {
+/** Apply one computer move; returns the move when something was applied. */
+export function stepComputer(
+  state: MatchState,
+  difficulty: AiDifficulty,
+): { move: GameMove; playerIndex: number; prev: MatchState } | null {
   const who = nextComputerIndex(state)
-  if (who == null) return false
+  if (who == null) return null
+  const prev = cloneState(state)
   if (state.phase === 'awaitingGoOutConsent') {
     const move =
       pickAiMove(state, who, difficulty) ??
       getLegalMoves(state, who).find((m) => m.kind === 'consentGoOut') ??
       null
-    if (!move) return false
-    return tryApply(state, move, who).ok
+    if (!move) return null
+    if (!tryApply(state, move, who).ok) return null
+    return { move, playerIndex: who, prev }
   }
   const move =
     pickAiMove(state, who, difficulty) ??
@@ -32,15 +39,15 @@ export function stepComputer(state: MatchState, difficulty: AiDifficulty): boole
     null
   if (move) {
     const res = tryApply(state, move, who)
-    if (res.ok) return true
+    if (res.ok) return { move, playerIndex: who, prev }
   }
   const discard = getLegalMoves(state, who).find((m) => m.kind === 'discard')
   if (discard) {
     tryApply(state, discard, who)
-    return true
+    return { move: discard, playerIndex: who, prev }
   }
   forcePass(state)
-  return true
+  return { move: { kind: 'pass' }, playerIndex: who, prev }
 }
 
 const THINK_MS = 380
@@ -51,7 +58,7 @@ export async function pumpComputers(
   opts: {
     isCancelled: () => boolean
     onThinking: (on: boolean) => void
-    onStep: () => void
+    onStep: (info: { move: GameMove; playerIndex: number; prev: MatchState }) => void
   },
 ): Promise<void> {
   let lastWho = -1
@@ -68,8 +75,9 @@ export async function pumpComputers(
       lastWho = who
     }
     if (opts.isCancelled()) return
-    if (!stepComputer(state, difficulty)) break
-    opts.onStep()
+    const stepped = stepComputer(state, difficulty)
+    if (!stepped) break
+    opts.onStep(stepped)
   }
   opts.onThinking(false)
 }

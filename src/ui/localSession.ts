@@ -1,10 +1,11 @@
 import { pumpComputers } from '../ai/computerTurns'
 import type { AiDifficulty } from '../ai/heuristic'
 import { COMPUTER_NAMES } from '../core/tableSeating'
-import { createMatch } from '../core/state'
+import { cloneState, createMatch } from '../core/state'
 import { tryApply } from '../core/rules'
 import { DEFAULT_HOUSE } from '../core/houseRules'
 import type { ApplyResult, GameMove, HouseRules, MatchState, Variant } from '../core/types'
+import { playDealSfx, playSfxForMove } from './sfx'
 
 export type LocalControllers = {
   state: MatchState
@@ -47,8 +48,8 @@ export function soloRoster(
     } else {
       names.push(COMPUTER_NAMES[ai] ?? `Computer ${i + 1}`)
       humans.push(false)
-      ai += 1
     }
+    ai += 1
   }
   return { names, humans, localIndex }
 }
@@ -75,6 +76,8 @@ export function startSolo(
     if (log.length > 14) log.length = 14
   }
 
+  playDealSfx()
+
   const pumpAi = async () => {
     if (running || cancelled) return
     running = true
@@ -85,7 +88,8 @@ export function startSolo(
           aiThinking = on
           notify()
         },
-        onStep: () => {
+        onStep: ({ move, playerIndex, prev }) => {
+          playSfxForMove(prev, state, move, playerIndex)
           pushLog(state.lastMessage)
           notify()
         },
@@ -109,12 +113,14 @@ export function startSolo(
       return aiThinking
     },
     submit(move) {
+      const prev = cloneState(state)
       const res = tryApply(state, move, localIndex)
       if (!res.ok) {
         pushLog(res.error)
         notify()
         return res
       }
+      playSfxForMove(prev, state, move, localIndex)
       pushLog(state.lastMessage)
       notify()
       void pumpAi()
