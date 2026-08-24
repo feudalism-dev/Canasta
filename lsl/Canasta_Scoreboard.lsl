@@ -9,7 +9,7 @@ integer MEDIA_FACE = 0;
 integer MEDIA_W = 1024;
 integer MEDIA_H = 720;
 // Fallback if asset-rev.txt fetch fails. Prefer bumping public/asset-rev.txt on Pages deploys.
-integer PAGE_ASSET_REV = 3;
+integer PAGE_ASSET_REV = 62;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
 integer ADMIN_CMD = 93001;
@@ -53,8 +53,8 @@ requestAssetRev()
 
 integer scheduleMoap()
 {
+    // Paint as soon as HTTP-IN exists; fallback PAGE_ASSET_REV is fine until asset-rev.txt returns.
     if (gCapUrl == "") return FALSE;
-    if (!gRevDone) return FALSE;
     gMoapPending = TRUE;
     llSetTimerEvent(0.5);
     return TRUE;
@@ -640,7 +640,6 @@ default
         if (!gRevDone && llGetUnixTime() >= gRevDeadline)
         {
             gRevDone = TRUE;
-            scheduleMoap();
         }
         if (gMoapPending)
         {
@@ -649,7 +648,9 @@ default
         }
         if (gXpOp == "" && llGetListLength(gXpQ) == 0) enqueueReads();
         kickXp();
-        llSetTimerEvent(TIMER_SEC);
+        // Stay snappy until media has been applied once; then the slow XP poll cadence.
+        if (gLastHome == "") llSetTimerEvent(0.5);
+        else llSetTimerEvent(TIMER_SEC);
     }
 
     listen(integer ch, string name, key id, string msg)
@@ -669,7 +670,11 @@ default
         if (status == 200)
         {
             integer r = (integer)llStringTrim(body, STRING_TRIM);
-            if (r > 0) gPageRev = r;
+            if (r > 0)
+            {
+                if (r != gPageRev) gLastHome = "";
+                gPageRev = r;
+            }
         }
         gRevDone = TRUE;
         scheduleMoap();
@@ -682,7 +687,11 @@ default
             string prev = gCapUrl;
             gCapUrl = body;
             llOwnerSay("Canasta scoreboard: HTTP-IN ready.");
-            if (gCapUrl != prev) scheduleMoap();
+            if (gCapUrl != prev)
+            {
+                gLastHome = "";
+                scheduleMoap();
+            }
             return;
         }
         if (method == URL_REQUEST_DENIED)
