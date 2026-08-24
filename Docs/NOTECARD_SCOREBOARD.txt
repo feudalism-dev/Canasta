@@ -10,8 +10,8 @@ The Scoreboard is a separate wall panel. It hears finished games from a nearby C
 - Records each seated human player's team score when a match ends (not after every hand).
 - Computer players are skipped.
 - Keeps the top 10 scores per board. If you already have an entry, only a higher score replaces it.
-- Canasta and Hand & Foot are tracked separately (different score scales).
-- Samba and Bolivia tabs appear on the screen as Coming soon (those games are beta — scores are not recorded yet so they cannot mix with Canasta).
+- Canasta, Hand & Foot, Samba, and Bolivia are tracked separately (different score scales).
+- Samba and Bolivia remain labeled beta in the game menu; their high scores now land on their own boards (they never mix with Canasta).
 
 Boards you can view on the screen:
 
@@ -47,7 +47,7 @@ Prim roles (already set in the product):
 -------------------
 On the media page, use the tabs to pick:
 
-- Game: Canasta, Hand & Foot, Samba, or Bolivia (Samba and Bolivia say Coming soon)
+- Game: Canasta, Hand & Foot, Samba, or Bolivia
 - Scope: This parlor or Network
 - Period: Weekly, Monthly, or Lifetime
 
@@ -56,9 +56,7 @@ Spectators only need to look at the screen. Network tallies refresh on their own
 
 5) HOW SCORES GET RECORDED
 --------------------------
-When a match at a nearby table finishes, the table shouts one score line per seated human. The Scoreboard listens on a private channel and updates the boards for Canasta and Hand & Foot.
-
-Samba and Bolivia matches do not add high scores while those games are in beta.
+When a match at a nearby table finishes, the table shouts one score line per seated human. The Scoreboard listens on a private channel and updates the boards for that game (Canasta, Hand & Foot, Samba, or Bolivia).
 
 Place the Scoreboard close enough to hear the table (about 100 m). Multiple tables in range can feed the same parlor board.
 
@@ -89,7 +87,7 @@ The new object owner can use the gear for Local parlor boards. Network boards st
 Blank screen .......... Allow Experience; whitelist feudalism-dev.github.io; enable Media; reset scripts if needed.
 Empty dashes .......... A new rez starts with an empty This parlor board. Switch to Network / Lifetime, or finish a match nearby (table Scores script required). Owner chat should say "HTTP-IN ready" and "media on link…".
 No new scores ......... Scoreboard more than ~100 m from the table; table missing scores script; match not finished yet.
-Wrong game list ....... Use the Canasta / Hand & Foot tabs. Samba and Bolivia are Coming soon.
+Wrong game list ....... Use the matching game tab (Canasta / Hand & Foot / Samba / Bolivia). Scores never mix across games.
 Network empty ......... Parcel must allow the Experience; core script must be compiled with that Experience. Local parlor tabs still work without it.
 Can't open admin ...... Touch the gear prim while you are the object owner.
 

@@ -9,7 +9,7 @@ integer MEDIA_FACE = 0;
 integer MEDIA_W = 1024;
 integer MEDIA_H = 720;
 // Fallback if asset-rev.txt fetch fails. Prefer bumping public/asset-rev.txt on Pages deploys.
-integer PAGE_ASSET_REV = 62;
+integer PAGE_ASSET_REV = 63;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
 integer ADMIN_CMD = 93001;
@@ -26,6 +26,12 @@ string gNetCL = "";
 string gNetHW = "";
 string gNetHM = "";
 string gNetHL = "";
+string gNetSW = "";
+string gNetSM = "";
+string gNetSL = "";
+string gNetBW = "";
+string gNetBM = "";
+string gNetBL = "";
 string gInUid = "";
 string gInName = "";
 integer gInScore = 0;
@@ -256,12 +262,16 @@ integer rotateLocal()
     {
         llLinksetDataWrite("lcw", "");
         llLinksetDataWrite("lhw", "");
+        llLinksetDataWrite("lsw", "");
+        llLinksetDataWrite("lbw", "");
         llLinksetDataWrite("lwk", wk);
     }
     if (llLinksetDataRead("lmk") != mk)
     {
         llLinksetDataWrite("lcm", "");
         llLinksetDataWrite("lhm", "");
+        llLinksetDataWrite("lsm", "");
+        llLinksetDataWrite("lbm", "");
         llLinksetDataWrite("lmk", mk);
     }
     return TRUE;
@@ -286,6 +296,18 @@ string loadNet(string game, string period)
         if (period == "m") return gNetHM;
         return gNetHL;
     }
+    if (game == "s")
+    {
+        if (period == "w") return gNetSW;
+        if (period == "m") return gNetSM;
+        return gNetSL;
+    }
+    if (game == "b")
+    {
+        if (period == "w") return gNetBW;
+        if (period == "m") return gNetBM;
+        return gNetBL;
+    }
     if (period == "w") return gNetCW;
     if (period == "m") return gNetCM;
     return gNetCL;
@@ -298,6 +320,20 @@ integer setNet(string game, string period, string packed)
         if (period == "w") gNetHW = packed;
         else if (period == "m") gNetHM = packed;
         else gNetHL = packed;
+        return TRUE;
+    }
+    if (game == "s")
+    {
+        if (period == "w") gNetSW = packed;
+        else if (period == "m") gNetSM = packed;
+        else gNetSL = packed;
+        return TRUE;
+    }
+    if (game == "b")
+    {
+        if (period == "w") gNetBW = packed;
+        else if (period == "m") gNetBM = packed;
+        else gNetBL = packed;
         return TRUE;
     }
     if (period == "w") gNetCW = packed;
@@ -326,7 +362,9 @@ string scoresJson()
     return "{\"ok\":true,\"week\":\"" + weekId()
         + "\",\"month\":\"" + monthId()
         + "\",\"local\":{\"c\":" + bundleJson("c") + ",\"h\":" + bundleJson("h")
-        + "},\"net\":{\"c\":" + netBundleJson("c") + ",\"h\":" + netBundleJson("h") + "}}";
+        + ",\"s\":" + bundleJson("s") + ",\"b\":" + bundleJson("b")
+        + "},\"net\":{\"c\":" + netBundleJson("c") + ",\"h\":" + netBundleJson("h")
+        + ",\"s\":" + netBundleJson("s") + ",\"b\":" + netBundleJson("b") + "}}";
 }
 
 integer countPacked(string packed)
@@ -337,15 +375,12 @@ integer countPacked(string packed)
 
 integer reportXpCaches()
 {
-    llOwnerSay("Canasta scoreboard XP keys (new): "
-        + xpKey("c", "w") + " / " + xpKey("c", "m") + " / " + xpKey("c", "l")
-        + " and " + xpKey("h", "w") + " / " + xpKey("h", "m") + " / " + xpKey("h", "l"));
-    llOwnerSay("Canasta scoreboard XP keys (legacy fallback): "
-        + xpKeyLegacy("w") + " / " + xpKeyLegacy("m") + " / " + xpKeyLegacy("l"));
-    llOwnerSay("Canasta scoreboard Network cache: Canasta w/m/l="
+    llOwnerSay("Canasta scoreboard Network cache: c="
         + (string)countPacked(gNetCW) + "/" + (string)countPacked(gNetCM) + "/" + (string)countPacked(gNetCL)
-        + " · Hand&Foot w/m/l="
-        + (string)countPacked(gNetHW) + "/" + (string)countPacked(gNetHM) + "/" + (string)countPacked(gNetHL));
+        + " h=" + (string)countPacked(gNetHW) + "/" + (string)countPacked(gNetHM) + "/" + (string)countPacked(gNetHL)
+        + " s=" + (string)countPacked(gNetSW) + "/" + (string)countPacked(gNetSM) + "/" + (string)countPacked(gNetSL)
+        + " b=" + (string)countPacked(gNetBW) + "/" + (string)countPacked(gNetBM) + "/" + (string)countPacked(gNetBL)
+        + " (w/m/l)");
     return TRUE;
 }
 
@@ -365,6 +400,12 @@ integer enqueueReads()
     enqueueXp("Rhw", "", "", 0);
     enqueueXp("Rhm", "", "", 0);
     enqueueXp("Rhl", "", "", 0);
+    enqueueXp("Rsw", "", "", 0);
+    enqueueXp("Rsm", "", "", 0);
+    enqueueXp("Rsl", "", "", 0);
+    enqueueXp("Rbw", "", "", 0);
+    enqueueXp("Rbm", "", "", 0);
+    enqueueXp("Rbl", "", "", 0);
     // Legacy unscoped keys → Canasta Network only when the new key is still empty.
     enqueueXp("Lcw", "", "", 0);
     enqueueXp("Lcm", "", "", 0);
@@ -419,9 +460,7 @@ integer kickXp()
 integer ingest(string game, string uid, string nm, integer score)
 {
     game = normGame(game);
-    // Samba/Bolivia stay off the boards until those variants leave beta.
-    if (game == "s") return FALSE;
-    if (game == "b") return FALSE;
+    if (game != "c" && game != "h" && game != "s" && game != "b") return FALSE;
     rotateLocal();
     nm = cleanName(nm);
     saveLocal(game, "w", mutatePacked(loadLocal(game, "w"), uid, nm, score, 0));

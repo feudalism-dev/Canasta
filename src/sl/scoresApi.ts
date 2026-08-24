@@ -12,12 +12,14 @@ export type ScoreBundle = {
   l: ScoreRow[]
 }
 
-/** c = classic Canasta, h = Hand & Foot */
-export type ScoreGame = 'c' | 'h'
+/** c = classic Canasta, h = Hand & Foot, s = Samba, b = Bolivia */
+export type ScoreGame = 'c' | 'h' | 's' | 'b'
 
 export type ScoreGames = {
   c: ScoreBundle
   h: ScoreBundle
+  s: ScoreBundle
+  b: ScoreBundle
 }
 
 export type ScorePayload = {
@@ -49,17 +51,29 @@ function emptyBundle(): ScoreBundle {
 }
 
 function emptyGames(): ScoreGames {
-  return { c: emptyBundle(), h: emptyBundle() }
+  return { c: emptyBundle(), h: emptyBundle(), s: emptyBundle(), b: emptyBundle() }
 }
 
-/** Accept nested {c,h} payloads; ignore flat legacy boards. */
+function asBundle(raw: unknown): ScoreBundle {
+  if (!raw || typeof raw !== 'object') return emptyBundle()
+  const o = raw as Partial<ScoreBundle>
+  return {
+    w: Array.isArray(o.w) ? o.w : [],
+    m: Array.isArray(o.m) ? o.m : [],
+    l: Array.isArray(o.l) ? o.l : [],
+  }
+}
+
+/** Accept nested {c,h,s,b} payloads; ignore flat legacy boards. */
 export function normalizeGames(raw: unknown): ScoreGames {
   if (!raw || typeof raw !== 'object') return emptyGames()
   const o = raw as Record<string, unknown>
-  if (o.c || o.h) {
+  if (o.c || o.h || o.s || o.b) {
     return {
-      c: (o.c as ScoreBundle) || emptyBundle(),
-      h: (o.h as ScoreBundle) || emptyBundle(),
+      c: asBundle(o.c),
+      h: asBundle(o.h),
+      s: asBundle(o.s),
+      b: asBundle(o.b),
     }
   }
   return emptyGames()

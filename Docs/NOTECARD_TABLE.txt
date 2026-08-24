@@ -33,7 +33,7 @@ On the HUD “Game” menu:
 
 Empty chairs in multiplayer are filled by computer players. Partners sit across (Player 1 with 3, Player 2 with 4).
 
-Beta note: Samba and Bolivia high scores are not recorded on the parlor Scoreboard yet (those tabs say Coming soon). Classic and Hand & Foot scoring is unchanged.
+Beta note: Samba and Bolivia high scores are recorded on their own Scoreboard tabs (they do not mix with Classic or Hand & Foot). The games themselves remain labeled beta in the menu.
 
 
 4) SOLO VS COMPUTER
@@ -87,7 +87,7 @@ Leave lobby: use “Leave lobby” if you need to drop out before start. Standin
 
 8) SCOREBOARD (SOLD SEPARATELY)
 -------------------------------
-An optional Scoreboard object can show parlor and/or network tallies for Canasta and Hand & Foot. Samba and Bolivia appear as Coming soon until those beta games graduate. Rez and set it up per its own notecard. It is not required to play at the table.
+An optional Scoreboard object can show parlor and/or network tallies for Canasta, Hand & Foot, Samba, and Bolivia (separate boards per game). Rez and set it up per its own notecard. It is not required to play at the table.
 
 
 9) QUICK TROUBLESHOOTING

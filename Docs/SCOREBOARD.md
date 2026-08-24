@@ -6,14 +6,14 @@ A wall panel near the table. It **hears** finished games, stores high scores, an
 
 Each seated **human**’s team score at **match end** (not after every hand). Computers are skipped. If you already have an entry, only a **higher** score replaces it. Top **10** per board.
 
-**Canasta** and **Hand & Foot** are stored separately (different score scales). The page has a game tab for each.
+**Canasta**, **Hand & Foot**, **Samba**, and **Bolivia** are stored separately (different score scales). The page has a game tab for each.
 
 | Board | Where | Window |
 |--------|--------|---------|
 | This parlor · Weekly / Monthly / Lifetime | Linkset Data on the scoreboard prim | Calendar week (Mon-aligned Unix week) / calendar month / forever |
 | Network · Weekly / Monthly / Lifetime | Experience Key-Value | Same windows, shared by every scoreboard compiled with that Experience |
 
-Experience keys are `cn.sc.c.*` (Canasta) and `cn.sc.h.*` (Hand & Foot). Older unscoped `cn.sc.w.*` / `cn.sc.m.*` / `cn.sc.l` keys are still **read as a fallback** into the Canasta Network boards when the scoped Canasta key is empty (so a freshly rezzed panel can show pre-split network scores). New writes always use the scoped keys.
+Experience keys are `cn.sc.c.*` (Canasta), `cn.sc.h.*` (Hand & Foot), `cn.sc.s.*` (Samba), and `cn.sc.b.*` (Bolivia). Older unscoped `cn.sc.w.*` / `cn.sc.m.*` / `cn.sc.l` keys are still **read as a fallback** into the Canasta Network boards when the scoped Canasta key is empty. New writes always use the scoped keys.
 
 ## Table side (shout)
 
@@ -25,7 +25,7 @@ CN_SCORE|c|<avatar-uuid>|Bandor Tyrell|8441
 
 on channel **`-18475021`**. Game code is a **one-letter** token from the HUD’s `GAME_OVER|…|<code>` pipe (`c` Canasta, `h` Hand & Foot, `s` Samba, `b` Bolivia). `Canasta_Scores.lsl` passes that letter through (first `a–z` / `0–9` character; empty → `c`) so future games do not need another table compile. Same channel is hard-coded in the scoreboard script. Place the panel within shout range of the table.
 
-**Samba / Bolivia (beta):** the table may shout `s` / `b`. The scoreboard **does not record** those yet (scoring may still change). The MoAP page has Samba and Bolivia tabs that say **Coming soon**. Classic and Hand & Foot boards are unchanged.
+**Samba / Bolivia:** the table shouts `s` / `b`. The scoreboard records those on their own boards (`cn.sc.s.*` / `cn.sc.b.*`) so they never mix with Classic or Hand & Foot. The MoAP page has live Samba and Bolivia tabs.
 
 **Update both objects** if you already sold a copy: drop the new Scores script in the **table**, and the new core script in the **scoreboard**. An old scoreboard maps unknown letters to Canasta and would mix Samba scores into Classic.
 
@@ -46,7 +46,7 @@ Recommended link order (select all, then **click the frame last** so it becomes 
 3. Whitelist `feudalism-dev.github.io` for media on the parcel.
 4. Touch the **gear** (owner or super-user) for admin menus — not the MoAP screen.
 
-The MoAP page has tabs for **Canasta** / **Hand & Foot** / **Samba** / **Bolivia**, **This parlor** / **Network**, and **Weekly** / **Monthly** / **Lifetime**. Samba and Bolivia show Coming soon until those variants leave beta. Spectators use the screen; admins use the gear. Network numbers refresh from Experience every few seconds.
+The MoAP page has tabs for **Canasta** / **Hand & Foot** / **Samba** / **Bolivia**, **This parlor** / **Network**, and **Weekly** / **Monthly** / **Lifetime**. Spectators use the screen; admins use the gear. Network numbers refresh from Experience every few seconds.
 
 Bump `public/asset-rev.txt` when Pages deploys so MoAP reloads **without** recompiling scripts. Script `PAGE_ASSET_REV` values are fallbacks only.
 

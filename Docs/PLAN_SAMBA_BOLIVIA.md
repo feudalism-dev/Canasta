@@ -2,7 +2,7 @@
 
 Research docs: [RULES_SAMBA.md](./RULES_SAMBA.md), [RULES_BOLIVIA.md](./RULES_BOLIVIA.md).
 
-**Status:** Phases 1–2b landed. Samba and Bolivia are **playable beta** in the game selector. Table scores script passes game codes through; scoreboard shows Samba/Bolivia as Coming soon (no ingest yet). Phase **2c** (notecards + RULES.md) documents that for players.
+**Status:** Phases 1–2b landed; scoreboard now **records** Samba/Bolivia on their own boards (no longer Coming soon). Samba and Bolivia remain **playable beta** in the game selector. Table scores script passes game codes through. Phase **2c** (notecards + RULES.md) documents player-facing behavior.
 
 **Beta policy:** Samba and Bolivia appear in setup/lobby with a **Beta** label and notice. Classic Canasta and Hand & Foot are unchanged and not beta. Beta variants may change rules, scoring, or UI without a version bump; player feedback drives fixes before they graduate to full support.
 
@@ -204,16 +204,14 @@ Today: `c` = Canasta, `h` = Hand & Foot (`Docs/SCOREBOARD.md`).
 
 **Table (`Canasta_Scores.lsl`):** pass through a **one-letter** game code from `GAME_OVER` field 6 (first `a–z`/`0–9`; empty → `c`). Shout `CN_SCORE|<code>|uuid|name|score`. Do not whitelist only `c`/`h` — new games must not require another table compile.
 
-**Scoreboard (beta):** ingest **ignores** `s` and `b` so Samba/Bolivia cannot land on Canasta or start a misleading leaderboard. MoAP tabs for Samba and Bolivia show **Coming soon**.
-
-When beta graduates: remove the ingest skip; store `cn.sc.s.*` / `cn.sc.b.*`. Table script already shouts the right letter.
+**Scoreboard:** ingest records `c` / `h` / `s` / `b` on separate boards (`cn.sc.c.*` / `cn.sc.h.*` / `cn.sc.s.*` / `cn.sc.b.*`). MoAP tabs for Samba and Bolivia show live lists.
 
 | Variant | `GAME_OVER` code | Recorded now |
 |---------|------------------|--------------|
 | Classic | `c` | Yes |
 | Hand & Foot | `h` | Yes |
-| Samba | `s` | No (coming soon) |
-| Bolivia | `b` | No (coming soon) |
+| Samba | `s` | Yes (own board) |
+| Bolivia | `b` | Yes (own board) |
 
 **Do not change** HUD, Display, or Table scripts for this — only Scores (in the table linkset) and Scoreboard core.
 
@@ -256,7 +254,7 @@ When beta graduates: remove the ingest skip; store `cn.sc.s.*` / `cn.sc.b.*`. Ta
 | **1d** | Sequence UI (builder/display); Samba still gated | Medium | Classic/H&F UI unchanged |
 | **1e** | Un-gate **Samba** in dropdown; AI or “computers limited” note | Product risk | Full Samba playtest |
 | **2a** | Bolivia config + wild Bolivia + go-out | Low if Samba solid | Samba + Classic/H&F green |
-| **2b** | Table scores passthrough + scoreboard skip `s`/`b` + Coming soon tabs | Low | `c`/`h` still record; Samba off Canasta |
+| **2b** | Table scores passthrough + scoreboard records `s`/`b` on own boards | Low | `c`/`h` unchanged; Samba/Bolivia never mix onto Canasta |
 | **2c** | Notecards + RULES.md (beta documented) | None | — |
 
 **Recommendation:** Land engine support with the variant **hidden**, prove Classic/H&F untouched, then expose Samba. Ship Bolivia only after Samba is stable in production.

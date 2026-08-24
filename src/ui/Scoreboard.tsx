@@ -11,7 +11,6 @@ import { applyUiScale } from './uiScale'
 
 type Scope = 'local' | 'net'
 type Period = 'w' | 'm' | 'l'
-type ScoreTab = ScoreGame | 's' | 'b'
 
 type Props = {
   slCap: string
@@ -27,15 +26,11 @@ function periodLabel(period: Period): string {
   return 'Lifetime'
 }
 
-function gameLabel(tab: ScoreTab): string {
+function gameLabel(tab: ScoreGame): string {
   if (tab === 'h') return 'Hand & Foot'
   if (tab === 's') return 'Samba'
   if (tab === 'b') return 'Bolivia'
   return 'Canasta'
-}
-
-function isComingSoon(tab: ScoreTab): boolean {
-  return tab === 's' || tab === 'b'
 }
 
 function formatScore(n: number): string {
@@ -43,7 +38,7 @@ function formatScore(n: number): string {
 }
 
 export function Scoreboard({ slCap }: Props) {
-  const [game, setGame] = useState<ScoreTab>('c')
+  const [game, setGame] = useState<ScoreGame>('c')
   const [scope, setScope] = useState<Scope>('local')
   const [period, setPeriod] = useState<Period>('w')
   const [local, setLocal] = useState<ScoreGames>(emptyGames)
@@ -92,8 +87,7 @@ export function Scoreboard({ slCap }: Props) {
     }
   }, [slCap])
 
-  const liveGame: ScoreGame | null = game === 'c' || game === 'h' ? game : null
-  const rows: ScoreRow[] = liveGame ? (scope === 'local' ? local : net)[liveGame][period] || [] : []
+  const rows: ScoreRow[] = (scope === 'local' ? local : net)[game][period] || []
   const scopeLabel = scope === 'local' ? 'This parlor' : 'Network'
   const sub =
     period === 'm' && month
@@ -146,34 +140,26 @@ export function Scoreboard({ slCap }: Props) {
             Lifetime
           </button>
         </div>
-        {err && !isComingSoon(game) ? <p className="scoreboard-err">{err}</p> : null}
-        {isComingSoon(game) ? (
-          <p className="scoreboard-soon" role="status">
-            Coming soon — {gameLabel(game)} is in beta. High scores will be recorded when the variant leaves beta, on its own board.
+        {err ? <p className="scoreboard-err">{err}</p> : null}
+        {linked && rows.length === 0 ? (
+          <p className="scoreboard-empty" role="status">
+            {scope === 'local'
+              ? 'No parlor scores yet — finish a match within ~100 m, or use the gear to set a score.'
+              : 'No network scores yet — parcel must allow the Experience, and the core script must be compiled with it. Try Lifetime, or wait a few seconds for refresh.'}
           </p>
-        ) : (
-          <>
-            {linked && rows.length === 0 ? (
-              <p className="scoreboard-empty" role="status">
-                {scope === 'local'
-                  ? 'No parlor scores yet — finish a Canasta or Hand & Foot match within ~100 m, or use the gear to set a score.'
-                  : 'No network scores yet — parcel must allow the Experience, and the core script must be compiled with it. Try Lifetime, or wait a few seconds for refresh.'}
-              </p>
-            ) : null}
-            <ol className="scoreboard-list">
-              {Array.from({ length: 10 }, (_, i) => {
-                const row = rows[i]
-                return (
-                  <li key={i} className={row ? '' : 'is-empty'}>
-                    <span className="scoreboard-rank">{i + 1}</span>
-                    <span className="scoreboard-name">{row ? row.n : '—'}</span>
-                    <span className="scoreboard-pts">{row ? formatScore(row.s) : ''}</span>
-                  </li>
-                )
-              })}
-            </ol>
-          </>
-        )}
+        ) : null}
+        <ol className="scoreboard-list">
+          {Array.from({ length: 10 }, (_, i) => {
+            const row = rows[i]
+            return (
+              <li key={i} className={row ? '' : 'is-empty'}>
+                <span className="scoreboard-rank">{i + 1}</span>
+                <span className="scoreboard-name">{row ? row.n : '—'}</span>
+                <span className="scoreboard-pts">{row ? formatScore(row.s) : ''}</span>
+              </li>
+            )
+          })}
+        </ol>
       </div>
     </div>
   )

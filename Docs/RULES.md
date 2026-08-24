@@ -106,7 +106,7 @@ Classic Canasta v1 has no house toggles. Modern American Canasta is deferred.
 
 ## Beta variants (playable)
 
-Selectable in the game menu with a **Beta** label. Rules and scoring may still change. High scores are **not** recorded on the parlor Scoreboard yet (Samba / Bolivia tabs say Coming soon). Classic Canasta and Hand & Foot remain the supported, non-beta product line.
+Selectable in the game menu with a **Beta** label. Rules and scoring may still change. High scores are recorded on their **own** Scoreboard tabs (Samba / Bolivia) and never mix with Classic or Hand & Foot. Classic Canasta and Hand & Foot remain the primary product line.
 
 - **[Samba](./RULES_SAMBA.md)** — three-deck Canasta with **sequence melds** (sambas) and groups (canastas); draw two / discard one; play to 10,000.
 - **[Bolivia](./RULES_BOLIVIA.md)** — Samba plus wild **Bolivia** books and a stricter go-out rule (two seven-card melds including at least one sequence); play to 15,000.

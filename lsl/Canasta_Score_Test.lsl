@@ -83,7 +83,7 @@ integer shoutScore(string game, string uid, string nm, integer sc, key tell)
 integer showRoot(key av)
 {
     return openDlg(av, 1, "Scoreboard test shouter\nShouts CN_SCORE within 100 m.",
-        ["Canasta sample", "H&F sample", "Me · Canasta", "Me · H&F", "Custom…", "Cancel"]);
+        ["Canasta sample", "H&F sample", "Samba sample", "Bolivia sample", "Me · Canasta", "Me · H&F", "Me · Samba", "Me · Bolivia", "Custom…", "Cancel"]);
 }
 
 integer handleDlg(key av, string msg)
@@ -110,6 +110,20 @@ integer handleDlg(key av, string msg)
             closeDlg();
             return TRUE;
         }
+        if (msg == "Samba sample")
+        {
+            shoutScore("s", "test-sam", "Test Sam", 12500, av);
+            shoutScore("s", "test-sue", "Test Sue", 11800, av);
+            closeDlg();
+            return TRUE;
+        }
+        if (msg == "Bolivia sample")
+        {
+            shoutScore("b", "test-ben", "Test Ben", 14200, av);
+            shoutScore("b", "test-bea", "Test Bea", 13100, av);
+            closeDlg();
+            return TRUE;
+        }
         if (msg == "Me · Canasta")
         {
             gGame = "c";
@@ -119,6 +133,16 @@ integer handleDlg(key av, string msg)
         {
             gGame = "h";
             return openText(av, 2, "Your Hand & Foot test score (integer):");
+        }
+        if (msg == "Me · Samba")
+        {
+            gGame = "s";
+            return openText(av, 2, "Your Samba test score (integer):");
+        }
+        if (msg == "Me · Bolivia")
+        {
+            gGame = "b";
+            return openText(av, 2, "Your Bolivia test score (integer):");
         }
         if (msg == "Custom…")
         {

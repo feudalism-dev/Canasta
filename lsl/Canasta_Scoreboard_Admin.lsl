@@ -38,6 +38,8 @@ integer canNet(key av)
 string gameLabel(string game)
 {
     if (game == "h") return "Hand&Foot";
+    if (game == "s") return "Samba";
+    if (game == "b") return "Bolivia";
     return "Canasta";
 }
 
@@ -112,7 +114,7 @@ integer showGame(key av)
 {
     string scope = "This parlor";
     if (gScope == "N") scope = "Network";
-    return openDlg(av, 2, scope + " — game", ["Canasta", "Hand & Foot", "Back", "Cancel"]);
+    return openDlg(av, 2, scope + " — game", ["Canasta", "Hand & Foot", "Samba", "Bolivia", "Back", "Cancel"]);
 }
 
 integer showPeriod(key av)
@@ -195,6 +197,8 @@ integer handleDlg(key av, string msg)
         if (msg == "Back") return showRoot(av);
         if (msg == "Canasta") gGame = "c";
         else if (msg == "Hand & Foot") gGame = "h";
+        else if (msg == "Samba") gGame = "s";
+        else if (msg == "Bolivia") gGame = "b";
         else return showGame(av);
         return showPeriod(av);
     }
