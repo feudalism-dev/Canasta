@@ -38,6 +38,7 @@ integer gPageRev = 0;
 key gRevReq = NULL_KEY;
 integer gRevDone = FALSE;
 integer gRevDeadline = 0;
+integer gXpReport = FALSE;
 
 integer effectiveRev()
 {
@@ -328,6 +329,26 @@ string scoresJson()
         + "},\"net\":{\"c\":" + netBundleJson("c") + ",\"h\":" + netBundleJson("h") + "}}";
 }
 
+integer countPacked(string packed)
+{
+    if (packed == "") return 0;
+    return llGetListLength(llParseStringKeepNulls(packed, ["^"], []));
+}
+
+integer reportXpCaches()
+{
+    llOwnerSay("Canasta scoreboard XP keys (new): "
+        + xpKey("c", "w") + " / " + xpKey("c", "m") + " / " + xpKey("c", "l")
+        + " and " + xpKey("h", "w") + " / " + xpKey("h", "m") + " / " + xpKey("h", "l"));
+    llOwnerSay("Canasta scoreboard XP keys (legacy fallback): "
+        + xpKeyLegacy("w") + " / " + xpKeyLegacy("m") + " / " + xpKeyLegacy("l"));
+    llOwnerSay("Canasta scoreboard Network cache: Canasta w/m/l="
+        + (string)countPacked(gNetCW) + "/" + (string)countPacked(gNetCM) + "/" + (string)countPacked(gNetCL)
+        + " · Hand&Foot w/m/l="
+        + (string)countPacked(gNetHW) + "/" + (string)countPacked(gNetHM) + "/" + (string)countPacked(gNetHL));
+    return TRUE;
+}
+
 integer enqueueXp(string op, string uid, string nm, integer score)
 {
     if (llListFindList(gXpQ, [op, uid, nm, score]) >= 0) return FALSE;
@@ -360,6 +381,11 @@ integer kickXp()
             gXpSaid = TRUE;
             llOwnerSay("Canasta scoreboard: compile with Experience for network scores.");
         }
+        if (gXpReport)
+        {
+            gXpReport = FALSE;
+            reportXpCaches();
+        }
         return FALSE;
     }
     if (gXpReq != NULL_KEY) return FALSE;
@@ -372,7 +398,15 @@ integer kickXp()
         gXpQ = llDeleteSubList(gXpQ, 0, 3);
         gXpStep = 0;
     }
-    if (gXpOp == "") return FALSE;
+    if (gXpOp == "")
+    {
+        if (gXpReport)
+        {
+            gXpReport = FALSE;
+            reportXpCaches();
+        }
+        return FALSE;
+    }
     if (llGetSubString(gXpOp, 0, 0) == "L")
     {
         gXpReq = llReadKeyValue(xpKeyLegacy(llGetSubString(gXpOp, 2, 2)));
@@ -599,6 +633,7 @@ default
         gMoapPending = FALSE;
         llRequestSecureURL();
         requestAssetRev();
+        gXpReport = TRUE;
         enqueueReads();
         kickXp();
         llSetTimerEvent(0.5);
@@ -646,9 +681,12 @@ default
             gMoapPending = FALSE;
             applyMoap();
         }
-        if (gXpOp == "" && llGetListLength(gXpQ) == 0) enqueueReads();
+        // Do not re-poll Experience every 0.5s while waiting on MoAP — that hammers KVP.
+        if (gLastHome != "")
+        {
+            if (gXpOp == "" && llGetListLength(gXpQ) == 0) enqueueReads();
+        }
         kickXp();
-        // Stay snappy until media has been applied once; then the slow XP poll cadence.
         if (gLastHome == "") llSetTimerEvent(0.5);
         else llSetTimerEvent(TIMER_SEC);
     }
