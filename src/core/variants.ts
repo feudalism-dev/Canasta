@@ -95,7 +95,7 @@ export function variantConfig(
       minNaturalsForDirtyBook: 4,
       freezeOnWildDiscard: false,
       takePileNeedsTwoNaturalsAlways: true,
-      redThreeReplacement: false,
+      redThreeReplacement: houseRules.replaceRedThreesFromHand,
       booksCloseAtSeven: false,
       requireDiscardToGoOut: true,
       goingOutNeedsCanasta: false,

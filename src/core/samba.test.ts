@@ -18,7 +18,20 @@ describe('samba rules engine', () => {
     const s = createMatch({ variant: 'samba', names: ['A', 'B'], humans: [true, true], seed: 9 })
     expect(s.config.deckCount).toBe(3)
     expect(s.players[0]!.hand.length).toBe(15)
-    expect(s.stock.length + s.discard.length + s.players.reduce((n, p) => n + p.hand.length, 0)).toBe(162)
+    expect(s.config.house.autoplayRedThreesOnDraw).toBe(true)
+    const inPlay =
+      s.stock.length +
+      s.discard.length +
+      s.players.reduce((n, p) => n + p.hand.length, 0) +
+      s.teams.reduce((n, t) => n + t.redThrees.length, 0)
+    expect(inPlay).toBe(162)
+  })
+
+  it('auto-lays red threes from the deal with a stock replacement', () => {
+    const s = createMatch({ variant: 'samba', names: ['A', 'B'], humans: [true, true], seed: 9 })
+    for (const p of s.players) {
+      expect(p.hand.some((c) => c.rank === '3' && (c.suit === 'H' || c.suit === 'D'))).toBe(false)
+    }
   })
 
   it('draws two cards from stock', () => {

@@ -169,7 +169,7 @@ Implement `goingOutRule` as a small validator:
    - Block on wild / red 3 / black 3 top.
    - No “add top to existing group without two naturals.”
 6. **Initial meld** — Samba table including 150 at 7000+.
-7. **Red threes** — optional meld; bonus only if go-out requirements met; penalties; no auto-replace from stock unless we choose QoL autoplay (Pagat: optional — **manual meld** is correct).
+7. **Red threes** — auto-lay + replace from stock (Classic UX); Samba scoring (bonus only if go-out requirements met; −100 per laid if unmet; −750 if left in hand).
 8. **Black threes** — go-out turn only in groups.
 9. **Pass instead of discard** when one card left and cannot go out.
 10. **Scoring** — samba 1500, go-out 200, Samba red-three matrix.
@@ -272,7 +272,7 @@ Today: `c` = Canasta, `h` = Hand & Foot (`Docs/SCOREBOARD.md`).
 
 ## Open decisions (for you)
 
-1. **Red threes in UI:** Strict Pagat (player melds manually from hand) vs QoL auto-lay on draw like Classic?
+1. **Red threes in UI:** Done — auto-lay + replace like Classic; Samba scoring unchanged.
 2. **Bolivia black threes:** Pagat go-out-only (−5 deadwood) vs common −100 meld variant?
 3. **Scoreboard tabs:** Two new top-level tabs vs one “Samba family” tab with sub-filter?
 4. **AI difficulty:** Ship Samba with existing AI stub / simplified bot, or block solo until AI understands sequences?

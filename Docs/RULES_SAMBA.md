@@ -106,14 +106,16 @@ Only **five** sambas are possible per suit (fixed 7-card windows):
 
 ## Red threes
 
-- May be melded **singly** for a bonus (optional — you do not have to meld them immediately from hand).
-- **+100** each when your team has met the **going-out requirement** (two sambas, two canastas, or one of each).
-- **All six** red threes melded (partnership combined in 4p): **+1000** instead of 600.
-- If melded but the team **does not** have the required sambas/canastas at end of hand: **−100** per melded red three.
-- **Red threes in hand** at end of hand: **−750** total (regardless of count).
-- Discarding a red three **blocks** the next player from taking the pile (same as wild or black three).
+- **Auto-laid** on deal and when drawn from stock (same QoL as Classic): face up for the team, then draw a **replacement** from stock.
+- Red threes taken with the discard pile are laid but **not** replaced.
+- Scoring still follows Samba (not Classic):
+  - **+100** each when your team has met the **going-out requirement** (two sambas, two canastas, or one of each).
+  - **All six** red threes melded (partnership combined in 4p): **+1000** instead of 600.
+  - If melded but the team **does not** have the required sambas/canastas at end of hand: **−100** per melded red three.
+  - **Red threes still in hand** at end of hand (should be rare with autoplay): **−750** total (regardless of count).
+- Discarding a red three **blocks** the next player from taking the pile (same as wild or black three) — with autoplay, you normally cannot discard one from hand.
 
-Samba red-three scoring differs from Classic (no auto-lay on draw; stricter end penalties).
+Samba red-three **scoring** differs from Classic; **auto-lay + replace** matches common table practice (and Classic UX).
 
 ---
 
@@ -226,7 +228,7 @@ When one card remains in stock, the next drawer takes **one** card instead of tw
 | Sequence melds | No | Yes (3–7, samba at 7) |
 | Go out | ≥1 canasta | 2× samba and/or canasta combo |
 | Play to | 5,000 | 10,000 |
-| Red threes | Auto-lay, Classic scoring | Optional meld, stricter penalties |
+| Red threes | Auto-lay + Classic replace; Samba scoring | Auto-lay + replace; Samba scoring |
 | Pile “freeze” | Yes (wild/red upcard) | No separate freeze; strict pickup rules |
 | Initial meld max | 120 (3k+) | 150 (7k+) |
 

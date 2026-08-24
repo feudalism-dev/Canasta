@@ -72,7 +72,7 @@ Unchanged from Samba:
 
 ## Red threes
 
-Same as Samba (optional single meld, +100 each when go-out requirements met, +1000 for all six, penalties if requirements not met, −750 if held at end, block discard when discarded).
+Same as Samba: **auto-laid** on deal/stock draw with a replacement; Samba-style scoring (+100 each when go-out requirements met, +1000 for all six, −100 per laid if requirements not met, −750 if still in hand at end). Discarding a red three blocks the pile (normally unnecessary with autoplay).
 
 Going-out requirements for Bolivia **change when red threes count as bonus** — team must satisfy Bolivia’s meld requirements, not Samba’s “two sambas or two canastas or one each” (see below).
 
