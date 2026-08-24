@@ -923,8 +923,8 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-family: var(--font-card);
-  font-size: 0.85em;
+  font-family: var(--font-ui);
+  font-size: 0.88em;
   line-height: 0.95;
   font-weight: 700;
 }
@@ -949,54 +949,67 @@ select {
   transform: rotate(180deg);
 }
 
-.cn-pips {
-  position: absolute;
-  inset: 12% 18%;
+.cn-card.is-sm .cn-card-corner {
+  font-size: 0.78em;
 }
 
-.cn-pips i {
+.cn-card.is-lg .cn-card-corner,
+.cn-card.is-book .cn-card-corner {
+  font-size: 0.78em;
+}
+
+.cn-card-center {
   position: absolute;
-  transform: translate(-50%, -50%);
+  inset: 18% 12% 18% 12%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.cn-card-giant {
+  font-family: var(--font-ui);
   font-style: normal;
-  font-size: 1.05em;
-  line-height: 1;
+  font-weight: 700;
+  font-size: 2.65em;
+  line-height: 0.85;
+  letter-spacing: -0.03em;
 }
 
-.cn-pips i.is-flip {
-  transform: translate(-50%, -50%) rotate(180deg);
+.cn-card-face.is-ten .cn-card-giant {
+  font-size: 2.05em;
+  letter-spacing: -0.06em;
 }
 
-.cn-pips.is-ace i {
-  font-size: 2.15em;
-}
-
-.cn-court {
-  position: absolute;
-  inset: 16% 20% 16% 20%;
-  color: inherit;
-}
-
-.cn-court-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.cn-card.is-sm .cn-pips i {
-  font-size: 0.92em;
-}
-
-.cn-card.is-lg .cn-pips i {
+.cn-card-suit {
+  font-style: normal;
   font-size: 1.2em;
+  line-height: 1;
+  margin-top: 0.04em;
+  opacity: 0.95;
 }
 
-.cn-card.is-book .cn-pips i {
-  font-size: 1.18em;
+.cn-card.is-sm .cn-card-giant {
+  font-size: 2.2em;
 }
 
-.cn-card.is-lg .cn-pips.is-ace i,
-.cn-card.is-book .cn-pips.is-ace i {
-  font-size: 2.4em;
+.cn-card.is-sm .cn-card-face.is-ten .cn-card-giant {
+  font-size: 1.7em;
+}
+
+.cn-card.is-sm .cn-card-suit {
+  font-size: 0.95em;
+}
+
+.cn-card.is-lg .cn-card-giant,
+.cn-card.is-book .cn-card-giant {
+  font-size: 2.7em;
+}
+
+.cn-card.is-lg .cn-card-face.is-ten .cn-card-giant,
+.cn-card.is-book .cn-card-face.is-ten .cn-card-giant {
+  font-size: 2.15em;
 }
 
 .cn-stamp {
