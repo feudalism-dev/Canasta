@@ -15,6 +15,7 @@ export type SfxId =
   | 'foot'
   | 'go-out'
   | 'round-end'
+  | 'your-turn'
 
 const FILE: Record<SfxId, string> = {
   shuffle: 'shuffle.ogg',
@@ -29,6 +30,7 @@ const FILE: Record<SfxId, string> = {
   foot: 'foot.ogg',
   'go-out': 'go-out.ogg',
   'round-end': 'round-end.ogg',
+  'your-turn': 'your-turn.ogg',
 }
 
 const VOLUME: Partial<Record<SfxId, number>> = {
@@ -44,11 +46,13 @@ const VOLUME: Partial<Record<SfxId, number>> = {
   foot: 0.45,
   'go-out': 0.55,
   'round-end': 0.4,
+  'your-turn': 0.55,
 }
 
 const cache = new Map<SfxId, HTMLAudioElement>()
 let unlocked = false
 let lastPlayAt = 0
+let audioCtx: AudioContext | null = null
 
 function urlFor(id: SfxId): string {
   return `${import.meta.env.BASE_URL}sfx/${FILE[id]}`
@@ -64,21 +68,35 @@ function getAudio(id: SfxId): HTMLAudioElement {
   return a
 }
 
+function getAudioCtx(): AudioContext | null {
+  try {
+    if (!audioCtx) audioCtx = new AudioContext()
+    if (audioCtx.state === 'suspended') void audioCtx.resume()
+    return audioCtx
+  } catch {
+    return null
+  }
+}
+
 /** Call from a user gesture so CEF / browsers allow later plays. */
 export function unlockSfx(): void {
   if (unlocked) return
   unlocked = true
   try {
+    getAudioCtx()
     const a = getAudio('draw')
     a.volume = 0
-    void a.play().then(() => {
-      a.pause()
-      a.currentTime = 0
-      a.volume = VOLUME.draw ?? 0.4
-    }).catch(() => {
-      /* still blocked — next gesture retries */
-      unlocked = false
-    })
+    void a
+      .play()
+      .then(() => {
+        a.pause()
+        a.currentTime = 0
+        a.volume = VOLUME.draw ?? 0.4
+      })
+      .catch(() => {
+        /* still blocked — next gesture retries */
+        unlocked = false
+      })
   } catch {
     unlocked = false
   }
@@ -86,6 +104,7 @@ export function unlockSfx(): void {
 
 export function preloadSfx(): void {
   ;(Object.keys(FILE) as SfxId[]).forEach((id) => {
+    if (id === 'your-turn') return
     try {
       getAudio(id)
     } catch {
@@ -96,6 +115,10 @@ export function preloadSfx(): void {
 
 export function playSfx(id: SfxId): void {
   if (!readSfxEnabled()) return
+  if (id === 'your-turn') {
+    playYourTurnBell()
+    return
+  }
   unlockSfx()
   const now = Date.now()
   if (now - lastPlayAt < 40) {
@@ -112,6 +135,39 @@ export function playSfx(id: SfxId): void {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * Short two-note chime when it becomes the local player's turn.
+ * Synthesized so CEF always has a cue even without a media file.
+ */
+export function playYourTurnBell(): void {
+  if (!readSfxEnabled()) return
+  unlockSfx()
+  const ctx = getAudioCtx()
+  if (!ctx) return
+  const now = ctx.currentTime
+  const master = ctx.createGain()
+  master.gain.value = VOLUME['your-turn'] ?? 0.55
+  master.connect(ctx.destination)
+
+  const ding = (freq: number, start: number, dur: number) => {
+    const osc = ctx.createOscillator()
+    const g = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = freq
+    g.gain.setValueAtTime(0.0001, start)
+    g.gain.exponentialRampToValueAtTime(0.7, start + 0.02)
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur)
+    osc.connect(g)
+    g.connect(master)
+    osc.start(start)
+    osc.stop(start + dur + 0.02)
+  }
+
+  // Soft parlor bell: A5 then E6
+  ding(880, now, 0.28)
+  ding(1318.5, now + 0.16, 0.38)
 }
 
 /** Deal / new hand sting. */

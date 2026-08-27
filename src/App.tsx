@@ -31,6 +31,7 @@ import {
 import { isSeatedBrowserSession, isTableHudSession, readSlBootstrap, readWebNameHint } from './sl/bootstrap'
 import { emitDisplayPipes, emitPublicBoard } from './sl/displaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
+import { playYourTurnBell } from './ui/sfx'
 
 type Screen = 'menu' | 'setup' | 'game' | 'help' | 'sl'
 
@@ -88,12 +89,28 @@ function AppInner() {
   const aiThinking = local?.aiThinking ?? peer?.aiThinking ?? false
   const disconnectWait = peer?.disconnectWait ?? null
   const [waitNow, setWaitNow] = useState(() => Date.now())
+  const wasMyTurnRef = useRef(false)
 
   useEffect(() => {
     if (!disconnectWait) return
     const id = window.setInterval(() => setWaitNow(Date.now()), 500)
     return () => window.clearInterval(id)
   }, [disconnectWait?.until, disconnectWait?.name])
+
+  useEffect(() => {
+    if (!state || screen !== 'game') {
+      wasMyTurnRef.current = false
+      return
+    }
+    const mine =
+      state.currentPlayer === localIndex &&
+      (state.phase === 'awaitingDraw' || state.phase === 'awaitingPlay')
+    if (mine && !wasMyTurnRef.current) {
+      // Slight delay so the chime isn't buried under deal/discard cues.
+      window.setTimeout(() => playYourTurnBell(), 120)
+    }
+    wasMyTurnRef.current = mine
+  }, [state?.currentPlayer, state?.phase, state?.turnNumber, localIndex, screen, tick])
 
   const persistActiveMatch = () => {
     if (!state || state.phase === 'matchEnd') return
