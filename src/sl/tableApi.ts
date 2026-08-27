@@ -22,6 +22,7 @@ export type TableStatus = {
   /** Compact house-rules pipe string from table LSD. */
   house?: string
   roster?: TableRosterEntry[]
+  grace?: { uid: string; seat: number; until: number; secondsLeft?: number; name?: string }[]
   error?: string
   board?: string
   token?: string

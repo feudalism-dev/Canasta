@@ -14,13 +14,20 @@ import { Scoreboard } from './ui/Scoreboard'
 import { SpectatorTable } from './ui/SpectatorTable'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
-import { startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
+import { resumeSolo, startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
 import type { AiDifficulty } from './ai/heuristic'
 import { planPileTake } from './core/rules'
 import { cloneState } from './core/state'
 import { DEFAULT_HOUSE, isBetaVariant, isHouseRulesHandAndFoot, isSambaFamily, normalizeHouse } from './core/houseRules'
 import type { HouseRules, MatchState, Variant } from './core/types'
 import { createPeerHost, joinPeerRoom, type PeerSession } from './net/peerSession'
+import {
+  clearMatchResume,
+  loadMatchResume,
+  MATCH_RESUME_GRACE_MS,
+  saveMatchResume,
+  secondsLeft,
+} from './net/matchResume'
 import { isSeatedBrowserSession, isTableHudSession, readSlBootstrap, readWebNameHint } from './sl/bootstrap'
 import { emitDisplayPipes, emitPublicBoard } from './sl/displaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
@@ -79,6 +86,63 @@ function AppInner() {
   const state = local?.state ?? peer?.state ?? null
   const localIndex = local?.localIndex ?? peer?.localIndex ?? 0
   const aiThinking = local?.aiThinking ?? peer?.aiThinking ?? false
+  const disconnectWait = peer?.disconnectWait ?? null
+  const [waitNow, setWaitNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!disconnectWait) return
+    const id = window.setInterval(() => setWaitNow(Date.now()), 500)
+    return () => window.clearInterval(id)
+  }, [disconnectWait?.until, disconnectWait?.name])
+
+  const persistActiveMatch = () => {
+    if (!state || state.phase === 'matchEnd') return
+    if (!slBoot) return
+    const until = Date.now() + MATCH_RESUME_GRACE_MS
+    if (peer) {
+      saveMatchResume({
+        until,
+        kind: 'mp',
+        roomCode: peer.roomCode,
+        tableId: slBoot.tableId,
+        uid: slBoot.uid,
+        seat: slBoot.seat,
+        isHost: peer.isHost,
+        state: cloneState(state),
+        variant: peer.variant,
+        house: normalizeHouse(peer.house),
+        difficulty,
+        localIndex: peer.localIndex,
+        playerName: name,
+      })
+      return
+    }
+    if (local) {
+      saveMatchResume({
+        until,
+        kind: 'solo',
+        roomCode: '',
+        tableId: slBoot.tableId,
+        uid: slBoot.uid,
+        seat: slBoot.seat,
+        isHost: true,
+        state: cloneState(state),
+        variant,
+        house,
+        difficulty,
+        localIndex: local.localIndex,
+        playerName: name,
+      })
+    }
+  }
+
+  const persistRef = useRef(persistActiveMatch)
+  persistRef.current = persistActiveMatch
+  useEffect(() => {
+    const onHide = () => persistRef.current()
+    window.addEventListener('pagehide', onHide)
+    return () => window.removeEventListener('pagehide', onHide)
+  }, [])
 
   const wrap = (node: ReactNode) => (
     <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
@@ -186,7 +250,21 @@ function AppInner() {
     push(ctrl.state.lastMessage)
   }
 
-  const leaveToMenu = async () => {
+  const leaveToMenu = async (forceEnd = false) => {
+    const midMatch = Boolean(state && state.phase !== 'matchEnd' && state.phase !== 'roundEnd')
+    if (midMatch && !forceEnd) {
+      persistActiveMatch()
+      peer?.destroy()
+      local?.destroy()
+      setPeer(null)
+      setLocal(null)
+      // Soft leave: keep table lock / grace so same seat can resume.
+      slMatchKind.current = slMatchKind.current === 'none' ? 'none' : slMatchKind.current
+      setScreen(tableHud ? 'sl' : 'menu')
+      push('Game paused — rejoin within 60 seconds to resume, or Quit from the wait screen.')
+      return
+    }
+    clearMatchResume()
     peer?.destroy()
     local?.destroy()
     setPeer(null)
@@ -200,6 +278,57 @@ function AppInner() {
     }
     slMatchKind.current = 'none'
     setScreen(tableHud ? 'sl' : 'menu')
+  }
+
+  const tryResumeSavedMatch = async () => {
+    if (!slBoot) return false
+    const snap = loadMatchResume({ uid: slBoot.uid, seat: slBoot.seat, tableId: slBoot.tableId })
+    if (!snap) return false
+    peer?.destroy()
+    local?.destroy()
+    if (snap.kind === 'solo') {
+      const ctrl = resumeSolo(snap.state, snap.localIndex, snap.difficulty || difficulty)
+      setLocal(ctrl)
+      setPeer(null)
+      setVariant(snap.variant)
+      setHouse(normalizeHouse(snap.house))
+      slMatchKind.current = 'solo'
+      setScreen('game')
+      clearMatchResume()
+      push('Resumed your solo game.')
+      return true
+    }
+    if (snap.isHost) {
+      const session = await createPeerHost(snap.playerName || name, {
+        roomCode: snap.roomCode,
+        avatarUid: slBoot.uid,
+        seat: slBoot.seat,
+        variant: snap.variant,
+        house: normalizeHouse(snap.house),
+        difficulty: snap.difficulty || difficulty,
+        resumeState: snap.state,
+      })
+      setPeer(session)
+      setLocal(null)
+      setVariant(snap.variant)
+      setHouse(normalizeHouse(snap.house))
+      slMatchKind.current = 'mp'
+      setScreen('game')
+      clearMatchResume()
+      push('Resumed as host — waiting for others to reconnect.')
+      return true
+    }
+    const session = await joinPeerRoom(snap.roomCode, snap.playerName || name, {
+      avatarUid: slBoot.uid,
+      seat: slBoot.seat,
+    })
+    setPeer(session)
+    setLocal(null)
+    slMatchKind.current = 'mp'
+    setScreen('game')
+    clearMatchResume()
+    push('Rejoined the room.')
+    return true
   }
 
   if (slBoot?.view === 'table') {
@@ -242,6 +371,11 @@ function AppInner() {
         partnership={partnership}
         onPartnership={setPartnership}
         onStartSolo={startLocal}
+        onResumeMatch={() => void tryResumeSavedMatch()}
+        canResumeMatch={Boolean(
+          slBoot &&
+            loadMatchResume({ uid: slBoot.uid, seat: slBoot.seat, tableId: slBoot.tableId }),
+        )}
         onCreatedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
@@ -449,13 +583,24 @@ function AppInner() {
       }}
       onClear={() => setMeldGroups([])}
       onDropGroup={(index) => setMeldGroups((prev) => prev.filter((_, i) => i !== index))}
-      onMenu={() => void leaveToMenu()}
+      onMenu={() => void leaveToMenu(state.phase === 'matchEnd')}
       onContinue={() => submit({ kind: 'continue' })}
       onConsent={(accept) => submit({ kind: 'consentGoOut', accept })}
       onGoOut={() => submit({ kind: 'goOut' })}
       showOppBooks={showOppBooks}
       showOurBooks={showOurBooks}
       coachTips={Boolean(local) && coachTips}
+      disconnectWait={
+        disconnectWait
+          ? { name: disconnectWait.name, until: disconnectWait.until }
+          : null
+      }
+      waitSecondsLeft={disconnectWait ? secondsLeft(disconnectWait.until, waitNow) : 0}
+      onQuitWaiting={() => {
+        clearMatchResume()
+        peer?.quitWaiting()
+        void leaveToMenu(true)
+      }}
     />,
   )
 }

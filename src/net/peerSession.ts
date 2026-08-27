@@ -7,6 +7,7 @@ import { tryApply, type GameMove, type MatchState } from '../core/rules'
 import { DEFAULT_HOUSE, normalizeHouse } from '../core/houseRules'
 import type { HouseRules, Variant } from '../core/types'
 import { playDealSfx, playSfxForMove } from '../ui/sfx'
+import { MATCH_RESUME_GRACE_MS } from './matchResume'
 
 export type LobbySeat = {
   id: string
@@ -15,6 +16,13 @@ export type LobbySeat = {
   isHost: boolean
   avatarUid?: string
   seat?: number
+}
+
+export type DisconnectWait = {
+  name: string
+  until: number
+  avatarUid?: string
+  peerId?: string
 }
 
 type Wire =
@@ -27,6 +35,9 @@ type Wire =
   | { t: 'info'; message: string }
   | { t: 'variant'; variant: Variant }
   | { t: 'house'; house: HouseRules }
+  | { t: 'waiting'; name: string; until: number; avatarUid?: string }
+  | { t: 'resumed' }
+  | { t: 'quitWaiting' }
 
 function roomCode(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -43,6 +54,8 @@ export type PeerHostOptions = {
   variant?: Variant
   house?: HouseRules
   difficulty?: AiDifficulty
+  /** Restore an in-progress match after host soft-leave / stand. */
+  resumeState?: MatchState
 }
 
 export type PeerJoinOptions = {
@@ -61,12 +74,14 @@ export type PeerSession = {
   variant: Variant
   house: HouseRules
   aiThinking: boolean
+  disconnectWait: DisconnectWait | null
   onChange: (cb: () => void) => () => void
   setReady: (ready: boolean) => void
   setVariant: (v: Variant) => void
   setHouse: (house: HouseRules) => void
   startMatch: (occupants?: Occupant[]) => void
   submit: (move: GameMove) => void
+  quitWaiting: () => void
   destroy: () => void
 }
 
@@ -174,17 +189,86 @@ function buildSession(
       seat: localSeat,
     },
   ]
-  let state: MatchState | null = null
-  let status = isHost ? `Room ${code} — share this code` : `Joined ${code}`
+  let state: MatchState | null =
+    opts && 'resumeState' in opts && opts.resumeState ? cloneState(opts.resumeState) : null
+  let status = state
+    ? 'Resumed — waiting for others to reconnect.'
+    : isHost
+      ? `Room ${code} — share this code`
+      : `Joined ${code}`
   let aiThinking = false
   let cancelled = false
   let running = false
+  let disconnectWait: DisconnectWait | null = null
+  let waitTimer: number | null = null
+  let guestReconnectTimer: number | null = null
   const listeners = new Set<() => void>()
   const conns = new Map<string, DataConnection>()
   const notify = () => listeners.forEach((l) => l())
   const send = (conn: DataConnection, msg: Wire) => conn.send(msg)
   const broadcast = (msg: Wire) => {
     conns.forEach((c) => send(c, msg))
+  }
+
+  const clearWaitTimer = () => {
+    if (waitTimer != null) {
+      window.clearTimeout(waitTimer)
+      waitTimer = null
+    }
+  }
+
+  const clearGuestReconnect = () => {
+    if (guestReconnectTimer != null) {
+      window.clearTimeout(guestReconnectTimer)
+      guestReconnectTimer = null
+    }
+  }
+
+  const endForDisconnect = (whoName: string) => {
+    if (!state || state.phase === 'matchEnd') return
+    state.phase = 'matchEnd'
+    state.lastMessage = `${whoName} did not return in time. Match ended.`
+    state.winnerTeam = -1
+    disconnectWait = null
+    clearWaitTimer()
+    broadcast({ t: 'state', state })
+    broadcast({ t: 'resumed' })
+    status = state.lastMessage
+    notify()
+  }
+
+  const clearDisconnectWait = () => {
+    disconnectWait = null
+    clearWaitTimer()
+    broadcast({ t: 'resumed' })
+    status = state?.lastMessage || status
+    notify()
+    void pumpAi()
+  }
+
+  const beginDisconnectWait = (seat: LobbySeat) => {
+    if (!state || state.phase === 'matchEnd' || state.phase === 'roundEnd') return
+    const until = Date.now() + MATCH_RESUME_GRACE_MS
+    disconnectWait = {
+      name: seat.name || 'A player',
+      until,
+      avatarUid: seat.avatarUid,
+      peerId: seat.id,
+    }
+    status = `${disconnectWait.name} left — waiting for return…`
+    broadcast({
+      t: 'waiting',
+      name: disconnectWait.name,
+      until,
+      avatarUid: seat.avatarUid,
+    })
+    notify()
+    clearWaitTimer()
+    waitTimer = window.setTimeout(() => {
+      if (disconnectWait && Date.now() >= disconnectWait.until) {
+        endForDisconnect(disconnectWait.name)
+      }
+    }, MATCH_RESUME_GRACE_MS + 250)
   }
 
   const syncLobby = () => {
@@ -212,11 +296,11 @@ function buildSession(
   }
 
   const pumpAi = async () => {
-    if (!isHost || !state || running || cancelled) return
+    if (!isHost || !state || running || cancelled || disconnectWait) return
     running = true
     try {
       await pumpComputers(state, difficulty, {
-        isCancelled: () => cancelled || !state,
+        isCancelled: () => cancelled || !state || Boolean(disconnectWait),
         onThinking: (on) => {
           aiThinking = on
           notify()
@@ -247,12 +331,27 @@ function buildSession(
           return
         }
       }
-      if (seats.length >= 4) {
+      const uidKey = (msg.avatarUid || '').toLowerCase()
+      const existingByUid = uidKey ? seats.find((s) => (s.avatarUid || '').toLowerCase() === uidKey) : undefined
+      if (existingByUid) {
+        seats = seats.map((s) =>
+          (s.avatarUid || '').toLowerCase() === uidKey
+            ? { ...s, id: msg.id, name: msg.name, seat: msg.seat ?? s.seat }
+            : s,
+        )
+        if (
+          disconnectWait &&
+          ((disconnectWait.avatarUid && uidKey === disconnectWait.avatarUid.toLowerCase()) ||
+            disconnectWait.peerId === existingByUid.id ||
+            disconnectWait.peerId === msg.id)
+        ) {
+          clearDisconnectWait()
+        }
+      } else if (seats.length >= 4) {
         const c = conns.get(fromId)
         if (c) send(c, { t: 'info', message: 'Room full (max 4 players).' })
         return
-      }
-      if (!seats.some((s) => s.id === msg.id)) {
+      } else if (!seats.some((s) => s.id === msg.id)) {
         seats = [
           ...seats,
           {
@@ -283,6 +382,14 @@ function buildSession(
               .filter((s) => s.seat != null && s.seat >= 0)
               .map((s) => ({ uid: s.avatarUid || '', seat: s.seat as number })),
           })
+          if (disconnectWait) {
+            send(c, {
+              t: 'waiting',
+              name: disconnectWait.name,
+              until: disconnectWait.until,
+              avatarUid: disconnectWait.avatarUid,
+            })
+          }
         }
       }
       return
@@ -313,11 +420,38 @@ function buildSession(
     if (msg.t === 'start' || msg.t === 'state') {
       state = msg.state
       status = state.lastMessage
-      if (msg.t === 'start') applyOccupantSeats(msg.occupants)
+      if (msg.t === 'start') {
+        applyOccupantSeats(msg.occupants)
+        disconnectWait = null
+        clearGuestReconnect()
+      }
+      if (state.phase === 'matchEnd') disconnectWait = null
       notify()
       return
     }
+    if (msg.t === 'waiting') {
+      disconnectWait = { name: msg.name, until: msg.until, avatarUid: msg.avatarUid }
+      status = `${msg.name} left — waiting for return…`
+      notify()
+      return
+    }
+    if (msg.t === 'resumed') {
+      disconnectWait = null
+      clearGuestReconnect()
+      status = state?.lastMessage || 'Play resumed.'
+      notify()
+      return
+    }
+    if (msg.t === 'quitWaiting' && isHost) {
+      endForDisconnect(disconnectWait?.name || 'A player')
+      return
+    }
     if (msg.t === 'move' && isHost && state) {
+      if (disconnectWait) {
+        status = `Waiting for ${disconnectWait.name} to return.`
+        notify()
+        return
+      }
       const idx = msg.playerIndex ?? state.currentPlayer
       const prev = cloneState(state)
       const res = tryApply(state, msg.move, idx)
@@ -339,14 +473,64 @@ function buildSession(
     }
   }
 
+  const scheduleGuestReconnect = () => {
+    if (isHost || cancelled) return
+    clearGuestReconnect()
+    const attempt = () => {
+      if (cancelled || isHost) return
+      if (!disconnectWait || Date.now() > disconnectWait.until) {
+        if (state && state.phase !== 'matchEnd' && disconnectWait) {
+          state.phase = 'matchEnd'
+          state.lastMessage = `${disconnectWait.name} did not return in time. Match ended.`
+          state.winnerTeam = -1
+          disconnectWait = null
+          status = state.lastMessage
+          notify()
+        }
+        return
+      }
+      if (conns.size > 0) return
+      try {
+        const c = peer.connect(`canasta-${code}-host`, { reliable: true })
+        c.on('open', () => {
+          attach(c)
+        })
+        c.on('error', () => {
+          /* retry below */
+        })
+      } catch {
+        /* retry */
+      }
+      guestReconnectTimer = window.setTimeout(attempt, 3000)
+    }
+    guestReconnectTimer = window.setTimeout(attempt, 1500)
+  }
+
   const attach = (conn: DataConnection) => {
     conns.set(conn.peer, conn)
     conn.on('data', (data) => onMessage(conn.peer, data as Wire))
     conn.on('close', () => {
       conns.delete(conn.peer)
       if (isHost) {
+        const seat = seats.find((s) => s.id === conn.peer)
+        if (state && state.phase !== 'matchEnd' && seat) {
+          beginDisconnectWait(seat)
+          return
+        }
         seats = seats.filter((s) => s.id !== conn.peer)
         syncLobby()
+        return
+      }
+      // Guest lost the host link mid-match — wait and try reconnect.
+      if (state && state.phase !== 'matchEnd') {
+        disconnectWait = {
+          name: 'Host',
+          until: Date.now() + MATCH_RESUME_GRACE_MS,
+          avatarUid: undefined,
+        }
+        status = 'Host disconnected — waiting for return…'
+        notify()
+        scheduleGuestReconnect()
       }
     })
     if (!isHost) {
@@ -391,6 +575,9 @@ function buildSession(
     },
     get aiThinking() {
       return aiThinking
+    },
+    get disconnectWait() {
+      return disconnectWait
     },
     onChange(cb) {
       listeners.add(cb)
@@ -460,6 +647,11 @@ function buildSession(
       void pumpAi()
     },
     submit(move) {
+      if (disconnectWait) {
+        status = `Waiting for ${disconnectWait.name} to return.`
+        notify()
+        return
+      }
       if (isHost && state) {
         const prev = cloneState(state)
         const who = localIndexOf()
@@ -480,8 +672,19 @@ function buildSession(
         if (hostConn) send(hostConn, { t: 'move', move, playerIndex: localIndexOf() })
       }
     },
+    quitWaiting() {
+      if (isHost) {
+        endForDisconnect(disconnectWait?.name || 'A player')
+        return
+      }
+      const hostConn = [...conns.values()][0]
+      if (hostConn) send(hostConn, { t: 'quitWaiting' })
+      else endForDisconnect(disconnectWait?.name || 'Host')
+    },
     destroy() {
       cancelled = true
+      clearWaitTimer()
+      clearGuestReconnect()
       peer.destroy()
     },
   }

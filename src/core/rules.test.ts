@@ -686,6 +686,9 @@ describe('Hand and Foot', () => {
     s.phase = 'awaitingPlay'
     const ids = s.players[0]!.hand.map((c) => c.id)
     expect(tryApply(s, { kind: 'meld', cardIds: ids }, 0)).toEqual({ ok: true })
+    expect(s.phase).toBe('awaitingPlay')
+    expect(s.players[0]!.hand).toHaveLength(0)
+    expect(tryApply(s, { kind: 'goOut' }, 0)).toEqual({ ok: true })
     expect(s.phase).toBe('awaitingGoOutConsent')
     expect(s.pendingGoOut).toEqual({ playerIndex: 0, discardId: null })
     expect(tryApply(s, { kind: 'consentGoOut', accept: false }, 2)).toEqual({ ok: true })

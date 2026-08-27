@@ -138,3 +138,78 @@ export function startSolo(
   void pumpAi()
   return session
 }
+
+/** Resume a solo match from a soft-leave snapshot (same seat / grace window). */
+export function resumeSolo(saved: MatchState, localIndex: number, difficulty: AiDifficulty): LocalControllers {
+  let state = cloneState(saved)
+  const log: string[] = [state.lastMessage || 'Resumed.']
+  let aiThinking = false
+  let cancelled = false
+  let running = false
+  const listeners = new Set<() => void>()
+  const notify = () => listeners.forEach((l) => l())
+  const pushLog = (msg: string) => {
+    log.unshift(msg)
+    if (log.length > 14) log.length = 14
+  }
+
+  const pumpAi = async () => {
+    if (running || cancelled) return
+    running = true
+    try {
+      await pumpComputers(state, difficulty, {
+        isCancelled: () => cancelled,
+        onThinking: (on) => {
+          aiThinking = on
+          notify()
+        },
+        onStep: ({ move, playerIndex, prev }) => {
+          playSfxForMove(prev, state, move, playerIndex)
+          pushLog(state.lastMessage)
+          notify()
+        },
+      })
+    } finally {
+      aiThinking = false
+      running = false
+      notify()
+    }
+  }
+
+  const session: LocalControllers = {
+    get state() {
+      return state
+    },
+    localIndex,
+    get log() {
+      return log
+    },
+    get aiThinking() {
+      return aiThinking
+    },
+    submit(move) {
+      const prev = cloneState(state)
+      const res = tryApply(state, move, localIndex)
+      if (!res.ok) {
+        pushLog(res.error)
+        notify()
+        return res
+      }
+      playSfxForMove(prev, state, move, localIndex)
+      pushLog(state.lastMessage)
+      notify()
+      void pumpAi()
+      return { ok: true as const }
+    },
+    onChange(cb) {
+      listeners.add(cb)
+      return () => listeners.delete(cb)
+    },
+    destroy() {
+      cancelled = true
+      listeners.clear()
+    },
+  }
+  void pumpAi()
+  return session
+}

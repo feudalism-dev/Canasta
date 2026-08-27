@@ -43,6 +43,8 @@ type Props = {
   house: HouseRules
   onHouse: (house: HouseRules) => void
   onStartSolo: () => void | Promise<void>
+  onResumeMatch?: () => void | Promise<void>
+  canResumeMatch?: boolean
   onCreatedMp: (roomCode: string, tableStatus: TableStatus) => void | Promise<void>
   onJoinedMp: (roomCode: string, tableStatus: TableStatus) => void | Promise<void>
   onHostStartMp: (tableStatus?: TableStatus) => void | Promise<void>
@@ -76,6 +78,8 @@ export function SlTableScreens({
   house,
   onHouse,
   onStartSolo,
+  onResumeMatch,
+  canResumeMatch = false,
   onCreatedMp,
   onJoinedMp,
   onHostStartMp,
@@ -350,15 +354,29 @@ export function SlTableScreens({
         <p className="muted">{matchup}</p>
         {!seatedBrowser ? (
           <>
+            {canResumeMatch && onResumeMatch ? (
+              <button
+                type="button"
+                className="btn primary"
+                disabled={busy}
+                onClick={() => void onResumeMatch()}
+              >
+                Resume paused game
+              </button>
+            ) : null}
             <button
               type="button"
               className="btn primary"
-              disabled={!canSolo || busy}
+              disabled={!canSolo || busy || canResumeMatch}
               onClick={() => void onStartSolo()}
             >
               Play Solo vs Computer
             </button>
-            <p className="muted">Multiplayer is always four hands. Seating picks teams — empty chairs are computers.</p>
+            <p className="muted">
+              {canResumeMatch
+                ? 'A game is paused for this seat (about 60 seconds). Resume it, or it ends when the table grace expires.'
+                : 'Multiplayer is always four hands. Seating picks teams — empty chairs are computers.'}
+            </p>
           </>
         ) : (
           <p className="muted">You joined from a minted link. Stay seated in Second Life. Host plays on the HUD.</p>

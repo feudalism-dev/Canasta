@@ -367,6 +367,22 @@ function needsConsent(state: MatchState, playerIndex: number): boolean {
   return state.players[mate]!.isHuman
 }
 
+/** True when going out requires a human partner's yes/no. */
+export function needsPartnerGoOutConsent(state: MatchState, playerIndex: number): boolean {
+  return needsConsent(state, playerIndex)
+}
+
+/** True when discarding this last card would ask the partner before ending the hand. */
+export function discardNeedsGoOutConsent(state: MatchState, playerIndex: number, cardId: string): boolean {
+  if (state.phase !== 'awaitingPlay' || playerIndex !== state.currentPlayer) return false
+  if (!needsConsent(state, playerIndex)) return false
+  const player = state.players[playerIndex]!
+  if (player.hand.length !== 1) return false
+  if (!findCard(player.hand, cardId)) return false
+  if (state.config.footSize > 0 && !player.footPickedUp) return false
+  return canPlayerGoOut(state, playerIndex).ok
+}
+
 function finishRound(state: MatchState, wentOutPlayer: number): void {
   state.wentOutPlayer = wentOutPlayer
   state.pendingGoOut = null
@@ -718,13 +734,19 @@ function applyAdd(state: MatchState, playerIndex: number, meldIndex: number, car
   return { ok: true }
 }
 
-function tryAutoGoOut(state: MatchState, playerIndex: number): void {
+/** When the hand is empty and books allow going out: finish, or ask partner if requested. */
+function tryAutoGoOut(state: MatchState, playerIndex: number, requestConsent = false): void {
   const player = state.players[playerIndex]!
   if (player.hand.length > 0) return
   if (state.phase !== 'awaitingPlay' && state.phase !== 'awaitingGoOutConsent') return
   const able = canPlayerGoOut(state, playerIndex)
   if (!able.ok) return
   if (needsConsent(state, playerIndex)) {
+    if (!requestConsent) {
+      const partner = partnerOf(state, playerIndex)
+      state.lastMessage = `${player.displayName} is ready to go out — ask ${partner?.displayName ?? 'your partner'} for permission.`
+      return
+    }
     state.pendingGoOut = { playerIndex, discardId: null }
     state.phase = 'awaitingGoOutConsent'
     const partner = partnerOf(state, playerIndex)
@@ -827,11 +849,11 @@ export function tryApply(state: MatchState, move: GameMove, playerIndex?: number
     if (state.phase !== 'awaitingPlay') return { ok: false, error: 'You cannot go out right now.' }
     if (who !== state.currentPlayer) return { ok: false, error: 'Not your turn.' }
     maybePickupFoot(state, who, false)
-    tryAutoGoOut(state, who)
+    tryAutoGoOut(state, who, true)
     if (state.phase === 'awaitingPlay' && state.players[who]!.hand.length === 0) {
       const able = canPlayerGoOut(state, who)
-      if (able.ok) return { ok: false, error: 'Waiting on your partner.' }
-      return { ok: false, error: able.error }
+      if (!able.ok) return { ok: false, error: able.error }
+      return { ok: false, error: 'Ask your partner before going out.' }
     }
     return { ok: true }
   }

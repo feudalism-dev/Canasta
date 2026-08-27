@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { coachAdvice } from '../core/coach'
 import { isBetaVariant, variantLabel } from '../core/houseRules'
-import { legalHandIndexes } from '../core/rules'
+import { discardNeedsGoOutConsent, legalHandIndexes, needsPartnerGoOutConsent } from '../core/rules'
 import { partnerIndex } from '../core/score'
 import type { MatchState } from '../core/types'
 import { initialMeldMinimum } from '../core/variants'
@@ -10,6 +11,13 @@ import { MeldTray } from './MeldTray'
 import { Piles } from './Piles'
 import { PlayerHandCounts } from './PlayerHandCounts'
 import { RankHand } from './RankHand'
+
+export type DisconnectWaitInfo = {
+  name: string
+  until: number
+  /** True when this client is the one who left and may still rejoin. */
+  self?: boolean
+}
 
 type Props = {
   state: MatchState
@@ -36,6 +44,9 @@ type Props = {
   showOppBooks?: boolean
   showOurBooks?: boolean
   coachTips?: boolean
+  disconnectWait?: DisconnectWaitInfo | null
+  onQuitWaiting?: () => void
+  waitSecondsLeft?: number
 }
 
 export function GameBoard({
@@ -63,6 +74,9 @@ export function GameBoard({
   showOppBooks = true,
   showOurBooks = true,
   coachTips = false,
+  disconnectWait = null,
+  onQuitWaiting,
+  waitSecondsLeft = 0,
 }: Props) {
   const me = state.players[localIndex]!
   const myTeam = me.team
@@ -80,8 +94,24 @@ export function GameBoard({
   const iAnswerGoOut = Boolean(
     pendingOut && state.phase === 'awaitingGoOutConsent' && partnerIndex(state, pendingOut.playerIndex) === localIndex,
   )
+  const iAskedGoOut = Boolean(
+    pendingOut && state.phase === 'awaitingGoOutConsent' && pendingOut.playerIndex === localIndex,
+  )
   const asker = pendingOut ? state.players[pendingOut.playerIndex] : null
   const booksHidden = !showOppBooks || !showOurBooks
+  const partnerName = partner?.displayName ?? 'your partner'
+  const needsAsk = needsPartnerGoOutConsent(state, localIndex)
+  const [pendingAsk, setPendingAsk] = useState<'discard' | 'goOut' | null>(null)
+
+  const handleDiscard = () => {
+    const id = [...selectedIds][0] ?? me.hand[0]?.id
+    if (!id) return
+    if (discardNeedsGoOutConsent(state, localIndex, id)) {
+      setPendingAsk('discard')
+      return
+    }
+    onDiscard()
+  }
 
   return (
     <div className={`table-root ${myTurn ? 'is-my-turn' : ''} ${booksHidden ? 'is-tray-hidden' : ''}`.trim()}>
@@ -193,25 +223,102 @@ export function GameBoard({
         groups={meldGroups}
         onMeld={onMeld}
         onAdd={onAdd}
-        onDiscard={onDiscard}
+        onDiscard={handleDiscard}
         onPass={onPass}
         onClear={onClear}
         onDropGroup={onDropGroup}
       />
 
-      {myTurn && !aiThinking && me.hand.length === 0 && state.phase === 'awaitingPlay' && onGoOut ? (
+      {disconnectWait ? (
         <div className="banner-overlay">
           <div className="banner-card">
-            <h2>Go out</h2>
-            <p>You have no cards left. That ends the hand if your team has a canasta (or the required books).</p>
-            <button type="button" className="btn primary" onClick={onGoOut}>
-              Go out
+            <h2>Connection lost</h2>
+            <p>
+              {disconnectWait.self
+                ? 'You left the table. Re-sit in the same seat to resume, or quit.'
+                : `${disconnectWait.name} has left the game. Waiting ${Math.max(0, waitSecondsLeft)} seconds for them to return. You may wait or quit.`}
+            </p>
+            {onQuitWaiting ? (
+              <button type="button" className="btn ghost" onClick={onQuitWaiting}>
+                Quit match
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {pendingAsk && !disconnectWait ? (
+        <div className="banner-overlay">
+          <div className="banner-card">
+            <h2>Ask to go out?</h2>
+            <p>
+              It looks like you want to go out. Before you do, you must ask {partnerName} for permission. Shall I ask
+              your partner?
+            </p>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => {
+                const kind = pendingAsk
+                setPendingAsk(null)
+                if (kind === 'discard') onDiscard()
+                else onGoOut?.()
+              }}
+            >
+              Yes — ask {partnerName}
+            </button>
+            <button type="button" className="btn ghost" onClick={() => setPendingAsk(null)}>
+              Not yet
             </button>
           </div>
         </div>
       ) : null}
 
-      {iAnswerGoOut && asker ? (
+      {myTurn &&
+      !aiThinking &&
+      !pendingAsk &&
+      !disconnectWait &&
+      me.hand.length === 0 &&
+      state.phase === 'awaitingPlay' &&
+      onGoOut ? (
+        <div className="banner-overlay">
+          <div className="banner-card">
+            {needsAsk ? (
+              <>
+                <h2>Ask to go out?</h2>
+                <p>
+                  It looks like you want to go out. Before you do, you must ask {partnerName} for permission. Shall I
+                  ask your partner?
+                </p>
+                <button type="button" className="btn primary" onClick={onGoOut}>
+                  Yes — ask {partnerName}
+                </button>
+              </>
+            ) : (
+              <>
+                <h2>Go out</h2>
+                <p>You have no cards left. That ends the hand if your team has a canasta (or the required books).</p>
+                <button type="button" className="btn primary" onClick={onGoOut}>
+                  Go out
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {iAskedGoOut && !disconnectWait ? (
+        <div className="banner-overlay">
+          <div className="banner-card">
+            <h2>Waiting on partner</h2>
+            <p>
+              Asking {partnerName} for permission to go out. Play pauses until they answer Yes or Not yet.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {iAnswerGoOut && asker && !disconnectWait ? (
         <div className="banner-overlay">
           <div className="banner-card">
             <h2>May I go out?</h2>

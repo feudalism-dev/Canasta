@@ -17,7 +17,7 @@ integer DISPLAY_CMD_NEED_CAP = 91006;
 integer HTTP_CMD = 92001;
 
 integer MAX_SEATS = 4;
-float STAND_GRACE_SEC = 15.0;
+float STAND_GRACE_SEC = 60.0;
 integer RESET_TIMEOUT_SEC = 6;
 
 list gSeatAv = [];
@@ -153,6 +153,30 @@ string rosterJson()
     return s + "]";
 }
 
+string graceJson()
+{
+    string s = "[";
+    integer i;
+    integer first = TRUE;
+    integer now = llGetUnixTime();
+    for (i = 0; i < llGetListLength(gGrace); i += 3)
+    {
+        key av = llList2Key(gGrace, i);
+        integer seat = llList2Integer(gGrace, i + 1);
+        integer untilUnix = llList2Integer(gGrace, i + 2);
+        string nm = "";
+        if (seat >= 0 && seat < MAX_SEATS) nm = llList2String(gSeatName, seat);
+        if (!first) s += ",";
+        first = FALSE;
+        s += "{\"uid\":\"" + (string)av
+            + "\",\"seat\":" + (string)seat
+            + ",\"until\":" + (string)untilUnix
+            + ",\"secondsLeft\":" + (string)(untilUnix - now)
+            + ",\"name\":\"" + jsonEscape(nm) + "\"}";
+    }
+    return s + "]";
+}
+
 string statusJson(integer ok, string err)
 {
     string j = "{\"ok\":" + llList2String(["false", "true"], ok)
@@ -163,7 +187,8 @@ string statusJson(integer ok, string err)
         + ",\"roomCode\":\"" + jsonEscape(gRoomCode)
         + "\",\"hostUid\":\"" + (string)gHostUid
         + "\",\"soloUid\":\"" + (string)gSoloUid
-        + "\",\"roster\":" + rosterJson();
+        + "\",\"grace\":" + graceJson()
+        + ",\"roster\":" + rosterJson();
     if (err != "") j += ",\"error\":\"" + jsonEscape(err) + "\"";
     return j + "}";
 }
@@ -899,7 +924,16 @@ default
         sendHudDetach(av, seat);
         if (seat >= 0 && av != NULL_KEY)
         {
-            if ((gMode == MODE_SOLO && av == gSoloUid) || ((gMode == MODE_LOBBY || gMode == MODE_MATCH) && av == gHostUid))
+            // Active play: keep seat + lock for STAND_GRACE_SEC so the same avatar can re-sit.
+            if (gMode == MODE_MATCH || gMode == MODE_SOLO)
+            {
+                clearGraceFor(av);
+                gGrace += [av, seat, llGetUnixTime() + (integer)STAND_GRACE_SEC];
+                pushStatus();
+                return;
+            }
+            // Lobby: host leave dissolves; guests get a short reconnect window.
+            if (gMode == MODE_LOBBY && av == gHostUid)
             {
                 clearGraceFor(av);
                 forfeitAvatar(av);
@@ -910,6 +944,7 @@ default
         }
         clearGraceFor(av);
         gGrace += [av, seat, llGetUnixTime() + (integer)STAND_GRACE_SEC];
+        pushStatus();
     }
 
     object_rez(key objId)
