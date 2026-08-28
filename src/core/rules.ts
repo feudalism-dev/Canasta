@@ -383,6 +383,43 @@ export function discardNeedsGoOutConsent(state: MatchState, playerIndex: number,
   return canPlayerGoOut(state, playerIndex).ok
 }
 
+/** Local player may ask a human partner before going out (one card to discard, or empty hand). */
+export function readyToAskPartnerGoOut(state: MatchState, playerIndex: number): boolean {
+  if (state.phase !== 'awaitingPlay' || playerIndex !== state.currentPlayer) return false
+  if (!needsPartnerGoOutConsent(state, playerIndex)) return false
+  if (!canPlayerGoOut(state, playerIndex).ok) return false
+  const n = state.players[playerIndex]!.hand.length
+  if (n === 0) return true
+  if (n === 1 && state.config.requireDiscardToGoOut) return true
+  return false
+}
+
+function beginGoOutConsent(state: MatchState, playerIndex: number, discardId: string | null): void {
+  const player = state.players[playerIndex]!
+  state.pendingGoOut = { playerIndex, discardId }
+  state.phase = 'awaitingGoOutConsent'
+  const partner = partnerOf(state, playerIndex)
+  state.lastMessage = `${player.displayName} asks ${partner?.displayName ?? 'partner'} — may I go out?`
+}
+
+function applyRequestGoOutConsent(state: MatchState, playerIndex: number): ApplyResult {
+  if (state.phase !== 'awaitingPlay') return { ok: false, error: 'You cannot ask to go out right now.' }
+  if (playerIndex !== state.currentPlayer) return { ok: false, error: 'Not your turn.' }
+  if (!needsConsent(state, playerIndex)) return { ok: false, error: 'Partner consent is not required.' }
+  const able = canPlayerGoOut(state, playerIndex)
+  if (!able.ok) return able
+  const player = state.players[playerIndex]!
+  if (player.hand.length > 1) {
+    return {
+      ok: false,
+      error: 'Play down to your last card first, then ask your partner before you discard to go out.',
+    }
+  }
+  const discardId = player.hand.length === 1 ? player.hand[0]!.id : null
+  beginGoOutConsent(state, playerIndex, discardId)
+  return { ok: true }
+}
+
 function finishRound(state: MatchState, wentOutPlayer: number): void {
   state.wentOutPlayer = wentOutPlayer
   state.pendingGoOut = null
@@ -747,10 +784,7 @@ function tryAutoGoOut(state: MatchState, playerIndex: number, requestConsent = f
       state.lastMessage = `${player.displayName} is ready to go out — ask ${partner?.displayName ?? 'your partner'} for permission.`
       return
     }
-    state.pendingGoOut = { playerIndex, discardId: null }
-    state.phase = 'awaitingGoOutConsent'
-    const partner = partnerOf(state, playerIndex)
-    state.lastMessage = `${player.displayName} asks ${partner?.displayName ?? 'partner'} — may I go out?`
+    beginGoOutConsent(state, playerIndex, null)
     return
   }
   finishRound(state, playerIndex)
@@ -775,10 +809,7 @@ function applyDiscard(state: MatchState, playerIndex: number, cardId: string): A
         return able
       }
     } else if (needsConsent(state, playerIndex)) {
-      state.pendingGoOut = { playerIndex, discardId: cardId }
-      state.phase = 'awaitingGoOutConsent'
-      const partner = partnerOf(state, playerIndex)
-      state.lastMessage = `${player.displayName} asks ${partner?.displayName ?? 'partner'} — may I go out?`
+      beginGoOutConsent(state, playerIndex, cardId)
       return { ok: true }
     }
   }
@@ -845,6 +876,7 @@ export function tryApply(state: MatchState, move: GameMove, playerIndex?: number
     return { ok: true }
   }
   if (move.kind === 'consentGoOut') return applyConsent(state, who, move.accept)
+  if (move.kind === 'requestGoOutConsent') return applyRequestGoOutConsent(state, who)
   if (move.kind === 'goOut') {
     if (state.phase !== 'awaitingPlay') return { ok: false, error: 'You cannot go out right now.' }
     if (who !== state.currentPlayer) return { ok: false, error: 'Not your turn.' }
@@ -933,6 +965,9 @@ export function getLegalMoves(state: MatchState, playerIndex: number): GameMove[
   if (state.phase !== 'awaitingPlay') return moves
   const player = state.players[playerIndex]!
   const team = state.teams[player.team]!
+  if (readyToAskPartnerGoOut(state, playerIndex)) {
+    moves.push({ kind: 'requestGoOutConsent' })
+  }
   if (player.hand.length === 0) {
     moves.push({ kind: 'goOut' })
     return moves

@@ -603,6 +603,7 @@ function AppInner() {
       onMenu={() => void leaveToMenu(state.phase === 'matchEnd')}
       onContinue={() => submit({ kind: 'continue' })}
       onConsent={(accept) => submit({ kind: 'consentGoOut', accept })}
+      onRequestGoOut={() => submit({ kind: 'requestGoOutConsent' })}
       onGoOut={() => submit({ kind: 'goOut' })}
       showOppBooks={showOppBooks}
       showOurBooks={showOurBooks}

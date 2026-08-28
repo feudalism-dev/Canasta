@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { coachAdvice } from '../core/coach'
 import { isBetaVariant, variantLabel } from '../core/houseRules'
-import { discardNeedsGoOutConsent, legalHandIndexes, needsPartnerGoOutConsent } from '../core/rules'
+import { discardNeedsGoOutConsent, legalHandIndexes, readyToAskPartnerGoOut } from '../core/rules'
 import { partnerIndex } from '../core/score'
 import type { MatchState } from '../core/types'
 import { initialMeldMinimum } from '../core/variants'
@@ -40,6 +40,7 @@ type Props = {
   onMenu: () => void
   onContinue: () => void
   onConsent: (accept: boolean) => void
+  onRequestGoOut?: () => void
   onGoOut?: () => void
   showOppBooks?: boolean
   showOurBooks?: boolean
@@ -70,6 +71,7 @@ export function GameBoard({
   onMenu,
   onContinue,
   onConsent,
+  onRequestGoOut,
   onGoOut,
   showOppBooks = true,
   showOurBooks = true,
@@ -100,17 +102,24 @@ export function GameBoard({
   const asker = pendingOut ? state.players[pendingOut.playerIndex] : null
   const booksHidden = !showOppBooks || !showOurBooks
   const partnerName = partner?.displayName ?? 'your partner'
-  const needsAsk = needsPartnerGoOutConsent(state, localIndex)
-  const [pendingAsk, setPendingAsk] = useState<'discard' | 'goOut' | null>(null)
+  const readyToAsk = readyToAskPartnerGoOut(state, localIndex)
+  const [pendingAsk, setPendingAsk] = useState(false)
 
   const handleDiscard = () => {
     const id = [...selectedIds][0] ?? me.hand[0]?.id
     if (!id) return
     if (discardNeedsGoOutConsent(state, localIndex, id)) {
-      setPendingAsk('discard')
+      setPendingAsk(true)
       return
     }
     onDiscard()
+  }
+
+  const confirmAskPartner = () => {
+    setPendingAsk(false)
+    if (onRequestGoOut) onRequestGoOut()
+    else if (me.hand.length === 0) onGoOut?.()
+    else onDiscard()
   }
 
   return (
@@ -227,7 +236,24 @@ export function GameBoard({
         onPass={onPass}
         onClear={onClear}
         onDropGroup={onDropGroup}
+        onRequestGoOut={
+          readyToAsk && onRequestGoOut && myTurn && !aiThinking && !iAskedGoOut
+            ? () => setPendingAsk(true)
+            : undefined
+        }
+        partnerName={partnerName}
       />
+
+      {readyToAsk && myTurn && !aiThinking && !pendingAsk && !iAskedGoOut && !disconnectWait && onRequestGoOut ? (
+        <div className="go-out-ask-bar">
+          <p>
+            You are ready to go out. Your partner must approve before the hand ends.
+          </p>
+          <button type="button" className="btn secondary" onClick={() => setPendingAsk(true)}>
+            Ask {partnerName} for permission
+          </button>
+        </div>
+      ) : null}
 
       {disconnectWait ? (
         <div className="banner-overlay">
@@ -258,16 +284,11 @@ export function GameBoard({
             <button
               type="button"
               className="btn primary"
-              onClick={() => {
-                const kind = pendingAsk
-                setPendingAsk(null)
-                if (kind === 'discard') onDiscard()
-                else onGoOut?.()
-              }}
+              onClick={confirmAskPartner}
             >
               Yes — ask {partnerName}
             </button>
-            <button type="button" className="btn ghost" onClick={() => setPendingAsk(null)}>
+            <button type="button" className="btn ghost" onClick={() => setPendingAsk(false)}>
               Not yet
             </button>
           </div>
@@ -283,14 +304,14 @@ export function GameBoard({
       onGoOut ? (
         <div className="banner-overlay">
           <div className="banner-card">
-            {needsAsk ? (
+            {readyToAsk && onRequestGoOut ? (
               <>
                 <h2>Ask to go out?</h2>
                 <p>
                   It looks like you want to go out. Before you do, you must ask {partnerName} for permission. Shall I
                   ask your partner?
                 </p>
-                <button type="button" className="btn primary" onClick={onGoOut}>
+                <button type="button" className="btn primary" onClick={confirmAskPartner}>
                   Yes — ask {partnerName}
                 </button>
               </>

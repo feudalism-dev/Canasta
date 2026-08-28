@@ -141,6 +141,7 @@ export type GameMove =
   | { kind: 'takeSequenceTop'; meldIndex: number }
   | { kind: 'pass' }
   | { kind: 'consentGoOut'; accept: boolean }
+  | { kind: 'requestGoOutConsent' }
   | { kind: 'goOut' }
   | { kind: 'continue' }
 

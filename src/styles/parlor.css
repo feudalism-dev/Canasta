@@ -1111,6 +1111,26 @@ select {
   padding: calc(0.35 * var(--rem)) calc(0.55 * var(--rem));
 }
 
+.go-out-ask-bar {
+  margin: calc(0.5 * var(--rem)) calc(0.35 * var(--rem)) 0;
+  padding: calc(0.55 * var(--rem)) calc(0.65 * var(--rem));
+  background: rgba(20, 38, 30, 0.92);
+  border: 1px solid var(--brass);
+  border-radius: calc(0.25 * var(--rem));
+  text-align: center;
+}
+
+.go-out-ask-bar p {
+  margin: 0 0 calc(0.45 * var(--rem));
+  font-size: calc(0.88 * var(--rem));
+  color: var(--cream);
+}
+
+.go-out-ask-bar .btn {
+  width: auto;
+  margin: 0 auto;
+}
+
 .banner-overlay {
   position: absolute;
   inset: 0;

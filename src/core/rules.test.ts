@@ -695,6 +695,34 @@ describe('Hand and Foot', () => {
     expect(s.phase).toBe('roundEnd')
     expect(s.wentOutPlayer).toBe(0)
   })
+
+  it('requestGoOutConsent asks the partner when one card remains to discard', () => {
+    const s = createMatch({
+      variant: 'handAndFoot',
+      names: ['You', 'Brass', 'Velvet', 'Lamp'],
+      humans: [true, false, true, false],
+      seed: 4,
+    })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      { rank: 'A', cards: aces(4).concat(wilds(3)), closed: true },
+    ]
+    forceHands(
+      s,
+      [[makeCard(500, 'H', '4', 0)], fillLow(8, 80), fillLow(8, 160), fillLow(8, 240)],
+      [makeCard(99, 'H', '9', 0)],
+      fillLow(20, 400),
+    )
+    for (const p of s.players) p.footPickedUp = true
+    s.phase = 'awaitingPlay'
+    expect(getLegalMoves(s, 0)).toContainEqual({ kind: 'requestGoOutConsent' })
+    const last = s.players[0]!.hand[0]!.id
+    expect(tryApply(s, { kind: 'requestGoOutConsent' }, 0)).toEqual({ ok: true })
+    expect(s.phase).toBe('awaitingGoOutConsent')
+    expect(s.pendingGoOut).toEqual({ playerIndex: 0, discardId: last })
+    expect(getLegalMoves(s, 2).some((m) => m.kind === 'consentGoOut')).toBe(true)
+  })
 })
 
 describe('going out and scoring', () => {

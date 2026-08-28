@@ -14,6 +14,8 @@ type Props = {
   onPass?: () => void
   onClear: () => void
   onDropGroup: (index: number) => void
+  onRequestGoOut?: () => void
+  partnerName?: string
 }
 
 function inspectGroup(ids: string[], hand: Card[], config: MatchState['config']) {
@@ -44,6 +46,8 @@ export function MeldBuilder({
   onPass,
   onClear,
   onDropGroup,
+  onRequestGoOut,
+  partnerName = 'partner',
 }: Props) {
   const me = state.players[localIndex]!
   const team = state.teams[me.team]!
@@ -65,7 +69,10 @@ export function MeldBuilder({
     state.phase === 'awaitingPlay' &&
     state.currentPlayer === localIndex &&
     me.hand.length === 1
-  const canDiscard = one && state.phase === 'awaitingPlay' && state.currentPlayer === localIndex
+  const canDiscard =
+    state.phase === 'awaitingPlay' &&
+    state.currentPlayer === localIndex &&
+    (one || me.hand.length === 1)
   const showStaging = !team.hasInitialMeld && selected.length >= 2
   const meldLabel = !inspected.length
     ? 'Meld'
@@ -132,9 +139,14 @@ export function MeldBuilder({
                 : x.m.rank}
           </button>
         ))}
-        <button type="button" className="btn ghost" disabled={!one || !canDiscard} onClick={onDiscard}>
+        <button type="button" className="btn ghost" disabled={!canDiscard} onClick={onDiscard}>
           Discard
         </button>
+        {onRequestGoOut ? (
+          <button type="button" className="btn secondary" onClick={onRequestGoOut}>
+            Ask {partnerName} to go out
+          </button>
+        ) : null}
         {onPass ? (
           <button type="button" className="btn ghost" disabled={!canPass} onClick={onPass}>
             Pass
