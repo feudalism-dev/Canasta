@@ -395,6 +395,21 @@ export function readyToAskPartnerGoOut(state: MatchState, playerIndex: number): 
 }
 
 function beginGoOutConsent(state: MatchState, playerIndex: number, discardId: string | null): void {
+  const mate = partnerIndex(state, playerIndex)
+  if (mate < 0 || !state.players[mate]!.isHuman) {
+    if (discardId) {
+      const player = state.players[playerIndex]!
+      const { rest, taken } = takeCards(player.hand, [discardId])
+      if (taken[0]) {
+        player.hand = rest
+        state.discard.push(taken[0])
+        if (isWild(taken[0]) && state.config.freezeOnWildDiscard) state.discardFrozen = true
+        if (isRedThree(taken[0]) && state.config.house.redThreeDiscardFreezes) state.discardFrozen = true
+      }
+    }
+    finishRound(state, playerIndex)
+    return
+  }
   const player = state.players[playerIndex]!
   state.pendingGoOut = { playerIndex, discardId }
   state.phase = 'awaitingGoOutConsent'

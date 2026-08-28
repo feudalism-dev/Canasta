@@ -4,6 +4,7 @@ import {
   claimCardsForPile,
   initialMeldMinimum,
   isMyDraw,
+  needsPartnerGoOutConsent,
   peekDiscard,
   pileFrozenFor,
   pileIsStopped,
@@ -69,11 +70,11 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
       return `Your turn. Books: ${books.clean} clean, ${books.dirty} dirty. Need ${needC} clean and ${needD} dirty to go out.`
     }
     if (state.config.requireDiscardToGoOut) {
-      return state.config.house.partnerConsent
+      return needsPartnerGoOutConsent(state, playerIndex)
         ? 'Your turn. You have the books. Discard your last card — you will be asked to get partner permission before going out.'
         : 'Your turn. You have the books. Discard your last card to go out.'
     }
-    return state.config.house.partnerConsent
+    return needsPartnerGoOutConsent(state, playerIndex)
       ? 'Your turn. You have the books. Meld or discard to go out — you will confirm before asking your partner.'
       : 'Your turn. You have the books. You may meld your last cards or discard to go out.'
   }
@@ -190,13 +191,13 @@ function lessonFor(state: MatchState, playerIndex: number, selectedIds: string[]
       return `Clean books are seven naturals (no wilds). Dirty books mix in wilds. You need ${needC} clean and ${needD} dirty before anyone on your team can go out.`
     }
     if (cfg.requireDiscardToGoOut) {
-      return cfg.house.partnerConsent
+      return needsPartnerGoOutConsent(state, playerIndex)
         ? 'Empty the Foot, then discard the last card. You will confirm before your partner is asked for permission.'
         : 'To go out, empty the Foot and discard the last card. Keep one card in hand until that discard.'
     }
-    return cfg.house.partnerConsent
-      ? 'Meld or discard your last cards, then confirm so your partner can approve going out. A computer partner always allows it.'
-      : 'You may meld your last cards to go out, or discard the last one.'
+    return needsPartnerGoOutConsent(state, playerIndex)
+      ? 'Meld or discard your last cards, then confirm so your partner can approve going out.'
+      : 'You may meld your last cards to go out, or discard the last one. A computer partner always allows it.'
   }
 
   if (books.clean + books.dirty === 0) {

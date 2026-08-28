@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildDeck, isRedThree, isWild, makeCard, type Card } from './cards'
 import { createMatch } from './state'
-import { claimCardsForPile, getLegalMoves, initialMeldMinimum, peekDiscard, tryApply, type MatchState } from './rules'
+import { claimCardsForPile, getLegalMoves, initialMeldMinimum, peekDiscard, readyToAskPartnerGoOut, tryApply, type MatchState } from './rules'
 import { sortMeldsForDisplay, teamCanastaCounts } from './melds'
 import { eventsForMove } from './displayEvents'
 import { scoreTeamHand } from './score'
@@ -533,6 +533,36 @@ describe('Hand and Foot', () => {
   })
 
   it('does not pause for a computer partner when going out', () => {
+    const s = createMatch({
+      variant: 'handAndFoot',
+      names: ['You', 'Brass', 'Velvet', 'Lamp'],
+      humans: [true, false, false, false],
+      seed: 4,
+    })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      { rank: 'A', cards: aces(4).concat(wilds(3)), closed: true },
+    ]
+    forceHands(
+      s,
+      [[makeCard(500, 'H', '4', 0)], fillLow(8, 80), fillLow(8, 160), fillLow(8, 240)],
+      [makeCard(99, 'H', '9', 0)],
+      fillLow(20, 400),
+    )
+    for (const p of s.players) p.footPickedUp = true
+    s.phase = 'awaitingPlay'
+    s.currentPlayer = 0
+    expect(readyToAskPartnerGoOut(s, 0)).toBe(false)
+    const last = s.players[0]!.hand[0]!.id
+    const res = tryApply(s, { kind: 'discard', cardId: last }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.phase).toBe('roundEnd')
+    expect(s.wentOutPlayer).toBe(0)
+    expect(s.pendingGoOut).toBeNull()
+  })
+
+  it('computer opponent goes out without consent pause', () => {
     const s = createMatch({
       variant: 'handAndFoot',
       names: ['You', 'Brass', 'Velvet', 'Lamp'],
