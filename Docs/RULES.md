@@ -97,7 +97,7 @@ House toggle: require **two clean and two dirty** instead of 1+1.
 - Partner must consent to go out (default on; ignored in 1v1 and when the partner is a computer)
 - Add to closed books (default off). When on, leftover matching cards may join a finished seven-card book. The book still scores as one clean or dirty canasta; extra cards count as card points.
 - Require a natural pair to pick up the discard pile (default on). When off, an unfrozen pile may be taken by adding the top card to a meld you already have, as in Classic Canasta.
-- Require a discard to go out (default on). When off, you may meld your last cards with no leftover discard, as in Classic Canasta.
+- Require a discard to go out (default **off**; Pagat allows melding your last cards). Turn on if your table prefers a final discard.
 - Discard pickup: entire pile or top 7 only
 - Red 3s: autoplay on draw / on Foot open; replace from hand / on Foot open; discard freezes pile; laid score on/off + points; Hand end penalty; sealed Foot end penalty
 - Black 3s left in Hand/Foot: configurable point penalty (default 5)

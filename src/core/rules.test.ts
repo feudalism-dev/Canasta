@@ -625,8 +625,37 @@ describe('Hand and Foot', () => {
     expect(s.players[0]!.hand).toHaveLength(1)
   })
 
-  it('requires a leftover discard to go out by default', () => {
+  it('allows meld out without a discard by default (Pagat)', () => {
     const s = createMatch({ variant: 'handAndFoot', names: ['A', 'B'], humans: [true, true], seed: 4 })
+    expect(s.config.requireDiscardToGoOut).toBe(false)
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      {
+        rank: 'Q',
+        cards: [0, 1, 2, 3].map((i) => makeCard(30 + i, 'H', 'Q', 0)).concat(wilds(3)),
+        closed: true,
+      },
+    ]
+    forceHands(s, [aces(3, 50), fillLow(13, 200)], [makeCard(99, 'H', '9', 0)], fillLow(20, 400))
+    s.players[0]!.footPickedUp = true
+    s.players[1]!.footPickedUp = true
+    s.phase = 'awaitingPlay'
+    const ids = s.players[0]!.hand.map((c) => c.id)
+    const res = tryApply(s, { kind: 'meld', cardIds: ids }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.phase).toBe('roundEnd')
+    expect(s.wentOutPlayer).toBe(0)
+  })
+
+  it('requires a leftover discard when the house rule is on', () => {
+    const s = createMatch({
+      variant: 'handAndFootHouse',
+      names: ['A', 'B'],
+      humans: [true, true],
+      seed: 4,
+      house: { ...DEFAULT_HOUSE, requireDiscardToGoOut: true },
+    })
     expect(s.config.requireDiscardToGoOut).toBe(true)
     s.teams[0]!.hasInitialMeld = true
     s.teams[0]!.melds = [
@@ -653,7 +682,6 @@ describe('Hand and Foot', () => {
       names: ['A', 'B'],
       humans: [true, true],
       seed: 4,
-      house: { ...DEFAULT_HOUSE, requireDiscardToGoOut: false },
     })
     expect(s.config.requireDiscardToGoOut).toBe(false)
     s.teams[0]!.hasInitialMeld = true
@@ -728,10 +756,11 @@ describe('Hand and Foot', () => {
 
   it('requestGoOutConsent asks the partner when one card remains to discard', () => {
     const s = createMatch({
-      variant: 'handAndFoot',
+      variant: 'handAndFootHouse',
       names: ['You', 'Brass', 'Velvet', 'Lamp'],
       humans: [true, false, true, false],
       seed: 4,
+      house: { ...DEFAULT_HOUSE, requireDiscardToGoOut: true },
     })
     s.teams[0]!.hasInitialMeld = true
     s.teams[0]!.melds = [

@@ -9,7 +9,7 @@ export const PAGAT_HOUSE: HouseRules = {
   wildBooksAllowed: true,
   partnerConsent: true,
   addToClosedBooks: false,
-  requireDiscardToGoOut: true,
+  requireDiscardToGoOut: false,
   requireNaturalPairToTakePile: true,
   autoplayRedThreesOnDraw: true,
   autoplayRedThreesOnFootOpen: true,
@@ -207,6 +207,7 @@ export function houseRulesSummary(house: HouseRules, variant: Variant): string[]
   if (isPagatHandAndFoot(variant)) {
     return [
       'Pagat Hand & Foot (fixed): full discard pile, red 3s auto-lay + replace, −100 in sealed Foot.',
+      'May meld out with no discard.',
     ]
   }
   const h = normalizeHouse(house)
