@@ -237,11 +237,19 @@ function AppInner() {
       const res = local.submit(move)
       if (!res.ok) {
         push(res.error)
+        setStatus(res.error)
+        setTick((t) => t + 1)
+        return
+      }
+    } else if (peer) {
+      const res = peer.submit(move)
+      if (!res.ok) {
+        push(res.error)
+        setStatus(res.error)
         setTick((t) => t + 1)
         return
       }
     }
-    peer?.submit(move)
     setMeldGroups([])
     setTick((t) => t + 1)
   }

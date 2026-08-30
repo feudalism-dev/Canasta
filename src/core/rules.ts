@@ -321,20 +321,26 @@ function teamHasGoingOutBooks(state: MatchState, teamIndex: 0 | 1): boolean {
   return booksAllowGoingOut(state, state.teams[teamIndex]!.melds)
 }
 
+/** Human partners must open Foot before you go out; computer partners never block. */
+function partnerFootBlocksGoOut(state: MatchState, playerIndex: number): boolean {
+  if (state.config.footSize <= 0) return false
+  const partner = partnerOf(state, playerIndex)
+  if (!partner || partner.footPickedUp) return false
+  return partner.isHuman
+}
+
 /** Cards that must stay in hand after a meld so the player can still discard (or go out). */
 function minCardsToKeep(state: MatchState, playerIndex: number, meldsAfter: Meld[]): number {
   const player = state.players[playerIndex]!
   if (state.config.footSize > 0 && !player.footPickedUp) return 0
-  const partner = partnerOf(state, playerIndex)
-  const partnerFootOk = !(partner && state.config.footSize > 0 && !partner.footPickedUp)
+  const partnerBlocks = partnerFootBlocksGoOut(state, playerIndex)
   const booksOk = booksAllowGoingOut(state, meldsAfter)
-  if (booksOk && partnerFootOk) {
+  if (booksOk && !partnerBlocks) {
     if (state.config.requireDiscardToGoOut) return 1
     return 0
   }
-  // Books ready but partner still in Hand: allow melding down to one leftover discard.
-  // (Discarding that last card still waits until partner opens their Foot.)
-  if (booksOk && !partnerFootOk) return 1
+  // Books ready but human partner still in Hand: allow melding down to one leftover.
+  if (booksOk && partnerBlocks) return 1
   return 2
 }
 
@@ -354,11 +360,11 @@ function canPlayerGoOut(state: MatchState, playerIndex: number): ApplyResult {
     }
     return { ok: false, error: 'Your team does not have the required books to go out.' }
   }
-  const partner = partnerOf(state, playerIndex)
-  if (partner && cfg.footSize > 0 && !partner.footPickedUp) {
+  if (partnerFootBlocksGoOut(state, playerIndex)) {
+    const partner = partnerOf(state, playerIndex)
     return {
       ok: false,
-      error: `${partner.displayName} (your partner) must pick up their Foot before you can go out.`,
+      error: `${partner?.displayName ?? 'Your partner'} must pick up their Foot before you can go out.`,
     }
   }
   return { ok: true }
@@ -664,9 +670,9 @@ function keepCardsError(state: MatchState, meldsAfter: Meld[]): string {
     }
     return 'You need the required books to go out. Keep enough cards to discard.'
   }
-  const partner = partnerOf(state, state.currentPlayer)
-  if (partner && state.config.footSize > 0 && !partner.footPickedUp) {
-    return `${partner.displayName} must open their Foot before you can go out. You can add to books, but keep one card.`
+  if (partnerFootBlocksGoOut(state, state.currentPlayer)) {
+    const partner = partnerOf(state, state.currentPlayer)
+    return `${partner?.displayName ?? 'Your partner'} must open their Foot before you can go out. Keep one card until then.`
   }
   if (state.config.requireDiscardToGoOut) {
     return 'Keep a card to discard — Hand and Foot goes out on a final discard.'

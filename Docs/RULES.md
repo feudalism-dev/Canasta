@@ -79,7 +79,7 @@ Four rounds, then highest total wins. Round initial-meld minimums: **50 / 90 / 1
 
 **Foot:** The moment the Hand is empty, pick up the Foot. If that happened by **discarding** the last Hand card, the turn ends. If it happened by **melding**, continue the same turn (still discard unless going out).
 
-**Going out (default):** Foot picked up, team has **at least one clean and one dirty** book, partner has picked up their Foot, **partner consents**, and you discard your last card. +100 for going out. Consent is asked only of your partner, never the other team. Computer partners allow going out automatically.
+**Going out (default):** Foot picked up, team has **at least one clean and one dirty** book, partner has picked up their Foot, **partner consents**, and you discard your last card. +100 for going out. Consent is asked only of your partner, never the other team. **Computer partners never block going out** (no Foot wait, no consent).
 
 House toggle: require **two clean and two dirty** instead of 1+1.
 

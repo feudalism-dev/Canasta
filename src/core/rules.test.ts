@@ -811,11 +811,11 @@ describe('Hand and Foot', () => {
     expect(getLegalMoves(s, 2).some((m) => m.kind === 'consentGoOut')).toBe(true)
   })
 
-  it('blocks going out until the computer partner opens Foot, but allows adding down to one card', () => {
+  it('blocks going out until a human partner opens Foot, but allows adding down to one card', () => {
     const s = createMatch({
       variant: 'handAndFoot',
       names: ['You', 'Brass', 'Velvet', 'Lamp'],
-      humans: [true, false, false, false],
+      humans: [true, false, true, false],
       seed: 4,
     })
     s.teams[0]!.hasInitialMeld = true
@@ -841,6 +841,33 @@ describe('Hand and Foot', () => {
     const last = tryApply(s, { kind: 'discard', cardId: seven.id }, 0)
     expect(last.ok).toBe(false)
     if (!last.ok) expect(last.error).toMatch(/Foot/)
+  })
+
+  it('does not wait on a computer partner Foot before going out', () => {
+    const s = createMatch({
+      variant: 'handAndFoot',
+      names: ['You', 'Brass', 'Velvet', 'Lamp'],
+      humans: [true, false, false, false],
+      seed: 4,
+    })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      { rank: '10', cards: [0, 1, 2, 3].map((i) => makeCard(40 + i, 'C', '10', 0)).concat(wilds(3)), closed: true },
+    ]
+    const last = makeCard(501, 'H', '7', 0)
+    forceHands(
+      s,
+      [[last], fillLow(13, 80), fillLow(13, 160), fillLow(13, 240)],
+      [makeCard(99, 'H', '9', 0)],
+      fillLow(20, 400),
+    )
+    s.players[0]!.footPickedUp = true
+    s.players[2]!.footPickedUp = false
+    s.phase = 'awaitingPlay'
+    expect(tryApply(s, { kind: 'discard', cardId: last.id }, 0)).toEqual({ ok: true })
+    expect(s.phase).toBe('roundEnd')
+    expect(s.wentOutPlayer).toBe(0)
   })
 })
 

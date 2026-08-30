@@ -80,7 +80,7 @@ export type PeerSession = {
   setVariant: (v: Variant) => void
   setHouse: (house: HouseRules) => void
   startMatch: (occupants?: Occupant[]) => void
-  submit: (move: GameMove) => void
+  submit: (move: GameMove) => { ok: true } | { ok: false; error: string }
   quitWaiting: () => void
   destroy: () => void
 }
@@ -650,7 +650,7 @@ function buildSession(
       if (disconnectWait) {
         status = `Waiting for ${disconnectWait.name} to return.`
         notify()
-        return
+        return { ok: false as const, error: status }
       }
       if (isHost && state) {
         const prev = cloneState(state)
@@ -659,18 +659,19 @@ function buildSession(
         if (!res.ok) {
           status = res.error
           notify()
-          return
+          return res
         }
         playSfxForMove(prev, state, move, who)
         broadcast({ t: 'state', state })
         status = state.lastMessage
         notify()
         void pumpAi()
-      } else {
-        playSfxForMove(null, null, move, localIndexOf())
-        const hostConn = [...conns.values()][0]
-        if (hostConn) send(hostConn, { t: 'move', move, playerIndex: localIndexOf() })
+        return { ok: true as const }
       }
+      playSfxForMove(null, null, move, localIndexOf())
+      const hostConn = [...conns.values()][0]
+      if (hostConn) send(hostConn, { t: 'move', move, playerIndex: localIndexOf() })
+      return { ok: true as const }
     },
     quitWaiting() {
       if (isHost) {
