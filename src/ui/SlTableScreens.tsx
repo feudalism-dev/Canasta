@@ -94,7 +94,7 @@ export function SlTableScreens({
   isPeerHost,
   onPeerReadyToggle,
   onHowToPlay,
-  coachTips = true,
+  coachTips = false,
   onCoachTips,
 }: Props) {
   const seatedBrowser = boot.client === 'browser' && !!boot.token

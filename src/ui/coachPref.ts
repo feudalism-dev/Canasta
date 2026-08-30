@@ -1,4 +1,4 @@
-/** Solo coach tips: persist across deals. Default on. */
+/** Solo coach tips: persist across deals. Default off. */
 
 export const COACH_TIPS_KEY = 'cn_coach_tips'
 
@@ -10,7 +10,7 @@ export function readCoachTips(): boolean {
   } catch {
     /* private mode / CEF */
   }
-  return true
+  return false
 }
 
 export function writeCoachTips(on: boolean): void {
