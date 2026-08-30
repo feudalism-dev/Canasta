@@ -78,6 +78,15 @@ body,
   opacity: 0.8;
 }
 
+.chrome-rev {
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  opacity: 0.45;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+  margin-left: 0.15rem;
+}
+
 .scale-btn,
 .chrome-help-btn,
 .chrome-browser-btn {

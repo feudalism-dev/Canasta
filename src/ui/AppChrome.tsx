@@ -38,12 +38,33 @@ export function AppChrome({
   const [scale, setScale] = useState(() => defaultUiScale())
   const [helpOpen, setHelpOpen] = useState(false)
   const [sfxOn, setSfxOn] = useState(() => readSfxEnabled())
+  const [buildRev, setBuildRev] = useState(() => (slBoot?.rev || '').trim())
   const seated = Boolean(slBoot && slBoot.slCap && !parked)
   const alreadyBrowser = slBoot?.client === 'browser'
 
   useEffect(() => {
     applyUiScale(scale)
   }, [scale])
+
+  useEffect(() => {
+    let cancelled = false
+    const base = import.meta.env.BASE_URL || '/'
+    void fetch(`${base}asset-rev.txt`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.text() : ''))
+      .then((text) => {
+        if (cancelled) return
+        const fileRev = text.trim().split(/\s+/)[0] || ''
+        const urlRev = (slBoot?.rev || '').trim()
+        // Prefer URL rev (what MoAP actually loaded); fall back to deployed file.
+        setBuildRev(urlRev || fileRev)
+      })
+      .catch(() => {
+        /* keep URL rev if any */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [slBoot?.rev])
 
   useEffect(() => {
     preloadSfx()
@@ -162,6 +183,11 @@ export function AppChrome({
           )}
           {alreadyBrowser && slBoot ? (
             <span className="chrome-note">Browser table · seat {(slBoot.seat >= 0 ? slBoot.seat : 0) + 1}</span>
+          ) : null}
+          {buildRev ? (
+            <span className="chrome-rev" title="Asset revision (MoAP cache)">
+              r{buildRev}
+            </span>
           ) : null}
         </div>
       </div>
