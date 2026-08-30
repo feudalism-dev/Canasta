@@ -327,11 +327,14 @@ function minCardsToKeep(state: MatchState, playerIndex: number, meldsAfter: Meld
   if (state.config.footSize > 0 && !player.footPickedUp) return 0
   const partner = partnerOf(state, playerIndex)
   const partnerFootOk = !(partner && state.config.footSize > 0 && !partner.footPickedUp)
-  const canOut = booksAllowGoingOut(state, meldsAfter) && partnerFootOk
-  if (canOut) {
+  const booksOk = booksAllowGoingOut(state, meldsAfter)
+  if (booksOk && partnerFootOk) {
     if (state.config.requireDiscardToGoOut) return 1
     return 0
   }
+  // Books ready but partner still in Hand: allow melding down to one leftover discard.
+  // (Discarding that last card still waits until partner opens their Foot.)
+  if (booksOk && !partnerFootOk) return 1
   return 2
 }
 
@@ -353,7 +356,10 @@ function canPlayerGoOut(state: MatchState, playerIndex: number): ApplyResult {
   }
   const partner = partnerOf(state, playerIndex)
   if (partner && cfg.footSize > 0 && !partner.footPickedUp) {
-    return { ok: false, error: 'Your partner has not picked up their Foot.' }
+    return {
+      ok: false,
+      error: `${partner.displayName} (your partner) must pick up their Foot before you can go out.`,
+    }
   }
   return { ok: true }
 }
@@ -652,11 +658,18 @@ function previewMeldsAfterPacks(
 }
 
 function keepCardsError(state: MatchState, meldsAfter: Meld[]): string {
+  if (!booksAllowGoingOut(state, meldsAfter)) {
+    if (state.config.goingOutRule === 'canasta') {
+      return 'You need a canasta to go out. Add these to an existing pile, or keep cards to discard.'
+    }
+    return 'You need the required books to go out. Keep enough cards to discard.'
+  }
+  const partner = partnerOf(state, state.currentPlayer)
+  if (partner && state.config.footSize > 0 && !partner.footPickedUp) {
+    return `${partner.displayName} must open their Foot before you can go out. You can add to books, but keep one card.`
+  }
   if (state.config.requireDiscardToGoOut) {
     return 'Keep a card to discard — Hand and Foot goes out on a final discard.'
-  }
-  if (!booksAllowGoingOut(state, meldsAfter)) {
-    return 'You need a canasta to go out. Add these to an existing pile, or keep cards to discard.'
   }
   return 'Keep enough cards to discard — you cannot go out yet.'
 }

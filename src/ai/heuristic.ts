@@ -1,6 +1,8 @@
 import { isBlackThree, isWild, type Card } from '../core/cards'
-import { isSequenceMeld, meldIsWildBook } from '../core/melds'
+import { isHandAndFoot } from '../core/houseRules'
+import { isSequenceMeld, meldIsWildBook, teamCanastaCounts } from '../core/melds'
 import { claimCardsForPile, getLegalMoves, peekDiscard } from '../core/rules'
+import { partnerOf } from '../core/score'
 import { meldIsSamba } from '../core/sequences'
 import type { GameMove, MatchState, Meld } from '../core/types'
 
@@ -29,17 +31,36 @@ function closingAddPriority(meld: Meld, state: MatchState): number {
   return 20 + meld.cards.length
 }
 
+/** Partner is ready to go out — this seat must open Foot (or finish) so the hand can end. */
+function partnerWaitingOnFoot(state: MatchState, playerIndex: number): boolean {
+  if (!isHandAndFoot(state.config.variant)) return false
+  const me = state.players[playerIndex]!
+  if (me.footPickedUp) return false
+  const partner = partnerOf(state, playerIndex)
+  if (!partner || !partner.footPickedUp) return false
+  const books = teamCanastaCounts(state.teams[me.team]!.melds, state.config.canastaSize)
+  const needC = state.config.house.goingOutClean
+  const needD = state.config.house.goingOutDirty
+  return books.clean >= needC && books.dirty + books.wild >= needD
+}
+
 export function pickAiMove(state: MatchState, playerIndex: number, difficulty: AiDifficulty): GameMove | null {
   const moves = getLegalMoves(state, playerIndex)
   if (moves.length === 0) return null
-  if (difficulty === 'easy') {
+  const rushFoot = partnerWaitingOnFoot(state, playerIndex)
+  if (difficulty === 'easy' && !rushFoot) {
+    const melds = moves.filter((m) => m.kind === 'meld' || m.kind === 'addToMeld')
+    // Still empty the Hand sometimes so a computer partner can open Foot.
+    if (state.phase === 'awaitingPlay' && melds.length && Math.random() < 0.35) {
+      return melds[Math.floor(Math.random() * melds.length)]!
+    }
     const discards = moves.filter((m) => m.kind === 'discard')
     if (state.phase === 'awaitingPlay' && discards.length) {
       return discards[Math.floor(Math.random() * discards.length)]!
     }
     return moves[Math.floor(Math.random() * moves.length)]!
   }
-  const sharp = difficulty === 'sharp'
+  const sharp = difficulty === 'sharp' || rushFoot
   if (state.phase === 'awaitingGoOutConsent') {
     const yes = moves.find((m) => m.kind === 'consentGoOut' && m.accept)
     const no = moves.find((m) => m.kind === 'consentGoOut' && !m.accept)
@@ -107,7 +128,7 @@ export function pickAiMove(state: MatchState, playerIndex: number, difficulty: A
       })
       if (seqMeld && sharp) return seqMeld
     }
-    if (melds[0] && sharp) return melds[0]
+    if (melds[0] && (sharp || rushFoot)) return melds[0]
     if (melds[0] && Math.random() < 0.45) return melds[0]
   }
   const pass = moves.find((m) => m.kind === 'pass')

@@ -810,6 +810,38 @@ describe('Hand and Foot', () => {
     expect(s.pendingGoOut).toEqual({ playerIndex: 0, discardId: last })
     expect(getLegalMoves(s, 2).some((m) => m.kind === 'consentGoOut')).toBe(true)
   })
+
+  it('blocks going out until the computer partner opens Foot, but allows adding down to one card', () => {
+    const s = createMatch({
+      variant: 'handAndFoot',
+      names: ['You', 'Brass', 'Velvet', 'Lamp'],
+      humans: [true, false, false, false],
+      seed: 4,
+    })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      { rank: 'A', cards: aces(3).concat(wilds(3)), closed: false },
+      { rank: '10', cards: [0, 1, 2, 3].map((i) => makeCard(40 + i, 'C', '10', 0)).concat(wilds(3)), closed: true },
+    ]
+    const ace = makeCard(500, 'S', 'A', 0)
+    const seven = makeCard(501, 'H', '7', 0)
+    forceHands(
+      s,
+      [[ace, seven], fillLow(13, 80), fillLow(13, 160), fillLow(13, 240)],
+      [makeCard(99, 'H', '9', 0)],
+      fillLow(20, 400),
+    )
+    s.players[0]!.footPickedUp = true
+    s.players[2]!.footPickedUp = false
+    s.phase = 'awaitingPlay'
+    const aceMeld = s.teams[0]!.melds.findIndex((m) => m.rank === 'A')
+    expect(tryApply(s, { kind: 'addToMeld', meldIndex: aceMeld, cardIds: [ace.id] }, 0)).toEqual({ ok: true })
+    expect(s.players[0]!.hand).toHaveLength(1)
+    const last = tryApply(s, { kind: 'discard', cardId: seven.id }, 0)
+    expect(last.ok).toBe(false)
+    if (!last.ok) expect(last.error).toMatch(/Foot/)
+  })
 })
 
 describe('going out and scoring', () => {

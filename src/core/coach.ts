@@ -72,6 +72,10 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
         ? `Your turn. Books: ${books.clean} clean, ${books.dirty} dirty, ${books.wild} wild. Need ${needC} clean and ${needD} dirty (wild books count).`
         : `Your turn. Books: ${books.clean} clean, ${books.dirty} dirty. Need ${needC} clean and ${needD} dirty to go out.`
     }
+    const partner = partnerOf(state, playerIndex)
+    if (partner && state.config.footSize > 0 && !partner.footPickedUp) {
+      return `Your turn. You have the books, but ${partner.displayName} must pick up their Foot before you can go out.`
+    }
     if (state.config.requireDiscardToGoOut) {
       return needsPartnerGoOutConsent(state, playerIndex)
         ? 'Your turn. You have the books. Discard your last card — you will be asked to get partner permission before going out.'
