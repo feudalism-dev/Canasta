@@ -41,6 +41,20 @@ function fitsSequenceGroup(existing: Card[], card: Card): boolean {
   return isConsecutiveSequence([...naturals, card])
 }
 
+function groupIsAllWild(ids: string[], byId: Map<string, Card>): boolean {
+  const cards = cardsOf(ids, byId)
+  return cards.length > 0 && cards.every((c) => isWild(c))
+}
+
+/** Pair of naturals that still needs a wild to become a legal meld. */
+function needsWildToComplete(ids: string[], byId: Map<string, Card>): boolean {
+  const cards = cardsOf(ids, byId)
+  if (cards.length !== 2) return false
+  if (cards.some((c) => isWild(c))) return false
+  const rank = naturalRank(cards)
+  return Boolean(rank && rank !== 'MIXED')
+}
+
 export function addCardToGroups(
   groups: string[][],
   card: Card,
@@ -60,8 +74,26 @@ export function addCardToGroups(
     last.push(card.id)
     return next
   }
+  if (isWild(card)) {
+    // Prefer an existing all-wild staging group (wild book), not gluing onto naturals.
+    const wildIdx = next.findIndex((g) => groupIsAllWild(g, byId))
+    if (wildIdx >= 0) {
+      next[wildIdx]!.push(card.id)
+      return next
+    }
+    if (needsWildToComplete(last, byId)) {
+      last.push(card.id)
+      return next
+    }
+    // Complete natural/dirty set already staged — start a separate wild book.
+    if (lastCards.some((c) => !isWild(c)) && lastCards.length >= 3) {
+      return [...next, [card.id]]
+    }
+    last.push(card.id)
+    return next
+  }
   const lastRank = naturalRank(lastCards)
-  if (isWild(card) || lastRank === null || lastRank === card.rank) {
+  if (lastRank === null || lastRank === card.rank) {
     last.push(card.id)
     return next
   }
@@ -78,6 +110,23 @@ export function addRankToGroups(
   if (allOn) {
     const drop = new Set(ids)
     return groups.map((g) => g.filter((id) => !drop.has(id))).filter((g) => g.length > 0)
+  }
+  const cards = ids.map((id) => byId.get(id)).filter((c): c is Card => Boolean(c))
+  // Tapping Deuces / Wild ★ should stage a wild book, not dump every wild onto the last natural set.
+  if (cards.length > 0 && cards.every((c) => isWild(c))) {
+    let next = groups.map((g) => [...g])
+    const remaining = [...ids]
+    if (next.length > 0 && needsWildToComplete(next[next.length - 1]!, byId) && remaining.length > 0) {
+      const last = next[next.length - 1]!
+      last.push(remaining.shift()!)
+    }
+    if (!remaining.length) return next
+    const wildIdx = next.findIndex((g) => groupIsAllWild(g, byId))
+    if (wildIdx >= 0) {
+      next[wildIdx] = [...next[wildIdx]!, ...remaining]
+      return next
+    }
+    return [...next, remaining]
   }
   let next = groups.map((g) => [...g])
   for (const id of ids) {

@@ -66,8 +66,11 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
     if (!me.footPickedUp) return 'Your turn. Meld or discard. Empty your Hand to pick up the Foot.'
     const needC = state.config.house.goingOutClean
     const needD = state.config.house.goingOutDirty
-    if (books.clean < needC || books.dirty < needD) {
-      return `Your turn. Books: ${books.clean} clean, ${books.dirty} dirty. Need ${needC} clean and ${needD} dirty to go out.`
+    const dirtyLike = books.dirty + books.wild
+    if (books.clean < needC || dirtyLike < needD) {
+      return books.wild > 0
+        ? `Your turn. Books: ${books.clean} clean, ${books.dirty} dirty, ${books.wild} wild. Need ${needC} clean and ${needD} dirty (wild books count).`
+        : `Your turn. Books: ${books.clean} clean, ${books.dirty} dirty. Need ${needC} clean and ${needD} dirty to go out.`
     }
     if (state.config.requireDiscardToGoOut) {
       return needsPartnerGoOutConsent(state, playerIndex)
@@ -187,8 +190,9 @@ function lessonFor(state: MatchState, playerIndex: number, selectedIds: string[]
   if (isHandAndFoot(cfg.variant)) {
     const needC = cfg.house.goingOutClean
     const needD = cfg.house.goingOutDirty
-    if (books.clean < needC || books.dirty < needD) {
-      return `Clean books are seven naturals (no wilds). Dirty books mix in wilds. You need ${needC} clean and ${needD} dirty before anyone on your team can go out.`
+    const dirtyLike = books.dirty + books.wild
+    if (books.clean < needC || dirtyLike < needD) {
+      return `Clean books are seven naturals (no wilds). Dirty books mix in wilds. A wild book (all 2s/jokers) also counts toward the dirty requirement. You need ${needC} clean and ${needD} dirty before anyone on your team can go out.`
     }
     if (cfg.requireDiscardToGoOut) {
       return needsPartnerGoOutConsent(state, playerIndex)

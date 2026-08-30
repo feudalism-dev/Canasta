@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeCard } from '../core/cards'
 import { variantConfig } from '../core/variants'
-import { addCardToGroups } from './meldSelect'
+import { addCardToGroups, addRankToGroups } from './meldSelect'
 
 describe('meldSelect', () => {
   const samba = variantConfig('samba', 2)
@@ -36,5 +36,33 @@ describe('meldSelect', () => {
     let groups = addCardToGroups([], c6, byId, samba)
     groups = addCardToGroups(groups, c7, byId, samba)
     expect(groups).toEqual([[c6.id], [c7.id]])
+  })
+
+  it('stages a wild book separately from a complete natural set', () => {
+    const k1 = makeCard(0, 'H', 'K', 0)
+    const k2 = makeCard(0, 'D', 'K', 1)
+    const k3 = makeCard(0, 'S', 'K', 2)
+    const w1 = makeCard(0, 'H', '2', 0)
+    const w2 = makeCard(0, 'D', '2', 1)
+    const w3 = makeCard(0, 'S', '2', 2)
+    const byId = new Map([k1, k2, k3, w1, w2, w3].map((c) => [c.id, c]))
+    let groups = addCardToGroups([], k1, byId, classic)
+    groups = addCardToGroups(groups, k2, byId, classic)
+    groups = addCardToGroups(groups, k3, byId, classic)
+    groups = addRankToGroups(groups, [w1.id, w2.id, w3.id], byId, classic)
+    expect(groups).toEqual([[k1.id, k2.id, k3.id], [w1.id, w2.id, w3.id]])
+  })
+
+  it('still gives one wild to an incomplete natural pair', () => {
+    const k1 = makeCard(0, 'H', 'K', 0)
+    const k2 = makeCard(0, 'D', 'K', 1)
+    const w1 = makeCard(0, 'H', '2', 0)
+    const w2 = makeCard(0, 'D', '2', 1)
+    const w3 = makeCard(0, 'S', '2', 2)
+    const byId = new Map([k1, k2, w1, w2, w3].map((c) => [c.id, c]))
+    let groups = addCardToGroups([], k1, byId, classic)
+    groups = addCardToGroups(groups, k2, byId, classic)
+    groups = addRankToGroups(groups, [w1.id, w2.id, w3.id], byId, classic)
+    expect(groups).toEqual([[k1.id, k2.id, w1.id], [w2.id, w3.id]])
   })
 })

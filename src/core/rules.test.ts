@@ -482,6 +482,34 @@ describe('Hand and Foot', () => {
     expect(teamCanastaCounts(s.teams[0]!.melds, 7).dirty).toBe(1)
   })
 
+  it('lets Pagat Hand and Foot meld an all-wild book', () => {
+    const s = createMatch({ variant: 'handAndFoot', names: ['A', 'B'], humans: [true, true], seed: 4 })
+    expect(s.config.house.wildBooksAllowed).toBe(true)
+    forceHands(s, [wilds(3).concat(fillLow(10, 70)), fillLow(13, 20)], [makeCard(99, 'H', '9', 0)], fillLow(40, 80))
+    s.teams[0]!.hasInitialMeld = true
+    s.phase = 'awaitingPlay'
+    const ids = s.players[0]!.hand.filter(isWild).slice(0, 3).map((c) => c.id)
+    const res = tryApply(s, { kind: 'meld', cardIds: ids }, 0)
+    expect(res).toEqual({ ok: true })
+    expect(s.teams[0]!.melds.some((m) => m.rank === 'WILD')).toBe(true)
+  })
+
+  it('counts a wild book toward the dirty go-out requirement', () => {
+    const s = createMatch({ variant: 'handAndFoot', names: ['A', 'B'], humans: [true, true], seed: 4 })
+    s.teams[0]!.hasInitialMeld = true
+    s.teams[0]!.melds = [
+      { rank: 'K', cards: kings(7), closed: true },
+      { rank: 'WILD', cards: wilds(7), closed: true },
+    ]
+    forceHands(s, [aces(3, 50), fillLow(13, 200)], [makeCard(99, 'H', '9', 0)], fillLow(20, 400))
+    s.players[0]!.footPickedUp = true
+    s.players[1]!.footPickedUp = true
+    s.phase = 'awaitingPlay'
+    const ids = s.players[0]!.hand.map((c) => c.id)
+    expect(tryApply(s, { kind: 'meld', cardIds: ids }, 0)).toEqual({ ok: true })
+    expect(s.phase).toBe('roundEnd')
+  })
+
   it('honors 2 clean + 2 dirty going-out toggle', () => {
     const s = createMatch({
       variant: 'handAndFootHouse',
