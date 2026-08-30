@@ -15,6 +15,7 @@ import {
   isSambaFamily,
   normalizeHouse,
 } from '../core/houseRules'
+import { clearMatchResume } from '../net/matchResume'
 import {
   tableClaimBrowser,
   tableCreate,
@@ -25,6 +26,7 @@ import {
   tableSaveHouse,
   tableStart,
   tableStatus,
+  tableEndGame,
   type TableStatus,
 } from '../sl/tableApi'
 
@@ -196,6 +198,7 @@ export function SlTableScreens({
   const activeCount = table?.activeCount ?? 0
   const me = table?.roster?.find((r) => r.uid.toLowerCase() === boot.uid.toLowerCase())
   const iAmHost = (table?.hostUid || '').toLowerCase() === boot.uid.toLowerCase()
+  const iAmSolo = (table?.soloUid || '').toLowerCase() === boot.uid.toLowerCase()
   const iJoined = !!me?.joined
   const tableBusy = mode !== 'idle'
   const canSolo = !seatedBrowser && entered && !tableBusy && activeCount <= 1
@@ -210,6 +213,11 @@ export function SlTableScreens({
   const rulesLocked = peerHasState || mode === 'match'
   const canEditRules =
     !rulesLocked && (Boolean(isPeerHost) || iAmHost || (mode === 'idle' && !table?.roomCode))
+  /** Soft Menu leave / HUD restart leaves the table in solo with no lobby UI — need an explicit unlock. */
+  const canFreeTable =
+    !seatedBrowser &&
+    entered &&
+    (mode === 'solo' || mode === 'resetting' || (mode === 'match' && !peerLive && (iAmHost || iJoined)))
   const youSeat = me?.seat ?? (boot.seat >= 0 ? boot.seat : 0)
   const myPeer = (peerSeats || []).find((s) => (s.avatarUid || '').toLowerCase() === boot.uid.toLowerCase())
   const iAmReady = !!myPeer?.ready
@@ -281,6 +289,17 @@ export function SlTableScreens({
             }}
           />
         </label>
+        {!canEditRules ? (
+          <p className="muted">
+            {mode === 'match'
+              ? 'Game choice is locked while a match is running.'
+              : mode === 'solo'
+                ? 'Table is still locked from a previous solo game — Free table below, then pick Hand & Foot.'
+                : mode === 'lobby'
+                  ? 'Only the lobby host can change the game until the match starts.'
+                  : 'Game choice is locked for this table state.'}
+          </p>
+        ) : null}
         {isBetaVariant(variant) ? <BetaVariantNotice compact /> : null}
         {isSambaFamily(variant) ? <HouseRulesPreview house={house} variant={variant} /> : null}
         {!seatedBrowser ? (
@@ -364,6 +383,43 @@ export function SlTableScreens({
                 Resume paused game
               </button>
             ) : null}
+            {canFreeTable || canResumeMatch ? (
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={busy}
+                onClick={() => {
+                  void (async () => {
+                    setBusy(true)
+                    setErr('')
+                    try {
+                      clearMatchResume()
+                      if (boot.slCap) {
+                        const st = await tableEndGame(boot.slCap, boot.uid, youSeat)
+                        setTable(st)
+                        if (!st.ok) throw new Error(st.error || 'Could not free table')
+                      }
+                      setStatus('Table freed — pick a game and Play Solo.')
+                    } catch (e) {
+                      setErr(e instanceof Error ? e.message : 'Could not free table')
+                    } finally {
+                      setBusy(false)
+                    }
+                  })()
+                }}
+              >
+                {canResumeMatch ? 'Abandon paused game' : 'Free table'}
+              </button>
+            ) : null}
+            {canFreeTable && !canResumeMatch ? (
+              <p className="error">
+                {mode === 'solo'
+                  ? iAmSolo
+                    ? 'This table is locked in solo from an earlier game (Menu / HUD restart). Free table to play again.'
+                    : 'Another seat holds the solo lock. Free table if you are that player, or wait for them to finish.'
+                  : `Table mode is “${mode}” — free it before starting a new solo game.`}
+              </p>
+            ) : null}
             <button
               type="button"
               className="btn primary"
@@ -374,8 +430,10 @@ export function SlTableScreens({
             </button>
             <p className="muted">
               {canResumeMatch
-                ? 'A game is paused for this seat (about 60 seconds). Resume it, or it ends when the table grace expires.'
-                : 'Multiplayer is always four hands. Seating picks teams — empty chairs are computers.'}
+                ? 'A game is paused for this seat (about 60 seconds). Resume it, or Abandon to start fresh.'
+                : !canSolo && tableBusy
+                  ? `Solo stays off while the table is “${mode}”.`
+                  : 'Multiplayer is always four hands. Seating picks teams — empty chairs are computers.'}
             </p>
           </>
         ) : (
