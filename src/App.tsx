@@ -593,7 +593,9 @@ function AppInner() {
           groups: meldGroups,
         })
       }
-      onAdd={(meldIndex) => submit({ kind: 'addToMeld', meldIndex, cardIds: [...selectedIds] })}
+      onAdd={(meldIndex, cardIds) =>
+        submit({ kind: 'addToMeld', meldIndex, cardIds: cardIds ?? [...selectedIds] })
+      }
       onDiscard={() => {
         const id = [...selectedIds][0] ?? me.hand[0]?.id
         if (id) submit({ kind: 'discard', cardId: id })

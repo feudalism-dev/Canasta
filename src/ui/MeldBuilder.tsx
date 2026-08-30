@@ -9,7 +9,7 @@ type Props = {
   localIndex: number
   groups: string[][]
   onMeld: () => void
-  onAdd: (meldIndex: number) => void
+  onAdd: (meldIndex: number, cardIds: string[]) => void
   onDiscard: () => void
   onPass?: () => void
   onClear: () => void
@@ -57,12 +57,14 @@ export function MeldBuilder({
   const pts = selected.reduce((n, c) => n + meldCountPoints(c), 0)
   const allComplete = inspected.length > 0 && inspected.every((g) => g.ok)
   const canMeld = allComplete && (team.hasInitialMeld || pts >= need)
-  const addable =
-    inspected.length === 1
-      ? team.melds
-          .map((m, i) => ({ i, m, err: canAddCards(m, selected, state.config) }))
-          .filter((x) => !x.err)
-      : []
+  // Offer Add per staged group so Ace+7 selected still shows "Add Ace to Aces".
+  const addable = inspected.flatMap((g) => {
+    if (!g.cards.length) return []
+    const ids = g.cards.map((c) => c.id)
+    return team.melds
+      .map((m, i) => ({ i, m, ids, err: canAddCards(m, g.cards, state.config) }))
+      .filter((x) => !x.err)
+  })
   const one = selected.length === 1 && groups.length === 1
   const canPass =
     Boolean(onPass) &&
@@ -73,6 +75,12 @@ export function MeldBuilder({
     state.phase === 'awaitingPlay' &&
     state.currentPlayer === localIndex &&
     (one || me.hand.length === 1)
+  const stuckGoOutHint =
+    team.hasInitialMeld &&
+    selected.length > 1 &&
+    !canMeld &&
+    addable.length > 0 &&
+    !canDiscard
   const showStaging = !team.hasInitialMeld && selected.length >= 2
   const meldLabel = !inspected.length
     ? 'Meld'
@@ -130,8 +138,13 @@ export function MeldBuilder({
           {meldLabel}
         </button>
         {addable.map((x) => (
-          <button key={x.i} type="button" className="btn secondary" onClick={() => onAdd(x.i)}>
-            Add {selected.length} to{' '}
+          <button
+            key={`${x.i}-${x.ids.join(',')}`}
+            type="button"
+            className="btn secondary"
+            onClick={() => onAdd(x.i, x.ids)}
+          >
+            Add {x.ids.length} to{' '}
             {isSequenceMeld(x.m)
               ? `Run ${x.m.rank}${x.m.suit ? ` ${suitGlyph(x.m.suit)}` : ''}`
               : x.m.rank === 'WILD'
@@ -161,6 +174,12 @@ export function MeldBuilder({
           {allComplete
             ? `Need ${need}; these sets are ${pts}. Add another set, or Clear — nothing is on the table yet.`
             : 'Finish each set (two naturals plus a wild, or three naturals). A new rank starts the next set.'}
+        </p>
+      ) : null}
+      {stuckGoOutHint ? (
+        <p className="hint">
+          Add matching cards to open books first. Closed books cannot take more cards — discard leftovers one at a
+          time to go out.
         </p>
       ) : null}
     </div>

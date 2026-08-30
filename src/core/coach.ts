@@ -77,6 +77,11 @@ export function whatShouldIDo(state: MatchState, playerIndex: number): string {
         ? 'Your turn. You have the books. Discard your last card — you will be asked to get partner permission before going out.'
         : 'Your turn. You have the books. Discard your last card to go out.'
     }
+    if (me.hand.length > 1) {
+      return needsPartnerGoOutConsent(state, playerIndex)
+        ? 'Your turn. You have the books. Add what you can to open books, then discard leftovers — ask your partner before the final go-out.'
+        : 'Your turn. You have the books. Add what you can to open books, then discard leftovers one at a time to go out.'
+    }
     return needsPartnerGoOutConsent(state, playerIndex)
       ? 'Your turn. You have the books. Meld or discard to go out — you will confirm before asking your partner.'
       : 'Your turn. You have the books. You may meld your last cards or discard to go out.'
