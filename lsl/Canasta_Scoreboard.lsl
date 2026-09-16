@@ -12,6 +12,9 @@ integer MEDIA_H = 720;
 integer PAGE_ASSET_REV = 66;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
+float CAP_RETRY_SEC = 8.0;
+// Re-request HTTP-IN periodically — region glitches can kill a URL without CHANGED_REGION_START.
+integer CAP_REFRESH_SEC = 21600;
 integer ADMIN_CMD = 93001;
 integer ADMIN_RSP = 93002;
 string SCREEN_NAME = "screen";
@@ -34,6 +37,8 @@ integer gRevDone = FALSE;
 integer gRevDeadline = 0;
 integer gXpReport = FALSE;
 string gJson = "";
+integer gCapRetry = 0;
+integer gCapRefreshAt = 0;
 
 integer effectiveRev()
 {
@@ -47,6 +52,19 @@ requestAssetRev()
     gRevReq = llHTTPRequest(WEB_URL + "asset-rev.txt", [HTTP_METHOD, "GET"], "");
 }
 
+// Drop any prior HTTP-IN, then ask for a fresh one. MoAP must be rewritten after grant.
+requestCap()
+{
+    if (gCapUrl != "")
+    {
+        llReleaseURL(gCapUrl);
+        gCapUrl = "";
+    }
+    gLastHome = "";
+    gMoapPending = FALSE;
+    llRequestSecureURL();
+}
+
 integer scheduleMoap()
 {
     // Paint as soon as HTTP-IN exists; fallback PAGE_ASSET_REV is fine until asset-rev.txt returns.
@@ -54,6 +72,12 @@ integer scheduleMoap()
     gMoapPending = TRUE;
     llSetTimerEvent(0.5);
     return TRUE;
+}
+
+integer forceMoapRepaint()
+{
+    gLastHome = "";
+    return scheduleMoap();
 }
 
 integer findScreenLink()
@@ -561,6 +585,8 @@ integer handleAdmin(string str, key av)
         gXpReport = TRUE;
         enqueueReads();
         kickXp();
+        // Heal stale MoAP / dead HTTP-IN after region issues or stuck CEF.
+        requestCap();
         llMessageLinked(LINK_SET, ADMIN_RSP, "OK|refresh", av);
         return TRUE;
     }
@@ -616,7 +642,9 @@ default
         gRevDeadline = llGetUnixTime() + 5;
         gLastHome = "";
         gMoapPending = FALSE;
-        llRequestSecureURL();
+        gCapRetry = 0;
+        gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
+        requestCap();
         requestAssetRev();
         gXpReport = TRUE;
         enqueueReads();
@@ -643,15 +671,17 @@ default
                 scheduleMoap();
             }
         }
+        // Sim restart kills every HTTP-IN URL — request a new one and rewrite MoAP.
         if (change & CHANGED_REGION_START)
         {
-            gCapUrl = "";
-            gLastHome = "";
+            gCapRetry = 0;
             gRevDone = FALSE;
             gRevReq = NULL_KEY;
             gRevDeadline = llGetUnixTime() + 5;
-            llRequestSecureURL();
+            gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
+            requestCap();
             requestAssetRev();
+            llOwnerSay("Canasta scoreboard: region restart — renewing HTTP-IN.");
         }
     }
 
@@ -666,13 +696,29 @@ default
             gMoapPending = FALSE;
             applyMoap();
         }
+        // No cap yet (denied / waiting): keep asking.
+        if (gCapUrl == "")
+        {
+            if (gCapRetry < 12) llRequestSecureURL();
+            llSetTimerEvent(CAP_RETRY_SEC);
+            return;
+        }
+        // Periodic renew so a silently dead URL cannot leave MoAP stuck for hours.
+        if (gCapUrl != "" && llGetUnixTime() >= gCapRefreshAt)
+        {
+            gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
+            llOwnerSay("Canasta scoreboard: periodic HTTP-IN renew.");
+            requestCap();
+            llSetTimerEvent(0.5);
+            return;
+        }
         // Do not re-poll Experience every 0.5s while waiting on MoAP — that hammers KVP.
         if (gLastHome != "")
         {
             if (gXpOp == "" && llGetListLength(gXpQ) == 0) enqueueReads();
         }
         kickXp();
-        if (gLastHome == "") llSetTimerEvent(0.5);
+        if (gLastHome == "" || gCapUrl == "") llSetTimerEvent(0.5);
         else llSetTimerEvent(TIMER_SEC);
     }
 
@@ -709,17 +755,25 @@ default
         {
             string prev = gCapUrl;
             gCapUrl = body;
+            gCapRetry = 0;
+            gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
             llOwnerSay("Canasta scoreboard: HTTP-IN ready.");
             if (gCapUrl != prev)
             {
                 gLastHome = "";
                 scheduleMoap();
             }
+            else forceMoapRepaint();
             return;
         }
         if (method == URL_REQUEST_DENIED)
         {
-            llOwnerSay("Canasta scoreboard: HTTP-IN denied.");
+            gCapUrl = "";
+            gLastHome = "";
+            gCapRetry += 1;
+            llOwnerSay("Canasta scoreboard: HTTP-IN denied (retry "
+                + (string)gCapRetry + ").");
+            llSetTimerEvent(CAP_RETRY_SEC);
             return;
         }
         string qs = llGetHTTPHeader(id, "x-query-string");

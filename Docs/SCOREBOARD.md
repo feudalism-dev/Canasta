@@ -50,6 +50,8 @@ The MoAP page has tabs for **Canasta** / **Hand & Foot** / **Samba** / **Bolivia
 
 Bump `public/asset-rev.txt` when Pages deploys so MoAP reloads **without** recompiling scripts. Script `PAGE_ASSET_REV` values are fallbacks only.
 
+The MoAP page **caches** the last successful parlor/network snapshot in the viewer’s local storage. If HTTP-IN drops (region restart, stale URL), it keeps showing that cache and retries in the background until the link works again.
+
 ## Admin (touch the gear)
 
 `Canasta_Scoreboard_Admin.lsl` on the gear opens `llDialog` menus and talks to the core over link `93001`/`93002` (`LINK_SET`).

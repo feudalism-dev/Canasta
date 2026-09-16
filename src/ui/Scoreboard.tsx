@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   fetchScores,
   mergeGames,
@@ -8,6 +8,11 @@ import {
   type ScoreGames,
   type ScoreRow,
 } from '../sl/scoresApi'
+import {
+  cacheAgeLabel,
+  loadScoreboardCache,
+  writeScoreboardCachePatch,
+} from './scoreboardCache'
 import { applyUiScale } from './uiScale'
 
 type Scope = 'local' | 'net'
@@ -39,14 +44,24 @@ function formatScore(n: number): string {
 }
 
 export function Scoreboard({ slCap }: Props) {
+  const cached = loadScoreboardCache()
   const [game, setGame] = useState<ScoreGame>('c')
   const [scope, setScope] = useState<Scope>('local')
   const [period, setPeriod] = useState<Period>('w')
-  const [local, setLocal] = useState<ScoreGames>(emptyGames)
-  const [net, setNet] = useState<ScoreGames>(emptyGames)
+  const [local, setLocal] = useState<ScoreGames>(() => cached?.local ?? emptyGames())
+  const [net, setNet] = useState<ScoreGames>(() => cached?.net ?? emptyGames())
   const [err, setErr] = useState('')
-  const [month, setMonth] = useState('')
+  const [month, setMonth] = useState(() => cached?.month ?? '')
   const [linked, setLinked] = useState(false)
+  const [cachedAt, setCachedAt] = useState(() => cached?.savedAt ?? 0)
+  const localRef = useRef(local)
+  const netRef = useRef(net)
+  const monthRef = useRef(month)
+  const cachedAtRef = useRef(cachedAt)
+  localRef.current = local
+  netRef.current = net
+  monthRef.current = month
+  cachedAtRef.current = cachedAt
 
   useEffect(() => {
     applyUiScale(1)
@@ -64,20 +79,33 @@ export function Scoreboard({ slCap }: Props) {
         const data = refreshNet ? await refreshScores(slCap, game) : await fetchScores(slCap, game)
         if (!alive) return
         if (!data.ok) {
-          setErr(data.error || 'Scoreboard error')
           setLinked(false)
+          setErr(data.error || 'Scoreboard error')
           return
         }
+        const nextLocal = data.local ? mergeGames(localRef.current, data.local) : localRef.current
+        const nextNet = data.net ? mergeGames(netRef.current, data.net) : netRef.current
+        const nextMonth = data.month || monthRef.current
+        const snap = writeScoreboardCachePatch(
+          localRef.current,
+          netRef.current,
+          monthRef.current,
+          data.local,
+          data.net,
+          data.month,
+        )
+        setLocal(nextLocal)
+        setNet(nextNet)
+        if (data.month) setMonth(nextMonth)
+        setCachedAt(snap.savedAt)
         setErr('')
         setLinked(true)
-        if (data.local) setLocal((prev) => mergeGames(prev, data.local))
-        if (data.net) setNet((prev) => mergeGames(prev, data.net))
-        if (data.month) setMonth(data.month)
       } catch (e) {
-        if (alive) {
-          setLinked(false)
-          setErr(e instanceof Error ? e.message : 'Cannot reach scoreboard')
-        }
+        if (!alive) return
+        setLinked(false)
+        const msg = e instanceof Error ? e.message : 'Cannot reach scoreboard'
+        const at = cachedAtRef.current
+        setErr(at > 0 ? `Offline — showing scores from ${cacheAgeLabel(at)}. ${msg}` : msg)
       }
     }
     void pull(true)
@@ -96,6 +124,7 @@ export function Scoreboard({ slCap }: Props) {
       : period === 'w'
         ? 'This week'
         : 'All time'
+  const showingCache = !linked && cachedAt > 0
 
   return (
     <div className="scoreboard-root">
@@ -106,6 +135,7 @@ export function Scoreboard({ slCap }: Props) {
           <h1>High scores</h1>
           <p className="scoreboard-sub">
             {gameLabel(game)} · {scopeLabel} · {periodLabel(period)} · {sub}
+            {showingCache ? ` · cached ${cacheAgeLabel(cachedAt)}` : ''}
           </p>
         </header>
         <div className="scoreboard-tabs scoreboard-tabs-games" role="tablist" aria-label="Game">
@@ -142,11 +172,21 @@ export function Scoreboard({ slCap }: Props) {
           </button>
         </div>
         {err ? <p className="scoreboard-err">{err}</p> : null}
+        {showingCache && /timed out|JSONP failed|Cannot reach|Offline/i.test(err) ? (
+          <p className="scoreboard-empty" role="status">
+            Still retrying the in-world link. Owner can reset the core script or use gear → Refresh to renew HTTP-IN.
+          </p>
+        ) : null}
         {linked && rows.length === 0 ? (
           <p className="scoreboard-empty" role="status">
             {scope === 'local'
               ? 'No parlor scores yet — finish a match within ~100 m, or use the gear to set a score.'
               : 'No network scores yet — parcel must allow the Experience, and the core script must be compiled with it. Try Lifetime, or wait a few seconds for refresh.'}
+          </p>
+        ) : null}
+        {!linked && !showingCache && rows.length === 0 ? (
+          <p className="scoreboard-empty" role="status">
+            No cached scores yet — connect once successfully to store a local snapshot.
           </p>
         ) : null}
         <ol className="scoreboard-list">
