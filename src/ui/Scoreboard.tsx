@@ -74,15 +74,24 @@ export function Scoreboard({ slCap }: Props) {
       return
     }
     let alive = true
+    let failStreak = 0
+    let timer: number | undefined
     const pull = async (refreshNet: boolean) => {
       try {
         const data = refreshNet ? await refreshScores(slCap, game) : await fetchScores(slCap, game)
         if (!alive) return
         if (!data.ok) {
           setLinked(false)
-          setErr(data.error || 'Scoreboard error')
+          failStreak += 1
+          const at = cachedAtRef.current
+          setErr(
+            at > 0
+              ? `Offline — showing scores from ${cacheAgeLabel(at)}.`
+              : data.error || 'Scoreboard error',
+          )
           return
         }
+        failStreak = 0
         const nextLocal = data.local ? mergeGames(localRef.current, data.local) : localRef.current
         const nextNet = data.net ? mergeGames(netRef.current, data.net) : netRef.current
         const nextMonth = data.month || monthRef.current
@@ -100,19 +109,26 @@ export function Scoreboard({ slCap }: Props) {
         setCachedAt(snap.savedAt)
         setErr('')
         setLinked(true)
-      } catch (e) {
+      } catch {
         if (!alive) return
         setLinked(false)
-        const msg = e instanceof Error ? e.message : 'Cannot reach scoreboard'
+        failStreak += 1
         const at = cachedAtRef.current
-        setErr(at > 0 ? `Offline — showing scores from ${cacheAgeLabel(at)}. ${msg}` : msg)
+        setErr(
+          at > 0
+            ? `Offline — showing scores from ${cacheAgeLabel(at)}. Reconnecting…`
+            : 'Cannot reach scoreboard — reset the core script or gear → Refresh.',
+        )
+      } finally {
+        if (!alive) return
+        const delay = failStreak === 0 ? 8000 : Math.min(45000, 8000 + failStreak * 6000)
+        timer = window.setTimeout(() => void pull(false), delay)
       }
     }
     void pull(true)
-    const id = window.setInterval(() => void pull(false), 8000)
     return () => {
       alive = false
-      window.clearInterval(id)
+      if (timer !== undefined) window.clearTimeout(timer)
     }
   }, [slCap, game])
 
@@ -172,9 +188,9 @@ export function Scoreboard({ slCap }: Props) {
           </button>
         </div>
         {err ? <p className="scoreboard-err">{err}</p> : null}
-        {showingCache && /timed out|JSONP failed|Cannot reach|Offline/i.test(err) ? (
+        {showingCache && !linked ? (
           <p className="scoreboard-empty" role="status">
-            Still retrying the in-world link. Owner can reset the core script or use gear → Refresh to renew HTTP-IN.
+            Still retrying the in-world link. Owner: reset the core script, or gear → Refresh.
           </p>
         ) : null}
         {linked && rows.length === 0 ? (

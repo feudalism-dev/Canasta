@@ -13,8 +13,10 @@ integer PAGE_ASSET_REV = 66;
 string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
 float TIMER_SEC = 12.0;
 float CAP_RETRY_SEC = 8.0;
-// Re-request HTTP-IN periodically — region glitches can kill a URL without CHANGED_REGION_START.
+// Periodic soft renew (keep serving old URL until the new grant arrives).
 integer CAP_REFRESH_SEC = 21600;
+// If MoAP stops hitting HTTP-IN this long, treat the cap as dead and renew.
+integer CAP_SILENCE_SEC = 90;
 integer ADMIN_CMD = 93001;
 integer ADMIN_RSP = 93002;
 string SCREEN_NAME = "screen";
@@ -39,6 +41,8 @@ integer gXpReport = FALSE;
 string gJson = "";
 integer gCapRetry = 0;
 integer gCapRefreshAt = 0;
+integer gCapPending = FALSE;
+integer gLastClientAt = 0;
 
 integer effectiveRev()
 {
@@ -52,16 +56,23 @@ requestAssetRev()
     gRevReq = llHTTPRequest(WEB_URL + "asset-rev.txt", [HTTP_METHOD, "GET"], "");
 }
 
-// Drop any prior HTTP-IN, then ask for a fresh one. MoAP must be rewritten after grant.
-requestCap()
+// hard=TRUE: drop the old URL first (region start / denied / admin refresh).
+// hard=FALSE: keep answering on the old URL until the new grant arrives, then switch MoAP.
+requestCap(integer hard)
 {
-    if (gCapUrl != "")
+    if (hard)
     {
-        llReleaseURL(gCapUrl);
-        gCapUrl = "";
+        if (gCapUrl != "")
+        {
+            llReleaseURL(gCapUrl);
+            gCapUrl = "";
+        }
+        gLastHome = "";
+        gMoapPending = FALSE;
+        gLastClientAt = 0;
     }
-    gLastHome = "";
-    gMoapPending = FALSE;
+    if (gCapPending) return;
+    gCapPending = TRUE;
     llRequestSecureURL();
 }
 
@@ -586,7 +597,8 @@ integer handleAdmin(string str, key av)
         enqueueReads();
         kickXp();
         // Heal stale MoAP / dead HTTP-IN after region issues or stuck CEF.
-        requestCap();
+        gCapPending = FALSE;
+        requestCap(TRUE);
         llMessageLinked(LINK_SET, ADMIN_RSP, "OK|refresh", av);
         return TRUE;
     }
@@ -643,8 +655,10 @@ default
         gLastHome = "";
         gMoapPending = FALSE;
         gCapRetry = 0;
+        gCapPending = FALSE;
+        gLastClientAt = 0;
         gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
-        requestCap();
+        requestCap(TRUE);
         requestAssetRev();
         gXpReport = TRUE;
         enqueueReads();
@@ -675,11 +689,12 @@ default
         if (change & CHANGED_REGION_START)
         {
             gCapRetry = 0;
+            gCapPending = FALSE;
             gRevDone = FALSE;
             gRevReq = NULL_KEY;
             gRevDeadline = llGetUnixTime() + 5;
             gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
-            requestCap();
+            requestCap(TRUE);
             requestAssetRev();
             llOwnerSay("Canasta scoreboard: region restart — renewing HTTP-IN.");
         }
@@ -699,16 +714,28 @@ default
         // No cap yet (denied / waiting): keep asking.
         if (gCapUrl == "")
         {
-            if (gCapRetry < 12) llRequestSecureURL();
+            if (!gCapPending && gCapRetry < 12) requestCap(TRUE);
             llSetTimerEvent(CAP_RETRY_SEC);
             return;
         }
-        // Periodic renew so a silently dead URL cannot leave MoAP stuck for hours.
-        if (gCapUrl != "" && llGetUnixTime() >= gCapRefreshAt)
+        // MoAP polls ~8s. Silence means the painted sl_cap is dead — soft-renew and rewrite MoAP.
+        if (gLastHome != "" && gLastClientAt > 0
+            && (llGetUnixTime() - gLastClientAt) >= CAP_SILENCE_SEC)
+        {
+            llOwnerSay("Canasta scoreboard: no MoAP polls for "
+                + (string)CAP_SILENCE_SEC + "s — renewing HTTP-IN.");
+            gLastClientAt = llGetUnixTime();
+            gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
+            requestCap(FALSE);
+            llSetTimerEvent(0.5);
+            return;
+        }
+        // Periodic soft renew (keep old URL live until grant).
+        if (llGetUnixTime() >= gCapRefreshAt)
         {
             gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
             llOwnerSay("Canasta scoreboard: periodic HTTP-IN renew.");
-            requestCap();
+            requestCap(FALSE);
             llSetTimerEvent(0.5);
             return;
         }
@@ -753,10 +780,20 @@ default
     {
         if (method == URL_REQUEST_GRANTED)
         {
+            gCapPending = FALSE;
+            string next = body;
+            if (llGetSubString(next, -1, -1) != "/") next += "/";
             string prev = gCapUrl;
-            gCapUrl = body;
+            // Soft renew: drop the previous cap only after the new one is live.
+            if (prev != "" && prev != next)
+            {
+                llReleaseURL(prev);
+            }
+            gCapUrl = next;
             gCapRetry = 0;
             gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
+            // Give MoAP a grace window before silence renew can fire.
+            gLastClientAt = llGetUnixTime();
             llOwnerSay("Canasta scoreboard: HTTP-IN ready.");
             if (gCapUrl != prev)
             {
@@ -768,7 +805,14 @@ default
         }
         if (method == URL_REQUEST_DENIED)
         {
-            gCapUrl = "";
+            gCapPending = FALSE;
+            // Soft renew failed while an old URL still works — keep serving it.
+            if (gCapUrl != "")
+            {
+                llOwnerSay("Canasta scoreboard: HTTP-IN renew denied; keeping current URL.");
+                gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
+                return;
+            }
             gLastHome = "";
             gCapRetry += 1;
             llOwnerSay("Canasta scoreboard: HTTP-IN denied (retry "
@@ -776,6 +820,7 @@ default
             llSetTimerEvent(CAP_RETRY_SEC);
             return;
         }
+        gLastClientAt = llGetUnixTime();
         string qs = llGetHTTPHeader(id, "x-query-string");
         if (qparam(qs, "action") == "refresh")
         {
