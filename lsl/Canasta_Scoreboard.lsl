@@ -1,30 +1,13 @@
-// Canasta — parlor scoreboard CORE (LSD + Experience + MOAP + score listen).
-// Linkset: root = frame, child named "screen" (MoAP), child with Admin on "gear".
-// Drop this script on the FRAME (root). Compile: Mono + Experience.
-// Admin menus: Canasta_Scoreboard_Admin.lsl on the gear prim (link 93001/93002).
+// Canasta — parlor scoreboard CORE (LSD + Experience + score listen + admin).
+// Linkset: root = frame (this + Canasta_Scoreboard_Http.lsl), child "screen", gear Admin.
+// Compile: Mono + Experience. HTTP/MoAP lives in Canasta_Scoreboard_Http.lsl.
 
 integer SCORE_CH = -18475021;
-integer MEDIA_FACE = 0;
-// Landscape plaque: match prim face to ~1024×720 so the brass frame hugs the top-10 list.
-integer MEDIA_W = 1024;
-integer MEDIA_H = 720;
-// Fallback if asset-rev.txt fetch fails. Prefer bumping public/asset-rev.txt on Pages deploys.
-integer PAGE_ASSET_REV = 66;
-string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
-float TIMER_SEC = 12.0;
-float CAP_RETRY_SEC = 8.0;
-// Periodic soft renew (keep serving old URL until the new grant arrives).
-integer CAP_REFRESH_SEC = 21600;
-// If MoAP stops hitting HTTP-IN this long, treat the cap as dead and renew.
-integer CAP_SILENCE_SEC = 90;
 integer ADMIN_CMD = 93001;
 integer ADMIN_RSP = 93002;
-string SCREEN_NAME = "screen";
+integer HTTP_CMD = 93004;
+float TIMER_SEC = 12.0;
 
-string gCapUrl = "";
-string gLastHome = "";
-integer gMoapPending = FALSE;
-integer gScreenLink = LINK_THIS;
 string gInUid = "";
 string gInName = "";
 integer gInScore = 0;
@@ -33,91 +16,7 @@ string gXpOp = "";
 integer gXpStep = 0;
 key gXpReq = NULL_KEY;
 integer gXpSaid = FALSE;
-integer gPageRev = 0;
-key gRevReq = NULL_KEY;
-integer gRevDone = FALSE;
-integer gRevDeadline = 0;
 integer gXpReport = FALSE;
-string gJson = "";
-integer gCapRetry = 0;
-integer gCapRefreshAt = 0;
-integer gCapPending = FALSE;
-integer gLastClientAt = 0;
-
-integer effectiveRev()
-{
-    if (gPageRev > 0) return gPageRev;
-    return PAGE_ASSET_REV;
-}
-
-requestAssetRev()
-{
-    if (gRevReq != NULL_KEY) return;
-    gRevReq = llHTTPRequest(WEB_URL + "asset-rev.txt", [HTTP_METHOD, "GET"], "");
-}
-
-// hard=TRUE: drop the old URL first (region start / denied / admin refresh).
-// hard=FALSE: keep answering on the old URL until the new grant arrives, then switch MoAP.
-requestCap(integer hard)
-{
-    if (hard)
-    {
-        if (gCapUrl != "")
-        {
-            llReleaseURL(gCapUrl);
-            gCapUrl = "";
-        }
-        gLastHome = "";
-        gMoapPending = FALSE;
-        gLastClientAt = 0;
-    }
-    if (gCapPending) return;
-    gCapPending = TRUE;
-    llRequestSecureURL();
-}
-
-integer scheduleMoap()
-{
-    // Paint as soon as HTTP-IN exists; fallback PAGE_ASSET_REV is fine until asset-rev.txt returns.
-    if (gCapUrl == "") return FALSE;
-    gMoapPending = TRUE;
-    llSetTimerEvent(0.5);
-    return TRUE;
-}
-
-integer forceMoapRepaint()
-{
-    gLastHome = "";
-    return scheduleMoap();
-}
-
-integer findScreenLink()
-{
-    integer n = llGetObjectPrimCount(llGetKey());
-    if (n < 1) n = llGetNumberOfPrims();
-    integer i;
-    for (i = 1; i <= n; i++)
-    {
-        string nm = llToLower(llStringTrim(llGetLinkName(i), STRING_TRIM));
-        if (nm == SCREEN_NAME)
-        {
-            gScreenLink = i;
-            return i;
-        }
-    }
-    gScreenLink = LINK_THIS;
-    return LINK_THIS;
-}
-
-string jsonEscape(string s)
-{
-    // Fast path — names are usually clean after cleanName().
-    if (llSubStringIndex(s, "\\") < 0 && llSubStringIndex(s, "\"") < 0 && llSubStringIndex(s, "\n") < 0)
-        return s;
-    s = llDumpList2String(llParseStringKeepNulls(s, ["\\"], []), "\\\\");
-    s = llDumpList2String(llParseStringKeepNulls(s, ["\""], []), "\\\"");
-    return llDumpList2String(llParseStringKeepNulls(s, ["\n"], []), "\\n");
-}
 
 string cleanName(string s)
 {
@@ -130,7 +29,6 @@ string cleanName(string s)
 
 string normGame(string g)
 {
-    // First a–z / 0–9 character (passthrough). Empty / junk → Canasta.
     g = llToLower(llStringTrim(g, STRING_TRIM));
     integer i;
     integer n = llStringLength(g);
@@ -153,7 +51,6 @@ string monthId()
     return llGetSubString(llGetTimestamp(), 0, 6);
 }
 
-// Experience keys cn.sc.{game}.{period}…
 string xpKey(string game, string period)
 {
     if (period == "w") return "cn.sc." + game + ".w." + weekId();
@@ -166,7 +63,6 @@ string lsdKey(string game, string period)
     return "l" + game + period;
 }
 
-// Network packs live in Linkset Data (not script heap) — keys n{game}{period}.
 string netKey(string game, string period)
 {
     return "n" + game + period;
@@ -177,7 +73,7 @@ integer hasXp()
     return (llGetListLength(llGetExperienceDetails(NULL_KEY)) > 0);
 }
 
-// mode: 0=keep-higher insert, 1=force set, 2=remove uid
+// mode: 0=keep-higher, 1=force, 2=remove
 string mutatePacked(string packed, string uid, string nm, integer score, integer mode)
 {
     if (uid == "" || uid == (string)NULL_KEY) return packed;
@@ -303,88 +199,6 @@ integer setNet(string game, string period, string packed)
     return TRUE;
 }
 
-// Append one period's rows onto gJson (avoids huge nested return temps).
-appendRowsJson(string packed)
-{
-    if (packed == "")
-    {
-        gJson += "[]";
-        return;
-    }
-    list recs = llParseStringKeepNulls(packed, ["^"], []);
-    gJson += "[";
-    integer i;
-    integer n = llGetListLength(recs);
-    integer wrote = 0;
-    for (i = 0; i < n; i++)
-    {
-        list f = llParseStringKeepNulls(llList2String(recs, i), ["~"], []);
-        if (llGetListLength(f) < 3) jump skiprow;
-        if (wrote) gJson += ",";
-        gJson += "{\"u\":\"" + jsonEscape(llList2String(f, 0))
-            + "\",\"n\":\"" + jsonEscape(llList2String(f, 1))
-            + "\",\"s\":" + llList2String(f, 2) + "}";
-        wrote += 1;
-        @skiprow;
-    }
-    gJson += "]";
-}
-
-appendBundleJson(integer isLocal, string game)
-{
-    gJson += "{\"w\":";
-    if (isLocal) appendRowsJson(loadLocal(game, "w"));
-    else appendRowsJson(loadNet(game, "w"));
-    gJson += ",\"m\":";
-    if (isLocal) appendRowsJson(loadLocal(game, "m"));
-    else appendRowsJson(loadNet(game, "m"));
-    gJson += ",\"l\":";
-    if (isLocal) appendRowsJson(loadLocal(game, "l"));
-    else appendRowsJson(loadNet(game, "l"));
-    gJson += "}";
-}
-
-// One game only — full 4-game payloads stack-heap on Mono.
-buildGameJson(string game)
-{
-    if (game != "c" && game != "h" && game != "s" && game != "b") game = "c";
-    rotateLocal();
-    gJson = "{\"ok\":true,\"week\":\"" + weekId() + "\",\"month\":\"" + monthId() + "\",\"game\":\"" + game + "\",\"local\":{\"";
-    gJson += game + "\":";
-    appendBundleJson(TRUE, game);
-    gJson += "},\"net\":{\"";
-    gJson += game + "\":";
-    appendBundleJson(FALSE, game);
-    gJson += "}}";
-}
-
-string qparam(string qs, string name)
-{
-    string needle = name + "=";
-    integer at = llSubStringIndex(qs, needle);
-    if (at < 0) return "";
-    integer start = at + llStringLength(needle);
-    string rest = llGetSubString(qs, start, -1);
-    integer amp = llSubStringIndex(rest, "&");
-    if (amp < 0) return llUnescapeURL(rest);
-    return llUnescapeURL(llGetSubString(rest, 0, amp - 1));
-}
-
-sendJsonp(key httpId, string callback, string game)
-{
-    if (httpId == NULL_KEY) return;
-    if (callback == "" || llStringLength(callback) > 64)
-    {
-        llSetContentType(httpId, CONTENT_TYPE_TEXT);
-        llHTTPResponse(httpId, 400, "{\"ok\":false}");
-        return;
-    }
-    buildGameJson(game);
-    llSetContentType(httpId, CONTENT_TYPE_TEXT);
-    llHTTPResponse(httpId, 200, callback + "(" + gJson + ");");
-    gJson = "";
-}
-
 integer countPacked(string packed)
 {
     if (packed == "") return 0;
@@ -405,7 +219,8 @@ integer reportXpCaches()
         + (string)countPacked(loadNet("s", "l"))
         + " b=" + (string)countPacked(loadNet("b", "w")) + "/"
         + (string)countPacked(loadNet("b", "m")) + "/"
-        + (string)countPacked(loadNet("b", "l")));
+        + (string)countPacked(loadNet("b", "l"))
+        + " Free=" + (string)llGetFreeMemory());
     return TRUE;
 }
 
@@ -535,35 +350,6 @@ string pickPacked(string scope, string game, string period)
     return loadLocal(game, period);
 }
 
-integer applyMoap()
-{
-    // Never paint without HTTP-IN — the scores page needs sl_cap.
-    if (gCapUrl == "") return FALSE;
-    string home = WEB_URL + "?view=scores&uid=board&rev=" + (string)effectiveRev()
-        + "&sl_cap=" + llEscapeURL(gCapUrl);
-
-    // Hard skip: rewriting the same home with a new &cb= blanks CEF.
-    if (home == gLastHome) return FALSE;
-
-    string cur = home + "&cb=" + (string)llGetUnixTime();
-    llSetLinkMedia(gScreenLink, MEDIA_FACE, [
-        PRIM_MEDIA_AUTO_PLAY, TRUE,
-        PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
-        PRIM_MEDIA_CURRENT_URL, cur,
-        PRIM_MEDIA_HOME_URL, home,
-        PRIM_MEDIA_FIRST_CLICK_INTERACT, TRUE,
-        PRIM_MEDIA_WIDTH_PIXELS, MEDIA_W,
-        PRIM_MEDIA_HEIGHT_PIXELS, MEDIA_H,
-        PRIM_MEDIA_WHITELIST_ENABLE, FALSE,
-        PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_NONE,
-        PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_ANYONE
-    ]);
-    gLastHome = home;
-    llOwnerSay("Canasta scoreboard: media on link " + (string)gScreenLink
-        + " rev=" + (string)effectiveRev() + ".");
-    return TRUE;
-}
-
 integer takeScoreChat(string msg)
 {
     if (llGetSubString(msg, 0, 8) != "CN_SCORE|") return FALSE;
@@ -596,9 +382,7 @@ integer handleAdmin(string str, key av)
         gXpReport = TRUE;
         enqueueReads();
         kickXp();
-        // Heal stale MoAP / dead HTTP-IN after region issues or stuck CEF.
-        gCapPending = FALSE;
-        requestCap(TRUE);
+        llMessageLinked(LINK_SET, HTTP_CMD, "REFRESH", av);
         llMessageLinked(LINK_SET, ADMIN_RSP, "OK|refresh", av);
         return TRUE;
     }
@@ -628,7 +412,6 @@ integer handleAdmin(string str, key av)
     }
     if (cmd == "FORCE")
     {
-        // FORCE|scope|game|period|score|uid|name...
         integer sc = (integer)llList2String(p, 4);
         string uid = llList2String(p, 5);
         string nm = cleanName(llList2String(p, 6));
@@ -648,24 +431,12 @@ default
     state_entry()
     {
         rotateLocal();
-        findScreenLink();
         llListen(SCORE_CH, "", NULL_KEY, "");
-        gRevDone = FALSE;
-        gRevDeadline = llGetUnixTime() + 5;
-        gLastHome = "";
-        gMoapPending = FALSE;
-        gCapRetry = 0;
-        gCapPending = FALSE;
-        gLastClientAt = 0;
-        gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
-        requestCap(TRUE);
-        requestAssetRev();
         gXpReport = TRUE;
         enqueueReads();
         kickXp();
-        llSetTimerEvent(0.5);
-        llOwnerSay("Canasta scoreboard core ready. screen link=" + (string)gScreenLink
-            + " Free=" + (string)llGetFreeMemory());
+        llSetTimerEvent(TIMER_SEC);
+        llOwnerSay("Canasta scoreboard core ready. Free=" + (string)llGetFreeMemory());
     }
 
     on_rez(integer p)
@@ -673,80 +444,11 @@ default
         llResetScript();
     }
 
-    changed(integer change)
-    {
-        if (change & CHANGED_LINK)
-        {
-            integer prev = gScreenLink;
-            findScreenLink();
-            if (gScreenLink != prev)
-            {
-                gLastHome = "";
-                scheduleMoap();
-            }
-        }
-        // Sim restart kills every HTTP-IN URL — request a new one and rewrite MoAP.
-        if (change & CHANGED_REGION_START)
-        {
-            gCapRetry = 0;
-            gCapPending = FALSE;
-            gRevDone = FALSE;
-            gRevReq = NULL_KEY;
-            gRevDeadline = llGetUnixTime() + 5;
-            gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
-            requestCap(TRUE);
-            requestAssetRev();
-            llOwnerSay("Canasta scoreboard: region restart — renewing HTTP-IN.");
-        }
-    }
-
     timer()
     {
-        if (!gRevDone && llGetUnixTime() >= gRevDeadline)
-        {
-            gRevDone = TRUE;
-        }
-        if (gMoapPending)
-        {
-            gMoapPending = FALSE;
-            applyMoap();
-        }
-        // No cap yet (denied / waiting): keep asking.
-        if (gCapUrl == "")
-        {
-            if (!gCapPending && gCapRetry < 12) requestCap(TRUE);
-            llSetTimerEvent(CAP_RETRY_SEC);
-            return;
-        }
-        // MoAP polls ~8s. Silence means the painted sl_cap is dead — soft-renew and rewrite MoAP.
-        if (gLastHome != "" && gLastClientAt > 0
-            && (llGetUnixTime() - gLastClientAt) >= CAP_SILENCE_SEC)
-        {
-            llOwnerSay("Canasta scoreboard: no MoAP polls for "
-                + (string)CAP_SILENCE_SEC + "s — renewing HTTP-IN.");
-            gLastClientAt = llGetUnixTime();
-            gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
-            requestCap(FALSE);
-            llSetTimerEvent(0.5);
-            return;
-        }
-        // Periodic soft renew (keep old URL live until grant).
-        if (llGetUnixTime() >= gCapRefreshAt)
-        {
-            gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
-            llOwnerSay("Canasta scoreboard: periodic HTTP-IN renew.");
-            requestCap(FALSE);
-            llSetTimerEvent(0.5);
-            return;
-        }
-        // Do not re-poll Experience every 0.5s while waiting on MoAP — that hammers KVP.
-        if (gLastHome != "")
-        {
-            if (gXpOp == "" && llGetListLength(gXpQ) == 0) enqueueReads();
-        }
+        if (gXpOp == "" && llGetListLength(gXpQ) == 0) enqueueReads();
         kickXp();
-        if (gLastHome == "" || gCapUrl == "") llSetTimerEvent(0.5);
-        else llSetTimerEvent(TIMER_SEC);
+        llSetTimerEvent(TIMER_SEC);
     }
 
     listen(integer ch, string name, key id, string msg)
@@ -757,79 +459,6 @@ default
     link_message(integer sender, integer num, string str, key id)
     {
         if (num == ADMIN_CMD) handleAdmin(str, id);
-    }
-
-    http_response(key id, integer status, list meta, string body)
-    {
-        if (id != gRevReq) return;
-        gRevReq = NULL_KEY;
-        if (status == 200)
-        {
-            integer r = (integer)llStringTrim(body, STRING_TRIM);
-            if (r > 0)
-            {
-                if (r != gPageRev) gLastHome = "";
-                gPageRev = r;
-            }
-        }
-        gRevDone = TRUE;
-        scheduleMoap();
-    }
-
-    http_request(key id, string method, string body)
-    {
-        if (method == URL_REQUEST_GRANTED)
-        {
-            gCapPending = FALSE;
-            string next = body;
-            if (llGetSubString(next, -1, -1) != "/") next += "/";
-            string prev = gCapUrl;
-            // Soft renew: drop the previous cap only after the new one is live.
-            if (prev != "" && prev != next)
-            {
-                llReleaseURL(prev);
-            }
-            gCapUrl = next;
-            gCapRetry = 0;
-            gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
-            // Give MoAP a grace window before silence renew can fire.
-            gLastClientAt = llGetUnixTime();
-            llOwnerSay("Canasta scoreboard: HTTP-IN ready.");
-            if (gCapUrl != prev)
-            {
-                gLastHome = "";
-                scheduleMoap();
-            }
-            else forceMoapRepaint();
-            return;
-        }
-        if (method == URL_REQUEST_DENIED)
-        {
-            gCapPending = FALSE;
-            // Soft renew failed while an old URL still works — keep serving it.
-            if (gCapUrl != "")
-            {
-                llOwnerSay("Canasta scoreboard: HTTP-IN renew denied; keeping current URL.");
-                gCapRefreshAt = llGetUnixTime() + CAP_REFRESH_SEC;
-                return;
-            }
-            gLastHome = "";
-            gCapRetry += 1;
-            llOwnerSay("Canasta scoreboard: HTTP-IN denied (retry "
-                + (string)gCapRetry + ").");
-            llSetTimerEvent(CAP_RETRY_SEC);
-            return;
-        }
-        gLastClientAt = llGetUnixTime();
-        string qs = llGetHTTPHeader(id, "x-query-string");
-        if (qparam(qs, "action") == "refresh")
-        {
-            enqueueReads();
-            kickXp();
-        }
-        string game = qparam(qs, "game");
-        if (game == "") game = "c";
-        sendJsonp(id, qparam(qs, "cb"), game);
     }
 
     dataserver(key query, string data)

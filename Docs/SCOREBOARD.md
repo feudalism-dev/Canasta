@@ -37,14 +37,17 @@ Recommended link order (select all, then **click the frame last** so it becomes 
 
 | Prim | Name (exact) | Scripts |
 |------|----------------|---------|
-| **Frame** (root) | `frame` (any name ok) | `Canasta_Scoreboard.lsl` only — Mono + Experience |
-| **Screen** (display) | **`screen`** (required) | none — Core finds this name and sets MoAP on face 0 |
+| **Frame** (root) | `frame` (any name ok) | `Canasta_Scoreboard.lsl` (Mono + Experience) **and** `Canasta_Scoreboard_Http.lsl` (Mono) |
+| **Screen** (display) | **`screen`** (required) | none — Http finds this name and sets MoAP on face 0 |
 | **Gear** (admin) | `gear` (any name ok) | `Canasta_Scoreboard_Admin.lsl` — Mono |
 
-1. Media is applied to the child named **`screen`**, face **0** (`MEDIA_FACE`). Default media size is **1024×720** (landscape). Reshape the screen prim to roughly that aspect, then reset the core script.
+HTTP-IN and MoAP live in the thin **Http** script so JSONP has enough Mono heap. The core only stores scores / Experience / admin. If the panel shows “cannot reach scoreboard” after a reset, check owner chat for `HTTP-IN ready` **and** `Free=` on the Http script (needs thousands of bytes free, not ~1k).
+
+1. Media is applied to the child named **`screen`**, face **0** (`MEDIA_FACE`). Default media size is **1024×720** (landscape). Reshape the screen prim to roughly that aspect, then reset the **Http** script.
 2. Parcel must allow the Experience (needed for Network). Local parlor scores still work without it.
 3. Whitelist `feudalism-dev.github.io` for media on the parcel.
 4. Touch the **gear** (owner or super-user) for admin menus — not the MoAP screen.
+5. After editing scripts: drop/reset **both** Core and Http on the frame (Http owns the URL the MoAP page calls).
 
 The MoAP page has tabs for **Canasta** / **Hand & Foot** / **Samba** / **Bolivia**, **This parlor** / **Network**, and **Weekly** / **Monthly** / **Lifetime**. Spectators use the screen; admins use the gear. Network numbers refresh from Experience every few seconds.
 
