@@ -242,8 +242,9 @@ default
         requestCap(TRUE);
         requestAssetRev();
         llSetTimerEvent(0.5);
-        llOwnerSay("Canasta scoreboard HTTP ready. screen=" + (string)gScreenLink
-            + " Free=" + (string)llGetFreeMemory());
+        llOwnerSay("SCOREBOARD Http online. screen=" + (string)gScreenLink
+            + " Free=" + (string)llGetFreeMemory()
+            + " (not the table Canasta_Http — this paints MoAP)");
     }
 
     on_rez(integer p)

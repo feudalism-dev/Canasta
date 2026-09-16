@@ -436,7 +436,8 @@ default
         enqueueReads();
         kickXp();
         llSetTimerEvent(TIMER_SEC);
-        llOwnerSay("Canasta scoreboard core ready. Free=" + (string)llGetFreeMemory());
+        llOwnerSay("Canasta scoreboard core ready. Free=" + (string)llGetFreeMemory()
+            + " — also need Canasta_Scoreboard_Http.lsl on this same frame.");
     }
 
     on_rez(integer p)
