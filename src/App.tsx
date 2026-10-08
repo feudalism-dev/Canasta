@@ -13,7 +13,7 @@ import { SlTableScreens } from './ui/SlTableScreens'
 import { ParkedHud } from './ui/ParkedHud'
 import { Scoreboard } from './ui/Scoreboard'
 import { SpectatorTable } from './ui/SpectatorTable'
-import type { GameFamily } from './core/family'
+import { normalizeFamily, type GameFamily } from './core/family'
 import type { RummyVariant } from './core/rummy/types'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
@@ -51,12 +51,27 @@ function AppInner() {
   const slBoot = useMemo(() => readSlBootstrap(), [])
   const tableHud = isTableHudSession(slBoot)
   const seatedBrowser = isSeatedBrowserSession(slBoot)
-  const [screen, setScreen] = useState<Screen>(tableHud || seatedBrowser ? 'sl' : 'menu')
+  const urlPlayRummy = (() => {
+    try {
+      return new URL(window.location.href).searchParams.get('play') === 'rummy'
+    } catch {
+      return false
+    }
+  })()
+  const [screen, setScreen] = useState<Screen>(
+    tableHud || seatedBrowser ? 'sl' : urlPlayRummy ? 'game' : 'menu',
+  )
   const [name, setName] = useState(slBoot?.name || readWebNameHint() || 'You')
   const [variant, setVariant] = useState<Variant>('canasta')
-  const [family, setFamily] = useState<GameFamily>('canasta')
+  const [family, setFamily] = useState<GameFamily>(() => {
+    try {
+      return normalizeFamily(new URL(window.location.href).searchParams.get('family'))
+    } catch {
+      return 'canasta'
+    }
+  })
   const [rummyVariant, setRummyVariant] = useState<RummyVariant>('standard')
-  const [rummyPlay, setRummyPlay] = useState(false)
+  const [rummyPlay, setRummyPlay] = useState(urlPlayRummy)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
@@ -508,6 +523,16 @@ function AppInner() {
     )
   }
 
+  if (rummyPlay) {
+    return wrap(
+      <RummyBoard
+        yourName={name}
+        variant={rummyVariant}
+        onExit={() => void leaveToMenu(true)}
+      />,
+    )
+  }
+
   if (screen === 'menu') {
     return wrap(
       <div className="shell-menu">
@@ -590,16 +615,6 @@ function AppInner() {
           </button>
         </div>
       </div>,
-    )
-  }
-
-  if (rummyPlay) {
-    return wrap(
-      <RummyBoard
-        yourName={name}
-        variant={rummyVariant}
-        onExit={() => void leaveToMenu(true)}
-      />,
     )
   }
 
