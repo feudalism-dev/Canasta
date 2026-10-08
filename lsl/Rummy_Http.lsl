@@ -1,6 +1,6 @@
-// Canasta — HTTP-IN JSONP front door
-// Drop in the SAME prim as Canasta_Table.lsl (root / AVsitter).
-// Compile: Mono. See Docs/SECOND_LIFE.md
+// Rummy — HTTP-IN JSONP front door (creator-locked family=rummy).
+// Drop in the SAME prim as Rummy_Table.lsl (root / AVsitter). Same HUD as Canasta.
+// Compile: Mono. See Docs/PLAN_RUMMY.md
 // Owns spectator board snapshot + guest browser mint tokens (keeps Table under Mono heap).
 //
 // Http ↔ Table: HTTP_CMD = 92001
@@ -14,8 +14,8 @@
 //   Table → Http: BCLEAR| or BCLEAR|seat
 //   Table → Http: BGATEOK|op|seat|roomCode  /  BGATEFAIL|err
 
-// Creator lock — Rummy tables use Rummy_Http.lsl instead (family=rummy).
-string TABLE_FAMILY = "canasta";
+// Creator lock — buyers cannot change this. Web app gates on status.family.
+string TABLE_FAMILY = "rummy";
 integer HTTP_CMD = 92001;
 float CAP_RETRY_SEC = 6.0;
 integer MAX_SEATS = 4;
@@ -343,7 +343,7 @@ default
         clearPend();
         requestCap();
         llSetTimerEvent(CAP_RETRY_SEC);
-        llOwnerSay("Canasta HTTP ready. Free=" + (string)llGetFreeMemory());
+        llOwnerSay("Rummy HTTP ready (family=rummy). Free=" + (string)llGetFreeMemory());
     }
 
     on_rez(integer p)

@@ -19,6 +19,8 @@ export type TableStatus = {
   hostUid?: string
   soloUid?: string
   ownerUid?: string
+  /** Creator-locked product family from table Http (`canasta` | `rummy`). */
+  family?: string
   /** Compact house-rules pipe string from table LSD. */
   house?: string
   roster?: TableRosterEntry[]

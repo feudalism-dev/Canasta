@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { HouseRules, Variant } from '../core/types'
+import { normalizeFamily, type GameFamily } from '../core/family'
+import type { RummyVariant } from '../core/rummy/types'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
 import { BetaVariantNotice } from './BetaVariantNotice'
 import { VariantSelect } from './VariantSelect'
+import { RummyVariantSelect } from './RummyVariantSelect'
 import { SeatMap } from './SeatMap'
 import type { SlBootstrap } from '../sl/bootstrap'
 import { openMatchInBrowser } from '../sl/sessionUrl'
@@ -40,6 +43,9 @@ type Props = {
   setStatus: (s: string) => void
   variant: Variant
   onVariant: (v: Variant) => void
+  rummyVariant: RummyVariant
+  onRummyVariant: (v: RummyVariant) => void
+  onFamily: (family: GameFamily) => void
   partnership: boolean
   onPartnership: (v: boolean) => void
   house: HouseRules
@@ -75,6 +81,9 @@ export function SlTableScreens({
   setStatus,
   variant,
   onVariant,
+  rummyVariant,
+  onRummyVariant,
+  onFamily,
   partnership,
   onPartnership,
   house,
@@ -115,6 +124,13 @@ export function SlTableScreens({
     loadedHouseRef.current = raw
     onHouse(decoded)
   }, [variant, table?.house, onHouse])
+
+  useEffect(() => {
+    onFamily(normalizeFamily(table?.family))
+  }, [table?.family, onFamily])
+
+  const family = normalizeFamily(table?.family)
+  const isRummyTable = family === 'rummy'
 
   const enterTable = async (name: string) => {
     if (!boot.slCap) throw new Error('Waiting for table HTTP-IN URL')
@@ -273,36 +289,43 @@ export function SlTableScreens({
           Seat {youSeat + 1} · {mode}
           {seatedBrowser ? ' · browser' : ''}
         </p>
-        <h1>Hand &amp; Foot / Canasta</h1>
+        <h1>{isRummyTable ? 'Rummy' : 'Hand & Foot / Canasta'}</h1>
+        {isRummyTable ? (
+          <p className="muted">This table is locked to the Rummy family (creator SKU).</p>
+        ) : null}
         <label>
           Name
           <input value={displayName} onChange={(e) => onNameChange(e.target.value)} />
         </label>
-        <label>
-          Game
-          <VariantSelect value={variant} disabled={!canEditRules} onChange={(next) => {
-              onVariant(next)
-              if (isHouseRulesHandAndFoot(next) && table?.house) {
-                const decoded = decodeHouseCompact(table.house)
-                if (decoded) onHouse(decoded)
-              }
-            }}
-          />
-        </label>
+        {isRummyTable ? (
+          <RummyVariantSelect value={rummyVariant} disabled={!canEditRules} onChange={onRummyVariant} />
+        ) : (
+          <label>
+            Game
+            <VariantSelect value={variant} disabled={!canEditRules} onChange={(next) => {
+                onVariant(next)
+                if (isHouseRulesHandAndFoot(next) && table?.house) {
+                  const decoded = decodeHouseCompact(table.house)
+                  if (decoded) onHouse(decoded)
+                }
+              }}
+            />
+          </label>
+        )}
         {!canEditRules ? (
           <p className="muted">
             {mode === 'match'
               ? 'Game choice is locked while a match is running.'
               : mode === 'solo'
-                ? 'Table is still locked from a previous solo game — Free table below, then pick Hand & Foot.'
+                ? 'Table is still locked from a previous solo game — Free table below, then change game.'
                 : mode === 'lobby'
                   ? 'Only the lobby host can change the game until the match starts.'
                   : 'Game choice is locked for this table state.'}
           </p>
         ) : null}
-        {isBetaVariant(variant) ? <BetaVariantNotice compact /> : null}
-        {isSambaFamily(variant) ? <HouseRulesPreview house={house} variant={variant} /> : null}
-        {!seatedBrowser ? (
+        {!isRummyTable && isBetaVariant(variant) ? <BetaVariantNotice compact /> : null}
+        {!isRummyTable && isSambaFamily(variant) ? <HouseRulesPreview house={house} variant={variant} /> : null}
+        {!seatedBrowser && !isRummyTable ? (
           <>
             <label className="check">
               <input type="checkbox" checked={partnership} onChange={(e) => onPartnership(e.target.checked)} />
@@ -318,7 +341,10 @@ export function SlTableScreens({
             </label>
           </>
         ) : null}
-        {isHouseRulesHandAndFoot(variant) ? (
+        {!seatedBrowser && isRummyTable ? (
+          <p className="muted">Solo vs one computer for now. Multiplayer lobby next.</p>
+        ) : null}
+        {!isRummyTable && isHouseRulesHandAndFoot(variant) ? (
           <>
             {showMpLobby && !rulesLocked ? (
               <p className="muted">
@@ -439,7 +465,7 @@ export function SlTableScreens({
         ) : (
           <p className="muted">You joined from a minted link. Stay seated in Second Life. Host plays on the HUD.</p>
         )}
-        {canCreate ? (
+        {canCreate && !isRummyTable ? (
           <button
             type="button"
             className="btn secondary"
@@ -460,6 +486,9 @@ export function SlTableScreens({
           >
             Create Multiplayer
           </button>
+        ) : null}
+        {isRummyTable && !seatedBrowser ? (
+          <p className="muted">Rummy multiplayer lobby comes after the solo board is solid.</p>
         ) : null}
         {canJoin && table?.roomCode ? (
           <button

@@ -8,10 +8,13 @@ import { HowToPlay } from './ui/HowToPlay'
 import { HandAndFootHouseFields, HouseRulesPreview } from './ui/HouseFields'
 import { BetaVariantNotice } from './ui/BetaVariantNotice'
 import { VariantSelect } from './ui/VariantSelect'
+import { RummyBoard } from './ui/RummyBoard'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { ParkedHud } from './ui/ParkedHud'
 import { Scoreboard } from './ui/Scoreboard'
 import { SpectatorTable } from './ui/SpectatorTable'
+import type { GameFamily } from './core/family'
+import type { RummyVariant } from './core/rummy/types'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
 import { resumeSolo, startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
@@ -51,6 +54,9 @@ function AppInner() {
   const [screen, setScreen] = useState<Screen>(tableHud || seatedBrowser ? 'sl' : 'menu')
   const [name, setName] = useState(slBoot?.name || readWebNameHint() || 'You')
   const [variant, setVariant] = useState<Variant>('canasta')
+  const [family, setFamily] = useState<GameFamily>('canasta')
+  const [rummyVariant, setRummyVariant] = useState<RummyVariant>('standard')
+  const [rummyPlay, setRummyPlay] = useState(false)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
@@ -186,7 +192,7 @@ function AppInner() {
               }
             : undefined
         }
-        onMenu={screen === 'game' && state ? () => void leaveToMenu() : undefined}
+        onMenu={screen === 'game' && (state || rummyPlay) ? () => void leaveToMenu(true) : undefined}
         onStatus={(msg) => {
           setStatus(msg)
           push(msg)
@@ -257,6 +263,22 @@ function AppInner() {
   const startLocal = async () => {
     local?.destroy()
     peer?.destroy()
+    if (family === 'rummy') {
+      if (tableHud && slBoot?.slCap) {
+        try {
+          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, 2)
+        } catch (e) {
+          push(e instanceof Error ? e.message : 'Could not claim table')
+        }
+      }
+      setLocal(null)
+      setPeer(null)
+      slMatchKind.current = tableHud ? 'solo' : 'none'
+      setRummyPlay(true)
+      setScreen('game')
+      push('Standard Rummy — draw, meld sets/runs, discard to go out.')
+      return
+    }
     const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
     const playerCount = soloSeatCount(partnership, humanSeat)
     if (tableHud && slBoot?.slCap) {
@@ -270,6 +292,7 @@ function AppInner() {
     prevMatchRef.current = null
     setLocal(ctrl)
     setPeer(null)
+    setRummyPlay(false)
     slMatchKind.current = tableHud ? 'solo' : 'none'
     setScreen('game')
     push(ctrl.state.lastMessage)
@@ -294,6 +317,7 @@ function AppInner() {
     local?.destroy()
     setPeer(null)
     setLocal(null)
+    setRummyPlay(false)
     if (tableHud && slBoot?.slCap && slMatchKind.current !== 'none') {
       try {
         await tableEndGame(slBoot.slCap, slBoot.uid, slBoot.seat)
@@ -393,6 +417,9 @@ function AppInner() {
           setVariant(v)
           peer?.setVariant(v)
         }}
+        rummyVariant={rummyVariant}
+        onRummyVariant={setRummyVariant}
+        onFamily={setFamily}
         partnership={partnership}
         onPartnership={setPartnership}
         onStartSolo={startLocal}
@@ -552,6 +579,16 @@ function AppInner() {
           </button>
         </div>
       </div>,
+    )
+  }
+
+  if (rummyPlay) {
+    return wrap(
+      <RummyBoard
+        yourName={name}
+        variant={rummyVariant}
+        onExit={() => void leaveToMenu(true)}
+      />,
     )
   }
 

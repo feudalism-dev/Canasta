@@ -10,7 +10,9 @@ Art Deco card parlor. Emerald felt, brass rails, warm lamp light. Custom basket-
 
 ## Product
 
-Two games, one engine. Menu pick: **Classic Canasta** or **Hand and Foot**. Partnership is first-class (seats 0+2 vs 1+3). Solo default is you + AI partner vs two AI. Table multiplayer always deals four hands; seating is how you pick versus vs co-op.
+Canasta-family parlor (Classic, Hand & Foot, Samba, Bolivia) plus a sister **Rummy** product SKU. Same HUD, same Pages app; table LSL sets `family` (`canasta` | `rummy`) as a creator lock. Hearts/Rook are a future **trick** family — not Rummy.
+
+Canasta: menu pick Classic / Hand & Foot / …. Partnership is first-class (seats 0+2 vs 1+3). Solo default is you + AI partner vs two AI. Table multiplayer always deals four hands; seating is how you pick versus vs co-op.
 
 The HUD teaches itself: rank-grouped hand, legal glow, coach bar, take-pile preview, live initial-meld meter, “May I go out?” consent.
 
