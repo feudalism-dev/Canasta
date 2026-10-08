@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
-import { suitGlyph, isRedSuit } from '../core/cards'
 import { applyRummyMove } from '../core/rummy/rules'
 import { createRummyMatch } from '../core/rummy/state'
 import type { RummyMove, RummyState, RummyVariant } from '../core/rummy/types'
-import { CardFace } from './CardFace'
+import { CardView } from './CardView'
 
 type Props = {
   yourName: string
@@ -39,7 +38,6 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
     setErr('')
     setSelected([])
     let next = res.state
-    // Naive computer: draw stock, discard a random card.
     while (
       next.phase !== 'roundEnd' &&
       next.phase !== 'matchEnd' &&
@@ -66,70 +64,75 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
   }
 
   return (
-    <div className="game-board rummy-board">
-      <header className="board-head">
-        <button type="button" className="linkish" onClick={onExit}>
+    <div className="shell-game rummy-board">
+      <header className="rummy-head">
+        <button type="button" className="btn ghost" onClick={onExit}>
           ← Menu
         </button>
-        <h2>Standard Rummy</h2>
-        <p className="muted">{status}</p>
-        <p className="muted">
-          You {you.score} · Computer {state.players[1]!.score} · Stock {state.stock.length}
-        </p>
+        <div>
+          <h2>Standard Rummy</h2>
+          <p className="muted">{status}</p>
+          <p className="muted">
+            You {you.score} · Computer {state.players[1]!.score} · Stock {state.stock.length}
+          </p>
+        </div>
       </header>
-      {err ? <p className="scoreboard-err">{err}</p> : null}
-      <div className="piles-row">
-        <button type="button" disabled={!yourTurn || state.drew} onClick={() => play({ t: 'drawStock' })}>
-          Stock ({state.stock.length})
+      {err ? <p className="error">{err}</p> : null}
+
+      <div className="rummy-piles">
+        <button
+          type="button"
+          className="rummy-pile"
+          disabled={!yourTurn || state.drew}
+          onClick={() => play({ t: 'drawStock' })}
+        >
+          <span className="pile-label">Stock · {state.stock.length}</span>
+          <CardView facedown size="lg" />
         </button>
         <button
           type="button"
+          className="rummy-pile"
           disabled={!yourTurn || state.drew || !topDiscard}
           onClick={() => play({ t: 'takeDiscard' })}
         >
-          {topDiscard ? (
-            <CardFace card={topDiscard} />
-          ) : (
-            'Discard'
-          )}
+          <span className="pile-label">Discard</span>
+          {topDiscard ? <CardView card={topDiscard} size="lg" /> : <div className="pile-empty">Empty</div>}
         </button>
       </div>
-      <div className="meld-tray">
+
+      <div className="rummy-melds">
         {state.players.flatMap((pl) =>
           pl.melds.map((m) => (
-            <div key={m.id} className="meld-chip">
-              <span>
+            <div key={m.id} className="rummy-meld">
+              <span className="muted tiny">
                 {pl.name}: {m.kind}
               </span>
-              <div className="card-row">
+              <div className="rummy-card-row">
                 {m.cards.map((c) => (
-                  <CardFace key={c.id} card={c} />
+                  <CardView key={c.id} card={c} size="sm" />
                 ))}
               </div>
             </div>
           )),
         )}
       </div>
-      <div className="hand-row">
+
+      <div className="rummy-hand" role="list" aria-label="Your hand">
         {you.hand.map((c) => (
-          <button
+          <CardView
             key={c.id}
-            type="button"
-            className={selected.includes(c.id) ? 'is-on' : ''}
+            card={c}
+            size="md"
+            selected={selected.includes(c.id)}
             onClick={() => toggle(c.id)}
-            style={{ color: isRedSuit(c.suit) ? '#b33' : undefined }}
-          >
-            <CardFace card={c} />
-            <span className="sr-only">
-              {c.rank}
-              {suitGlyph(c.suit)}
-            </span>
-          </button>
+          />
         ))}
       </div>
-      <div className="actions-row">
+
+      <div className="rummy-actions">
         <button
           type="button"
+          className="btn primary"
           disabled={!yourTurn || !state.drew || selected.length < 3}
           onClick={() => play({ t: 'meld', cardIds: selected })}
         >
@@ -137,6 +140,7 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
         </button>
         <button
           type="button"
+          className="btn secondary"
           disabled={!yourTurn || !state.drew || selected.length !== 1}
           onClick={() => play({ t: 'discard', cardId: selected[0]! })}
         >

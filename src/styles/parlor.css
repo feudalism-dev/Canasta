@@ -1632,3 +1632,91 @@ ul {
   color: var(--brass);
 }
 
+
+/* —— Rummy solo board (compact; uses CardView sizing) —— */
+.rummy-board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 1.25rem;
+  max-width: 52rem;
+  margin: 0 auto;
+  color: var(--cream, #f3ead7);
+}
+
+.rummy-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.rummy-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+.rummy-piles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.rummy-pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.rummy-pile:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rummy-pile .pile-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.rummy-melds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  min-height: 0.5rem;
+}
+
+.rummy-meld {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(201, 162, 39, 0.2);
+}
+
+.rummy-card-row,
+.rummy-hand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: flex-end;
+}
+
+.rummy-hand {
+  padding: 0.5rem 0;
+}
+
+.rummy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
