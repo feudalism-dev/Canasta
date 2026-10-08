@@ -16,6 +16,7 @@ Hearts and Rook are **not** Rummy. They need a third family when you want them. 
 
 - Canasta tables keep `Canasta_Table.lsl` + `Canasta_Http.lsl` → status `family:"canasta"`.
 - Rummy tables use `Rummy_Table.lsl` + `Rummy_Http.lsl` → status `family:"rummy"`.
+- Table-top MoAP: use `Rummy_Display.lsl` (URL includes `family=rummy`). Keep `Canasta_Bots.lsl` as-is.
 - Same mesh / same `Canasta HUD` inventory name is fine; the table status gates the web UI.
 - Buyers and sitters cannot flip the family.
 

@@ -29,6 +29,14 @@ describe('HUD bootstrap', () => {
     expect(isTableHudSession(readSlBootstrap('https://x.test/Canasta/?view=scores'))).toBe(false)
   })
 
+  it('reads family from the table-top MoAP URL', () => {
+    const boot = readSlBootstrap(
+      'https://x.test/Canasta/?view=table&family=rummy&uid=spec&tableId=11111111-1111-1111-1111-111111111111',
+    )
+    expect(boot?.family).toBe('rummy')
+    expect(boot?.view).toBe('table')
+  })
+
   it('recognizes a minted seated browser match URL', () => {
     const boot = readSlBootstrap(BROWSER_MATCH)
     expect(boot?.token).toBe('deadbeef')

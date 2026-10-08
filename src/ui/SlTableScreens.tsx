@@ -263,7 +263,7 @@ export function SlTableScreens({
       <div className="shell-menu">
         <div className="menu-card">
           <p className="brand-kicker">Table · Seat {boot.seat >= 0 ? boot.seat + 1 : '?'}</p>
-          <h1>Canasta</h1>
+          <h1>Table</h1>
           <p>Waiting for the table handshake…</p>
           {err ? <p className="error">{err}</p> : null}
           <button
@@ -688,9 +688,14 @@ export function SlTableScreens({
             </button>
           </>
         ) : null}
-        <button type="button" className="btn ghost" onClick={onHowToPlay}>
-          How to Play
-        </button>
+        {!isRummyTable && onHowToPlay ? (
+          <button type="button" className="btn ghost" onClick={onHowToPlay}>
+            How to Play
+          </button>
+        ) : null}
+        {isRummyTable ? (
+          <p className="muted">Rummy how-to comes with the full board polish.</p>
+        ) : null}
         {status ? <p className="muted">{status}</p> : null}
         {err ? <p className="error">{err}</p> : null}
       </div>

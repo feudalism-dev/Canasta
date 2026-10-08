@@ -167,40 +167,51 @@ function AppInner() {
     return () => window.removeEventListener('pagehide', onHide)
   }, [])
 
-  const wrap = (node: ReactNode) => (
-    <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
-      <AppChrome
-        slBoot={tableHud || seatedBrowser || slBoot?.parked ? slBoot : null}
-        parked={Boolean(slBoot?.parked)}
-        roomCode={peer?.roomCode || slBoot?.room}
-        showOppBooks={showOppBooks}
-        onShowOppBooks={(on) => {
-          writeOppBooks(on)
-          setShowOppBooks(on)
-        }}
-        showOurBooks={showOurBooks}
-        onShowOurBooks={(on) => {
-          writeOurBooks(on)
-          setShowOurBooks(on)
-        }}
-        coachTips={Boolean(local) && screen === 'game' ? coachTips : undefined}
-        onCoachTips={
-          local && screen === 'game'
-            ? (on) => {
-                writeCoachTips(on)
-                setCoachTips(on)
-              }
-            : undefined
-        }
-        onMenu={screen === 'game' && (state || rummyPlay) ? () => void leaveToMenu(true) : undefined}
-        onStatus={(msg) => {
-          setStatus(msg)
-          push(msg)
-        }}
-      />
-      <div className="app-scale">{node}</div>
-    </div>
-  )
+  const wrap = (node: ReactNode) => {
+    const rummyUi = family === 'rummy' || rummyPlay
+    return (
+      <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
+        <AppChrome
+          slBoot={tableHud || seatedBrowser || slBoot?.parked ? slBoot : null}
+          parked={Boolean(slBoot?.parked)}
+          roomCode={peer?.roomCode || slBoot?.room}
+          showOppBooks={showOppBooks}
+          onShowOppBooks={
+            rummyUi
+              ? undefined
+              : (on) => {
+                  writeOppBooks(on)
+                  setShowOppBooks(on)
+                }
+          }
+          showOurBooks={showOurBooks}
+          onShowOurBooks={
+            rummyUi
+              ? undefined
+              : (on) => {
+                  writeOurBooks(on)
+                  setShowOurBooks(on)
+                }
+          }
+          coachTips={!rummyUi && Boolean(local) && screen === 'game' ? coachTips : undefined}
+          onCoachTips={
+            !rummyUi && local && screen === 'game'
+              ? (on) => {
+                  writeCoachTips(on)
+                  setCoachTips(on)
+                }
+              : undefined
+          }
+          onMenu={screen === 'game' && (state || rummyPlay) ? () => void leaveToMenu(true) : undefined}
+          onStatus={(msg) => {
+            setStatus(msg)
+            push(msg)
+          }}
+        />
+        <div className="app-scale">{node}</div>
+      </div>
+    )
+  }
 
   useEffect(() => {
     if (peer?.state && screen === 'sl') setScreen('game')
@@ -381,7 +392,7 @@ function AppInner() {
   }
 
   if (slBoot?.view === 'table') {
-    return <SpectatorTable slCap={slBoot.slCap} />
+    return <SpectatorTable slCap={slBoot.slCap} familyHint={slBoot.family} />
   }
 
   if (slBoot?.view === 'scores') {

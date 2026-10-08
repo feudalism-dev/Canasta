@@ -13,6 +13,8 @@ export type SlBootstrap = {
   action: string
   view: 'table' | 'scores' | ''
   token: string
+  /** Creator-locked family from table MoAP (`canasta` | `rummy`). */
+  family: string
 }
 
 function paramsFrom(raw: string): URLSearchParams {
@@ -54,6 +56,7 @@ export function readSlBootstrap(href = window.location.href): SlBootstrap | null
     action: (merged.get('action') || '').trim().toLowerCase(),
     view,
     token: (merged.get('token') || '').trim(),
+    family: (merged.get('family') || '').trim().toLowerCase(),
   }
 }
 
