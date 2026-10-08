@@ -1633,7 +1633,7 @@ ul {
 }
 
 
-/* —— Rummy solo board (compact; uses CardView sizing) —— */
+/* -- Rummy solo board (compact; uses CardView sizing) -- */
 .rummy-board {
   display: flex;
   flex-direction: column;
