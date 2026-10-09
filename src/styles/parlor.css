@@ -1722,3 +1722,10 @@ ul {
 }
 
 .rummy-tip { margin: 0.35rem 0 0; font-size: 0.85rem; opacity: 0.9; max-width: 40rem; }
+
+.rummy-opponents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}

@@ -22,11 +22,19 @@ Hearts and Rook are **not** Rummy. They need a third family when you want them. 
 
 ## Build order
 
-1. LSL clones + `family` in JSONP status (this pass).
-2. Web reads `family` from table status; Canasta UI only when `canasta` (default for browser practice).
-3. Standard Rummy rules engine + minimal playable HUD path.
-4. Gin Rummy as a rummy variant (knock / undercut / gin bonuses).
-5. Scoreboard letter(s) for rummy games; optional display polish.
+1. LSL clones + `family` in JSONP status — done.
+2. Web reads `family` from table status — done.
+3. Standard Rummy engine + solo HUD — done.
+4. Solo player count 2–4 (bots in empty seats) + PeerJS multiplayer — done (free-for-all, no teams).
+5. Gin Rummy as a rummy variant (knock / undercut / gin bonuses).
+6. Scoreboard letter(s) for rummy games; optional display polish.
+
+## Multiplayer notes
+
+- Same table Create / Join / Ready / Start as Canasta.
+- Peer ids use `rummy-<room>-host` (separate from Canasta rooms).
+- Host is authoritative; empty chairs in the chosen 2–4 seats are bots.
+- Standard Rummy is **not** partnership — each seat scores alone.
 
 ## Standard Rummy (v1 target)
 

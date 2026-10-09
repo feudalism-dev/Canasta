@@ -1,50 +1,119 @@
-import { useMemo, useState } from 'react'
-import { applyRummyMove } from '../core/rummy/rules'
-import { createRummyMatch, dealNextRummyRound } from '../core/rummy/state'
+import { useEffect, useMemo, useState } from 'react'
 import type { RummyMove, RummyState, RummyVariant } from '../core/rummy/types'
+import { createRummyMatch, dealNextRummyRound } from '../core/rummy/state'
+import { applyRummyMove } from '../core/rummy/rules'
+import { pumpRummyBots } from '../ai/rummyBot'
 import { CardView } from './CardView'
+
+export type RummyBoardController = {
+  state: RummyState
+  localIndex: number
+  aiThinking?: boolean
+  submit: (move: RummyMove) => { ok: true } | { ok: false; error: string }
+  nextHand: () => void
+  newMatch?: () => void
+  onChange?: (cb: () => void) => () => void
+}
 
 type Props = {
   yourName: string
   variant: RummyVariant
   onExit: () => void
+  /** When set, board is driven by solo/MP session. */
+  controller?: RummyBoardController | null
+  /** Solo fallback when no controller: total seats 2–4. */
+  playerCount?: number
 }
 
-export function RummyBoard({ yourName, variant, onExit }: Props) {
-  const [state, setState] = useState<RummyState>(() =>
-    createRummyMatch([yourName, 'Computer'], [false, true], variant),
-  )
+export function RummyBoard({ yourName, variant, onExit, controller, playerCount = 2 }: Props) {
+  const [tick, setTick] = useState(0)
+  const [fallback, setFallback] = useState<RummyState | null>(null)
   const [selected, setSelected] = useState<string[]>([])
   const [err, setErr] = useState('')
+  const [aiThinking, setAiThinking] = useState(false)
 
-  const you = state.players[0]!
-  const topDiscard = state.discard[state.discard.length - 1]
-  const yourTurn = state.current === 0 && state.phase !== 'roundEnd' && state.phase !== 'matchEnd'
-  const roundOver = state.phase === 'roundEnd'
-  const matchOver = state.phase === 'matchEnd'
+  useEffect(() => {
+    if (!controller?.onChange) return
+    return controller.onChange(() => setTick((t) => t + 1))
+  }, [controller])
+
+  useEffect(() => {
+    if (controller) {
+      setFallback(null)
+      return
+    }
+    const names = [yourName || 'You']
+    const computers = [false]
+    for (let i = 1; i < playerCount; i++) {
+      names.push(`Computer ${i}`)
+      computers.push(true)
+    }
+    let cancelled = false
+    let cur = createRummyMatch(names, computers, variant)
+    setFallback(cur)
+    const pump = async () => {
+      setAiThinking(true)
+      cur = await pumpRummyBots(cur, {
+        isCancelled: () => cancelled,
+        onThinking: setAiThinking,
+        onStep: (next) => {
+          cur = next
+          if (!cancelled) setFallback(next)
+        },
+      })
+      if (!cancelled) {
+        setFallback(cur)
+        setAiThinking(false)
+      }
+    }
+    void pump()
+    return () => {
+      cancelled = true
+    }
+  }, [controller, yourName, variant, playerCount])
+
+  void tick
+  const state = controller?.state ?? fallback
+  const localIndex = controller?.localIndex ?? 0
+  const thinking = controller?.aiThinking ?? aiThinking
+  const you = state?.players[localIndex]
+  const yourTurn = Boolean(
+    state &&
+      you &&
+      state.current === localIndex &&
+      state.phase !== 'roundEnd' &&
+      state.phase !== 'matchEnd',
+  )
+  const roundOver = state?.phase === 'roundEnd'
+  const matchOver = state?.phase === 'matchEnd'
 
   const status = useMemo(() => {
+    if (!state || !you) return 'Dealing…'
     if (matchOver) {
       const winner = state.players.find((p) => p.id === state.winnerId)
-      return `Match over — ${winner?.name ?? 'lowest score'} wins (lowest score after someone reaches ${state.config.playTo})`
+      return `Match over — ${winner?.name ?? 'lowest score'} wins`
     }
-    if (roundOver) {
-      return 'Someone went out — opponents score the points left in their hands. Deal the next hand when ready.'
-    }
+    if (roundOver) return 'Hand over — Deal next hand when ready.'
+    if (thinking) return 'Computers are thinking…'
     if (!yourTurn) return `${state.players[state.current]!.name}'s turn`
     if (state.phase === 'draw') return '1) Draw: tap Stock or the discard pile'
     if (you.hand.length <= 1 && state.drew) {
-      return 'You can go out — meld your last set/run, or discard your last card'
+      return 'You can go out — meld or discard your last card(s)'
     }
-    return '2) Optional: select 3+ cards → Meld · 3) Select 1 card → Discard (ends your turn)'
-  }, [state, yourTurn, you.hand.length, roundOver, matchOver])
-
-  const tip = useMemo(() => {
-    if (roundOver || matchOver) return null
-    return 'Goal: empty your hand. Melds are 3+ of a kind, or 3+ in suit in a row (A-2-3 or Q-K-A). Going out ends the hand.'
-  }, [roundOver, matchOver])
+    return '2) Optional meld (3+) · 3) Discard one card to end your turn'
+  }, [state, you, yourTurn, roundOver, matchOver, thinking])
 
   const play = (move: RummyMove) => {
+    if (controller) {
+      const res = controller.submit(move)
+      if (!res.ok) setErr(res.error)
+      else {
+        setErr('')
+        setSelected([])
+      }
+      return
+    }
+    if (!state) return
     const res = applyRummyMove(state, move)
     if (!res.ok) {
       setErr(res.error)
@@ -53,42 +122,33 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
     setErr('')
     setSelected([])
     let next = res.state
-    while (
-      next.phase !== 'roundEnd' &&
-      next.phase !== 'matchEnd' &&
-      next.players[next.current]?.isComputer
-    ) {
-      const bot = next.players[next.current]!
-      if (!next.drew) {
-        const d = applyRummyMove(next, { t: 'drawStock' })
-        if (!d.ok) break
-        next = d.state
-      } else {
-        const cardId = bot.hand[0]?.id
-        if (!cardId) break
-        const d = applyRummyMove(next, { t: 'discard', cardId })
-        if (!d.ok) break
-        next = d.state
-      }
-    }
-    setState(next)
+    setFallback(next)
+    void (async () => {
+      setAiThinking(true)
+      next = await pumpRummyBots(next, {
+        isCancelled: () => false,
+        onThinking: setAiThinking,
+        onStep: (s) => setFallback(s),
+      })
+      setFallback(next)
+      setAiThinking(false)
+    })()
   }
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
-  const nextHand = () => {
-    setErr('')
-    setSelected([])
-    setState(dealNextRummyRound(state))
+  if (!state || !you) {
+    return (
+      <div className="shell-game rummy-board">
+        <p className="muted">Dealing…</p>
+      </div>
+    )
   }
 
-  const newMatch = () => {
-    setErr('')
-    setSelected([])
-    setState(createRummyMatch([yourName, 'Computer'], [false, true], variant))
-  }
+  const topDiscard = state.discard[state.discard.length - 1]
+  const scores = state.players.map((p) => `${p.name} ${p.score}`).join(' · ')
 
   return (
     <div className="shell-game rummy-board">
@@ -97,14 +157,14 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
           ← Menu
         </button>
         <div>
-          <h2>Standard Rummy</h2>
+          <h2>Standard Rummy · {state.players.length} players</h2>
           <p className="muted">{status}</p>
           <p className="muted">
-            Hand {state.round} · You {you.score} · Computer {state.players[1]!.score} · Stock{' '}
-            {state.stock.length}
-            {state.config.playTo != null ? ` · play to ${state.config.playTo}` : ''}
+            Hand {state.round} · {scores} · Stock {state.stock.length}
           </p>
-          {tip ? <p className="rummy-tip">{tip}</p> : null}
+          <p className="rummy-tip">
+            Free-for-all (no teams). Empty your hand to go out. Melds: 3+ of a kind, or 3+ suited run.
+          </p>
         </div>
       </header>
       {err ? <p className="error">{err}</p> : null}
@@ -112,11 +172,29 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
       {roundOver || matchOver ? (
         <div className="rummy-actions">
           {roundOver ? (
-            <button type="button" className="btn primary" onClick={nextHand}>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => {
+                if (controller) controller.nextHand()
+                else setFallback(dealNextRummyRound(state))
+              }}
+            >
               Deal next hand
             </button>
           ) : null}
-          <button type="button" className={matchOver ? 'btn primary' : 'btn secondary'} onClick={newMatch}>
+          <button
+            type="button"
+            className={matchOver ? 'btn primary' : 'btn secondary'}
+            onClick={() => {
+              if (controller?.newMatch) controller.newMatch()
+              else if (!controller) {
+                const names = state.players.map((p) => p.name)
+                const computers = state.players.map((p) => p.isComputer)
+                setFallback(createRummyMatch(names, computers, variant))
+              }
+            }}
+          >
             New match
           </button>
           <button type="button" className="btn ghost" onClick={onExit}>
@@ -149,7 +227,7 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
       <div className="rummy-melds">
         {state.players.flatMap((pl) =>
           pl.melds.map((m) => (
-            <div key={m.id} className="rummy-meld">
+            <div key={`${pl.id}-${m.id}`} className="rummy-meld">
               <span className="muted tiny">
                 {pl.name}: {m.kind}
               </span>
@@ -160,6 +238,17 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
               </div>
             </div>
           )),
+        )}
+      </div>
+
+      <div className="rummy-opponents">
+        {state.players.map((pl, i) =>
+          i === localIndex ? null : (
+            <span key={pl.id} className="muted tiny">
+              {pl.name}: {pl.hand.length} cards
+              {state.current === i ? ' · turn' : ''}
+            </span>
+          ),
         )}
       </div>
 

@@ -45,6 +45,9 @@ type Props = {
   onVariant: (v: Variant) => void
   rummyVariant: RummyVariant
   onRummyVariant: (v: RummyVariant) => void
+  /** Total seats for Rummy solo/MP (2–4). Empty chairs become bots. */
+  rummyPlayerCount: number
+  onRummyPlayerCount: (n: number) => void
   onFamily: (family: GameFamily) => void
   partnership: boolean
   onPartnership: (v: boolean) => void
@@ -83,6 +86,8 @@ export function SlTableScreens({
   onVariant,
   rummyVariant,
   onRummyVariant,
+  rummyPlayerCount,
+  onRummyPlayerCount,
   onFamily,
   partnership,
   onPartnership,
@@ -342,7 +347,23 @@ export function SlTableScreens({
           </>
         ) : null}
         {!seatedBrowser && isRummyTable ? (
-          <p className="muted">Solo vs one computer for now. Multiplayer lobby next.</p>
+          <>
+            <label>
+              Players at the table (you + bots in empty seats)
+              <select
+                value={rummyPlayerCount}
+                disabled={!canEditRules}
+                onChange={(e) => onRummyPlayerCount(Number(e.target.value))}
+              >
+                <option value={2}>2 — you + 1 bot</option>
+                <option value={3}>3 — you + 2 bots</option>
+                <option value={4}>4 — you + 3 bots</option>
+              </select>
+            </label>
+            <p className="muted">
+              Standard Rummy is free-for-all (no partners). Multiplayer: empty chairs are bots; humans Join their seat.
+            </p>
+          </>
         ) : null}
         {!isRummyTable && isHouseRulesHandAndFoot(variant) ? (
           <>
@@ -465,7 +486,7 @@ export function SlTableScreens({
         ) : (
           <p className="muted">You joined from a minted link. Stay seated in Second Life. Host plays on the HUD.</p>
         )}
-        {canCreate && !isRummyTable ? (
+        {canCreate ? (
           <button
             type="button"
             className="btn secondary"
@@ -486,9 +507,6 @@ export function SlTableScreens({
           >
             Create Multiplayer
           </button>
-        ) : null}
-        {isRummyTable && !seatedBrowser ? (
-          <p className="muted">Rummy multiplayer lobby comes after the solo board is solid.</p>
         ) : null}
         {canJoin && table?.roomCode ? (
           <button

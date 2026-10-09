@@ -25,6 +25,12 @@ import { DEFAULT_HOUSE, isBetaVariant, isHouseRulesHandAndFoot, isSambaFamily, n
 import type { HouseRules, MatchState, Variant } from './core/types'
 import { createPeerHost, joinPeerRoom, type PeerSession } from './net/peerSession'
 import {
+  createRummyPeerHost,
+  joinRummyPeerRoom,
+  type RummyPeerSession,
+} from './net/rummyPeerSession'
+import { startRummySolo, type RummyLocalSession } from './ui/rummyLocalSession'
+import {
   clearMatchResume,
   loadMatchResume,
   MATCH_RESUME_GRACE_MS,
@@ -71,7 +77,10 @@ function AppInner() {
     }
   })
   const [rummyVariant, setRummyVariant] = useState<RummyVariant>('standard')
+  const [rummyPlayerCount, setRummyPlayerCount] = useState(2)
   const [rummyPlay, setRummyPlay] = useState(urlPlayRummy)
+  const [rummyLocal, setRummyLocal] = useState<RummyLocalSession | null>(null)
+  const [rummyPeer, setRummyPeer] = useState<RummyPeerSession | null>(null)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
@@ -183,13 +192,13 @@ function AppInner() {
   }, [])
 
   const wrap = (node: ReactNode) => {
-    const rummyUi = family === 'rummy' || rummyPlay
+    const rummyUi = family === 'rummy' || rummyPlay || Boolean(rummyLocal) || Boolean(rummyPeer)
     return (
       <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
         <AppChrome
           slBoot={tableHud || seatedBrowser || slBoot?.parked ? slBoot : null}
           parked={Boolean(slBoot?.parked)}
-          roomCode={peer?.roomCode || slBoot?.room}
+          roomCode={rummyPeer?.roomCode || peer?.roomCode || slBoot?.room}
           showOppBooks={showOppBooks}
           onShowOppBooks={
             rummyUi
@@ -217,7 +226,11 @@ function AppInner() {
                 }
               : undefined
           }
-          onMenu={screen === 'game' && (state || rummyPlay) ? () => void leaveToMenu(true) : undefined}
+          onMenu={
+            screen === 'game' && (state || rummyPlay || rummyLocal || rummyPeer?.state)
+              ? () => void leaveToMenu(true)
+              : undefined
+          }
           onStatus={(msg) => {
             setStatus(msg)
             push(msg)
@@ -229,8 +242,18 @@ function AppInner() {
   }
 
   useEffect(() => {
-    if (peer?.state && screen === 'sl') setScreen('game')
-  }, [peer?.state, screen, tick])
+    if ((peer?.state || rummyPeer?.state || rummyLocal) && screen === 'sl') setScreen('game')
+  }, [peer?.state, rummyPeer?.state, rummyLocal, screen, tick])
+
+  useEffect(() => {
+    if (!rummyPeer) return
+    return rummyPeer.onChange(() => setTick((t) => t + 1))
+  }, [rummyPeer])
+
+  useEffect(() => {
+    if (!rummyLocal) return
+    return rummyLocal.onChange(() => setTick((t) => t + 1))
+  }, [rummyLocal])
 
   useEffect(() => {
     if (!state?.lastMessage) return
@@ -289,20 +312,25 @@ function AppInner() {
   const startLocal = async () => {
     local?.destroy()
     peer?.destroy()
+    rummyLocal?.destroy()
+    rummyPeer?.destroy()
     if (family === 'rummy') {
       if (tableHud && slBoot?.slCap) {
         try {
-          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, 2)
+          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, rummyPlayerCount)
         } catch (e) {
           push(e instanceof Error ? e.message : 'Could not claim table')
         }
       }
+      const ctrl = startRummySolo(name, rummyPlayerCount, rummyVariant)
       setLocal(null)
       setPeer(null)
+      setRummyPeer(null)
+      setRummyLocal(ctrl)
+      setRummyPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
-      setRummyPlay(true)
       setScreen('game')
-      push('Standard Rummy — draw, meld sets/runs, discard to go out.')
+      push(`Rummy solo — ${rummyPlayerCount} players (you + ${rummyPlayerCount - 1} bot${rummyPlayerCount > 2 ? 's' : ''}).`)
       return
     }
     const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
@@ -318,6 +346,8 @@ function AppInner() {
     prevMatchRef.current = null
     setLocal(ctrl)
     setPeer(null)
+    setRummyLocal(null)
+    setRummyPeer(null)
     setRummyPlay(false)
     slMatchKind.current = tableHud ? 'solo' : 'none'
     setScreen('game')
@@ -341,8 +371,12 @@ function AppInner() {
     clearMatchResume()
     peer?.destroy()
     local?.destroy()
+    rummyPeer?.destroy()
+    rummyLocal?.destroy()
     setPeer(null)
     setLocal(null)
+    setRummyPeer(null)
+    setRummyLocal(null)
     setRummyPlay(false)
     if (tableHud && slBoot?.slCap && slMatchKind.current !== 'none') {
       try {
@@ -428,7 +462,14 @@ function AppInner() {
     )
   }
 
-  if (screen === 'sl' && (tableHud || seatedBrowser) && slBoot && !state) {
+  if (
+    screen === 'sl' &&
+    (tableHud || seatedBrowser) &&
+    slBoot &&
+    !state &&
+    !rummyLocal &&
+    !rummyPeer?.state
+  ) {
     return wrap(
       <SlTableScreens
         boot={slBoot}
@@ -444,7 +485,15 @@ function AppInner() {
           peer?.setVariant(v)
         }}
         rummyVariant={rummyVariant}
-        onRummyVariant={setRummyVariant}
+        onRummyVariant={(v) => {
+          setRummyVariant(v)
+          rummyPeer?.setVariant(v)
+        }}
+        rummyPlayerCount={rummyPlayerCount}
+        onRummyPlayerCount={(n) => {
+          setRummyPlayerCount(n)
+          rummyPeer?.setPlayerCount(n)
+        }}
         onFamily={setFamily}
         partnership={partnership}
         onPartnership={setPartnership}
@@ -452,11 +501,28 @@ function AppInner() {
         onResumeMatch={() => void tryResumeSavedMatch()}
         canResumeMatch={Boolean(
           slBoot &&
+            family !== 'rummy' &&
             loadMatchResume({ uid: slBoot.uid, seat: slBoot.seat, tableId: slBoot.tableId }),
         )}
         onCreatedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
+          rummyPeer?.destroy()
+          if (family === 'rummy') {
+            const session = await createRummyPeerHost(name, {
+              roomCode,
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+              variant: rummyVariant,
+              playerCount: rummyPlayerCount,
+            })
+            setRummyPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           const session = await createPeerHost(name, {
             roomCode,
             avatarUid: slBoot.uid,
@@ -467,14 +533,31 @@ function AppInner() {
           })
           setPeer(session)
           setLocal(null)
+          setRummyPeer(null)
+          setRummyLocal(null)
           slMatchKind.current = 'mp'
         }}
         onJoinedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
+          rummyPeer?.destroy()
+          if (family === 'rummy') {
+            const session = await joinRummyPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setRummyPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           const session = await joinPeerRoom(roomCode, name, { avatarUid: slBoot.uid, seat: slBoot.seat })
           setPeer(session)
           setLocal(null)
+          setRummyPeer(null)
+          setRummyLocal(null)
           slMatchKind.current = 'mp'
         }}
         house={house}
@@ -483,36 +566,61 @@ function AppInner() {
           peer?.setHouse(h)
         }}
         onHostStartMp={(tableStatus) => {
-          // Variant/house already live on the peer from lobby edits; Ready = acceptance.
           const occupants = (tableStatus?.roster || [])
             .filter((r) => r.seat >= 0 && r.joined)
-            .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid }))
-          peer?.startMatch(occupants)
+            .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid, joined: true }))
+          if (family === 'rummy') {
+            rummyPeer?.startMatch(occupants)
+          } else {
+            peer?.startMatch(occupants)
+          }
           setTick((t) => t + 1)
         }}
         onLeaveLobby={async () => {
           peer?.destroy()
+          rummyPeer?.destroy()
           setPeer(null)
+          setRummyPeer(null)
           slMatchKind.current = 'none'
         }}
         onDetachPeer={() => {
           peer?.destroy()
+          rummyPeer?.destroy()
           setPeer(null)
+          setRummyPeer(null)
           slMatchKind.current = 'none'
         }}
-        peerHasState={Boolean(peer?.state)}
+        peerHasState={Boolean(peer?.state || rummyPeer?.state)}
         onRejoinPeer={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
+          rummyPeer?.destroy()
+          if (family === 'rummy') {
+            const session = await joinRummyPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setRummyPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           const session = await joinPeerRoom(roomCode, name, { avatarUid: slBoot.uid, seat: slBoot.seat })
           setPeer(session)
           setLocal(null)
+          setRummyPeer(null)
+          setRummyLocal(null)
           slMatchKind.current = 'mp'
         }}
-        peerRoomCode={peer?.roomCode}
-        peerSeats={peer?.seats}
-        isPeerHost={peer?.isHost}
-        onPeerReadyToggle={(ready) => peer?.setReady(ready)}
+        peerRoomCode={rummyPeer?.roomCode || peer?.roomCode}
+        peerSeats={rummyPeer?.seats || peer?.seats}
+        isPeerHost={rummyPeer?.isHost ?? peer?.isHost}
+        onPeerReadyToggle={(ready) => {
+          rummyPeer?.setReady(ready)
+          peer?.setReady(ready)
+        }}
         onHowToPlay={() => setScreen('help')}
         coachTips={coachTips}
         onCoachTips={(on) => {
@@ -523,11 +631,26 @@ function AppInner() {
     )
   }
 
-  if (rummyPlay) {
+  if (rummyLocal || rummyPeer?.state || rummyPlay) {
+    const ctrl = rummyLocal || rummyPeer
     return wrap(
       <RummyBoard
         yourName={name}
         variant={rummyVariant}
+        playerCount={rummyPlayerCount}
+        controller={
+          ctrl
+            ? {
+                state: ctrl.state!,
+                localIndex: ctrl.localIndex,
+                aiThinking: ctrl.aiThinking,
+                submit: (m) => ctrl.submit(m),
+                nextHand: () => ctrl.nextHand(),
+                newMatch: rummyLocal ? () => rummyLocal.newMatch() : undefined,
+                onChange: (cb) => ctrl.onChange(cb),
+              }
+            : null
+        }
         onExit={() => void leaveToMenu(true)}
       />,
     )
