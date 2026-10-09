@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { applyRummyMove } from '../core/rummy/rules'
-import { createRummyMatch } from '../core/rummy/state'
+import { createRummyMatch, dealNextRummyRound } from '../core/rummy/state'
 import type { RummyMove, RummyState, RummyVariant } from '../core/rummy/types'
 import { CardView } from './CardView'
 
@@ -20,14 +20,29 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
   const you = state.players[0]!
   const topDiscard = state.discard[state.discard.length - 1]
   const yourTurn = state.current === 0 && state.phase !== 'roundEnd' && state.phase !== 'matchEnd'
+  const roundOver = state.phase === 'roundEnd'
+  const matchOver = state.phase === 'matchEnd'
 
   const status = useMemo(() => {
-    if (state.phase === 'matchEnd') return 'Match over'
-    if (state.phase === 'roundEnd') return 'Round over'
+    if (matchOver) {
+      const winner = state.players.find((p) => p.id === state.winnerId)
+      return `Match over — ${winner?.name ?? 'lowest score'} wins (lowest score after someone reaches ${state.config.playTo})`
+    }
+    if (roundOver) {
+      return 'Someone went out — opponents score the points left in their hands. Deal the next hand when ready.'
+    }
     if (!yourTurn) return `${state.players[state.current]!.name}'s turn`
-    if (state.phase === 'draw') return 'Draw from stock or take discard'
-    return 'Meld, lay off, or discard'
-  }, [state, yourTurn])
+    if (state.phase === 'draw') return '1) Draw: tap Stock or the discard pile'
+    if (you.hand.length <= 1 && state.drew) {
+      return 'You can go out — meld your last set/run, or discard your last card'
+    }
+    return '2) Optional: select 3+ cards → Meld · 3) Select 1 card → Discard (ends your turn)'
+  }, [state, yourTurn, you.hand.length, roundOver, matchOver])
+
+  const tip = useMemo(() => {
+    if (roundOver || matchOver) return null
+    return 'Goal: empty your hand. Melds are 3+ of a kind, or 3+ in suit in a row (A-2-3 or Q-K-A). Going out ends the hand.'
+  }, [roundOver, matchOver])
 
   const play = (move: RummyMove) => {
     const res = applyRummyMove(state, move)
@@ -63,6 +78,18 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
+  const nextHand = () => {
+    setErr('')
+    setSelected([])
+    setState(dealNextRummyRound(state))
+  }
+
+  const newMatch = () => {
+    setErr('')
+    setSelected([])
+    setState(createRummyMatch([yourName, 'Computer'], [false, true], variant))
+  }
+
   return (
     <div className="shell-game rummy-board">
       <header className="rummy-head">
@@ -73,11 +100,30 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
           <h2>Standard Rummy</h2>
           <p className="muted">{status}</p>
           <p className="muted">
-            You {you.score} · Computer {state.players[1]!.score} · Stock {state.stock.length}
+            Hand {state.round} · You {you.score} · Computer {state.players[1]!.score} · Stock{' '}
+            {state.stock.length}
+            {state.config.playTo != null ? ` · play to ${state.config.playTo}` : ''}
           </p>
+          {tip ? <p className="rummy-tip">{tip}</p> : null}
         </div>
       </header>
       {err ? <p className="error">{err}</p> : null}
+
+      {roundOver || matchOver ? (
+        <div className="rummy-actions">
+          {roundOver ? (
+            <button type="button" className="btn primary" onClick={nextHand}>
+              Deal next hand
+            </button>
+          ) : null}
+          <button type="button" className={matchOver ? 'btn primary' : 'btn secondary'} onClick={newMatch}>
+            New match
+          </button>
+          <button type="button" className="btn ghost" onClick={onExit}>
+            Leave table
+          </button>
+        </div>
+      ) : null}
 
       <div className="rummy-piles">
         <button
@@ -124,29 +170,31 @@ export function RummyBoard({ yourName, variant, onExit }: Props) {
             card={c}
             size="md"
             selected={selected.includes(c.id)}
-            onClick={() => toggle(c.id)}
+            onClick={() => (yourTurn ? toggle(c.id) : undefined)}
           />
         ))}
       </div>
 
-      <div className="rummy-actions">
-        <button
-          type="button"
-          className="btn primary"
-          disabled={!yourTurn || !state.drew || selected.length < 3}
-          onClick={() => play({ t: 'meld', cardIds: selected })}
-        >
-          Meld
-        </button>
-        <button
-          type="button"
-          className="btn secondary"
-          disabled={!yourTurn || !state.drew || selected.length !== 1}
-          onClick={() => play({ t: 'discard', cardId: selected[0]! })}
-        >
-          Discard
-        </button>
-      </div>
+      {!roundOver && !matchOver ? (
+        <div className="rummy-actions">
+          <button
+            type="button"
+            className="btn primary"
+            disabled={!yourTurn || !state.drew || selected.length < 3}
+            onClick={() => play({ t: 'meld', cardIds: selected })}
+          >
+            Meld
+          </button>
+          <button
+            type="button"
+            className="btn secondary"
+            disabled={!yourTurn || !state.drew || selected.length !== 1}
+            onClick={() => play({ t: 'discard', cardId: selected[0]! })}
+          >
+            Discard
+          </button>
+        </div>
+      ) : null}
       <p className="muted tiny">{state.log.slice(-3).join(' · ')}</p>
     </div>
   )

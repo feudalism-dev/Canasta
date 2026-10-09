@@ -71,3 +71,17 @@ export function findInHand(player: RummyPlayer, id: string) {
 export function withConfig(state: RummyState, config: RummyConfig): RummyState {
   return { ...state, config }
 }
+
+/** Keep match scores; deal a fresh hand. */
+export function dealNextRummyRound(prev: RummyState, seed = Date.now()): RummyState {
+  const names = prev.players.map((p) => p.name)
+  const computers = prev.players.map((p) => p.isComputer)
+  const next = createRummyMatch(names, computers, prev.config.variant, seed)
+  next.round = prev.round + 1
+  next.players = next.players.map((p, i) => ({
+    ...p,
+    score: prev.players[i]?.score ?? 0,
+  }))
+  next.log = [`Hand ${next.round} — scores carry over.`]
+  return next
+}
