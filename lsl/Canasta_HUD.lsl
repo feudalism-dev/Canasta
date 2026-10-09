@@ -24,7 +24,7 @@ string gTableId = "";
 integer gSeat = -1;
 string gSlCap = "";
 string gNameHint = "";
-/** From CN_READY field 6 (canasta|rummy). Empty until handshake. */
+/** From CN_READY field 6 (canasta|rummy|trick). Empty until handshake. */
 string gFamily = "";
 
 integer gPendingAttach = FALSE;

@@ -16,7 +16,13 @@ export function ParkedHud({ boot }: { boot: SlBootstrap }) {
         ) : (
           <p>
             You are playing a solo table game in your web browser
-            {boot.family === 'rummy' ? ' (Rummy)' : boot.family === 'canasta' ? ' (Hand &amp; Foot / Canasta)' : ''}
+            {boot.family === 'rummy'
+              ? ' (Rummy)'
+              : boot.family === 'trick'
+                ? ' (Trick)'
+                : boot.family === 'canasta'
+                  ? ' (Hand &amp; Foot / Canasta)'
+                  : ''}
             . This HUD is on standby so you do not also play from the table.
           </p>
         )}
