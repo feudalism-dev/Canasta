@@ -28,8 +28,8 @@ list gAv = [];
 integer gPlayers = 4;
 integer gLive = FALSE;
 integer gTurnSeat = -1;
-integer gScoreA = 0;
-integer gScoreB = 0;
+/** Per-seat match scores (free-for-all Rummy / Gin — not partnership). */
+list gScore = [];
 string gSlCap = "";
 string gLastHomeUrl = "";
 integer gPageRev = 0;
@@ -141,20 +141,34 @@ string labelFor(integer seat)
 
 integer scoreFor(integer seat)
 {
-    if (seat % 2 == 0) return gScoreA;
-    return gScoreB;
+    if (seat < 0 || seat >= MAX_SEATS) return 0;
+    return llList2Integer(gScore, seat);
+}
+
+integer seatVacant(integer seat)
+{
+    if (llList2Key(gAv, seat) != NULL_KEY) return FALSE;
+    if (llList2String(gName, seat) != "") return FALSE;
+    return TRUE;
 }
 
 integer paintSeat(integer seat)
 {
     string conf = "a=left; w=none; t=on; force=on";
-    string body = (string)(seat + 1) + " " + clip(labelFor(seat), 16);
-    if (!gLive || seat >= gPlayers)
+    string body;
+    integer showLive = FALSE;
+    if (gLive && seat < gPlayers)
     {
+        if (!seatVacant(seat)) showLive = TRUE;
+    }
+    if (!showLive)
+    {
+        body = (string)(seat + 1) + " P" + (string)(seat + 1);
         conf += "; c=0.85,0.78,0.55";
     }
     else
     {
+        body = (string)(seat + 1) + " " + clip(labelFor(seat), 16);
         body += " " + (string)scoreFor(seat);
         if (gTurnSeat == seat)
         {
@@ -187,8 +201,31 @@ integer clearState()
     gPlayers = 4;
     gLive = FALSE;
     gTurnSeat = -1;
-    gScoreA = 0;
-    gScoreB = 0;
+    gScore = [0, 0, 0, 0];
+    return TRUE;
+}
+
+integer clearSeatDisplay(integer seat)
+{
+    if (seat < 0 || seat >= MAX_SEATS) return FALSE;
+    gName = llListReplaceList(gName, [""], seat, seat);
+    gAv = llListReplaceList(gAv, [NULL_KEY], seat, seat);
+    gScore = llListReplaceList(gScore, [0], seat, seat);
+    if (gTurnSeat == seat) gTurnSeat = -1;
+    paintSeat(seat);
+    return TRUE;
+}
+
+integer takeScores(list parts, integer startAt)
+{
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        integer sc = 0;
+        integer idx = startAt + i;
+        if (idx < llGetListLength(parts)) sc = (integer)llList2String(parts, idx);
+        gScore = llListReplaceList(gScore, [sc], i, i);
+    }
     return TRUE;
 }
 
@@ -301,9 +338,21 @@ integer handleEvent(string pipe)
     }
     if (kind == "SCORE")
     {
-        gScoreA = player;
-        gScoreB = team;
+        // Rummy: SCORE|s0|s1|s2|s3  (legacy 2-field team scores still accepted)
+        if (n >= 5) takeScores(parts, 1);
+        else
+        {
+            gScore = llListReplaceList(gScore, [player], 0, 0);
+            gScore = llListReplaceList(gScore, [player], 2, 2);
+            gScore = llListReplaceList(gScore, [team], 1, 1);
+            gScore = llListReplaceList(gScore, [team], 3, 3);
+        }
         paintAll();
+        return TRUE;
+    }
+    if (kind == "CLEARSEAT")
+    {
+        clearSeatDisplay(player);
         return TRUE;
     }
     if (kind == "GAME_OVER")

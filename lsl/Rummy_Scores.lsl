@@ -14,8 +14,7 @@ integer MAX_SEATS = 4;
 list gName = [];
 list gAv = [];
 integer gPlayers = 4;
-integer gScoreA = 0;
-integer gScoreB = 0;
+list gScore = [];
 string gGame = "r";
 
 string cleanName(string s)
@@ -48,9 +47,8 @@ integer clearState()
     gName = ["", "", "", ""];
     gAv = [NULL_KEY, NULL_KEY, NULL_KEY, NULL_KEY];
     gPlayers = 4;
-    gScoreA = 0;
-    gScoreB = 0;
-    gGame = "c";
+    gScore = [0, 0, 0, 0];
+    gGame = "r";
     return TRUE;
 }
 
@@ -128,8 +126,8 @@ integer shoutFinal()
         if (nm == "") nm = llKey2Name(av);
         if (nm == "") nm = llList2String(gName, i);
         nm = cleanName(nm);
-        integer sc = gScoreB;
-        if (i % 2 == 0) sc = gScoreA;
+        integer sc = 0;
+        if (i < llGetListLength(gScore)) sc = llList2Integer(gScore, i);
         llShout(SCORE_CH, "CN_SCORE|" + gGame + "|" + (string)av + "|" + nm + "|" + (string)sc);
         @nextseat;
     }
@@ -148,8 +146,14 @@ integer handleEvent(string pipe)
     }
     if (kind == "SCORE")
     {
-        if (llGetListLength(parts) > 1) gScoreA = (integer)llList2String(parts, 1);
-        if (llGetListLength(parts) > 2) gScoreB = (integer)llList2String(parts, 2);
+        integer i;
+        for (i = 0; i < MAX_SEATS; i++)
+        {
+            integer sc = 0;
+            integer idx = 1 + i;
+            if (idx < llGetListLength(parts)) sc = (integer)llList2String(parts, idx);
+            gScore = llListReplaceList(gScore, [sc], i, i);
+        }
         return TRUE;
     }
     if (kind == "GAME_OVER")

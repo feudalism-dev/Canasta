@@ -85,9 +85,22 @@ export function dealNextRummyRound(prev: RummyState, seed = Date.now()): RummySt
   next.players = next.players.map((p, i) => ({
     ...p,
     score: prev.players[i]?.score ?? 0,
+    seat: prev.players[i]?.seat ?? p.seat,
+    name: prev.players[i]?.name ?? p.name,
+    isComputer: prev.players[i]?.isComputer ?? p.isComputer,
   }))
   next.log = [`Hand ${next.round} — scores carry over.`]
   next.lastHandNote = null
   next.lastHandScores = null
+  return next
+}
+
+/** Assign physical table seats (0–3) after deal — used so Furware lines match chairs. */
+export function withPhysicalSeats(state: RummyState, seats: number[]): RummyState {
+  const next = cloneRummy(state)
+  next.players = next.players.map((p, i) => ({
+    ...p,
+    seat: seats[i] ?? p.seat,
+  }))
   return next
 }

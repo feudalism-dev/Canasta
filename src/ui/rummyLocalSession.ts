@@ -1,7 +1,7 @@
 import { pumpRummyBots } from '../ai/rummyBot'
 import { COMPUTER_NAMES } from '../core/tableSeating'
 import { applyRummyMove } from '../core/rummy/rules'
-import { createRummyMatch, dealNextRummyRound } from '../core/rummy/state'
+import { createRummyMatch, dealNextRummyRound, withPhysicalSeats } from '../core/rummy/state'
 import type { RummyMove, RummyState, RummyVariant } from '../core/rummy/types'
 import { clampRummyPlayerCount } from '../core/rummy/variants'
 
@@ -16,7 +16,18 @@ export type RummyLocalSession = {
   destroy: () => void
 }
 
-/** Total seats 2–4 = 1 human + (n−1) bots. Human is always seat/index 0 in solo. */
+/** Physical chairs for solo: human's AVsitter seat first, then empty chairs for bots. */
+export function rummySoloPhysicalSeats(humanSeat: number, playerCount: number): number[] {
+  const n = Math.max(2, Math.min(4, Math.floor(playerCount) || 2))
+  const hs = ((humanSeat % 4) + 4) % 4
+  const seats = [hs]
+  for (let s = 0; s < 4 && seats.length < n; s++) {
+    if (s !== hs) seats.push(s)
+  }
+  return seats
+}
+
+/** Total seats 2–4 = 1 human + (n−1) bots. Human is always engine index 0. */
 export function rummySoloRoster(
   name: string,
   playerCount: number,
@@ -35,9 +46,12 @@ export function startRummySolo(
   name: string,
   playerCount: number,
   variant: RummyVariant = 'standard',
+  humanSeat = 0,
 ): RummyLocalSession {
-  const roster = rummySoloRoster(name, clampRummyPlayerCount(variant, playerCount))
-  let state = createRummyMatch(roster.names, roster.computers, variant)
+  const n = clampRummyPlayerCount(variant, playerCount)
+  const roster = rummySoloRoster(name, n)
+  const seats = rummySoloPhysicalSeats(humanSeat, n)
+  let state = withPhysicalSeats(createRummyMatch(roster.names, roster.computers, variant), seats)
   const localIndex = roster.localIndex
   let aiThinking = false
   let cancelled = false
@@ -96,7 +110,7 @@ export function startRummySolo(
     },
     newMatch: () => {
       if (cancelled) return
-      state = createRummyMatch(roster.names, roster.computers, variant)
+      state = withPhysicalSeats(createRummyMatch(roster.names, roster.computers, variant), seats)
       notify()
       void pump()
     },

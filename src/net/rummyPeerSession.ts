@@ -2,7 +2,7 @@ import Peer, { type DataConnection } from 'peerjs'
 import { pumpRummyBots } from '../ai/rummyBot'
 import { COMPUTER_NAMES } from '../core/tableSeating'
 import { applyRummyMove } from '../core/rummy/rules'
-import { createRummyMatch, dealNextRummyRound } from '../core/rummy/state'
+import { createRummyMatch, dealNextRummyRound, withPhysicalSeats } from '../core/rummy/state'
 import type { RummyMove, RummyState, RummyVariant } from '../core/rummy/types'
 import { clampRummyPlayerCount } from '../core/rummy/variants'
 import type { Occupant } from '../core/tableSeating'
@@ -68,27 +68,35 @@ function waitConn(conn: DataConnection): Promise<void> {
 export function rummyMpRoster(
   occupants: Occupant[],
   playerCount: number,
-): { names: string[]; computers: boolean[] } {
+): { names: string[]; computers: boolean[]; seats: number[] } {
   const n = Math.max(2, Math.min(4, playerCount))
   const bySeat: (Occupant | undefined)[] = [undefined, undefined, undefined, undefined]
   for (const o of occupants) {
     if (o.seat >= 0 && o.seat < 4 && o.joined !== false) bySeat[o.seat] = o
   }
+  const seats: number[] = []
+  for (let s = 0; s < 4 && seats.length < n; s++) {
+    const o = bySeat[s]
+    if (o && (o.uid || o.name)) seats.push(s)
+  }
+  for (let s = 0; s < 4 && seats.length < n; s++) {
+    if (!seats.includes(s)) seats.push(s)
+  }
   const names: string[] = []
   const computers: boolean[] = []
   let ai = 0
-  for (let i = 0; i < n; i++) {
-    const o = bySeat[i]
+  for (const s of seats) {
+    const o = bySeat[s]
     if (o && (o.uid || o.name)) {
-      names.push(o.name || `Player ${i + 1}`)
+      names.push(o.name || `Player ${s + 1}`)
       computers.push(false)
     } else {
-      names.push(COMPUTER_NAMES[ai] ?? `Computer ${i + 1}`)
+      names.push(COMPUTER_NAMES[ai] ?? `Computer ${s + 1}`)
       computers.push(true)
       ai += 1
     }
   }
-  return { names, computers }
+  return { names, computers, seats }
 }
 
 export type RummyPeerSession = {
@@ -436,7 +444,10 @@ function buildRummySession(
         }
       }
       const roster = rummyMpRoster(merged, playerCount)
-      state = createRummyMatch(roster.names, roster.computers, variant)
+      state = withPhysicalSeats(
+        createRummyMatch(roster.names, roster.computers, variant),
+        roster.seats,
+      )
       broadcast({ t: 'start', state })
       status = 'Match started'
       notify()

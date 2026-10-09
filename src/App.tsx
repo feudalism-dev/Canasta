@@ -39,6 +39,7 @@ import {
 } from './net/matchResume'
 import { isSeatedBrowserSession, isTableHudSession, readSlBootstrap, readWebNameHint } from './sl/bootstrap'
 import { emitDisplayPipes, emitPublicBoard } from './sl/displaySync'
+import { emitRummyDisplay, resetRummyDisplaySync } from './sl/rummyDisplaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 import { playYourTurnBell } from './ui/sfx'
 
@@ -286,6 +287,14 @@ function AppInner() {
     prevMatchRef.current = cloneState(state)
   }, [tick, state, local, peer, slBoot, tableHud])
 
+  useEffect(() => {
+    const rummyState = rummyLocal?.state ?? rummyPeer?.state
+    if (!rummyState || !tableHud || !slBoot?.slCap) return
+    const isEmitter = Boolean(rummyLocal) || rummyPeer?.isHost === true
+    if (!isEmitter) return
+    emitRummyDisplay(rummyState, slBoot.slCap, slBoot.uid, slBoot.seat)
+  }, [tick, rummyLocal, rummyPeer, slBoot, tableHud])
+
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
     if (local) {
@@ -322,7 +331,9 @@ function AppInner() {
           push(e instanceof Error ? e.message : 'Could not claim table')
         }
       }
-      const ctrl = startRummySolo(name, rummyPlayerCount, rummyVariant)
+      const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
+      const ctrl = startRummySolo(name, rummyPlayerCount, rummyVariant, humanSeat)
+      resetRummyDisplaySync()
       setLocal(null)
       setPeer(null)
       setRummyPeer(null)

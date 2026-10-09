@@ -930,6 +930,15 @@ default
             {
                 clearGraceFor(av);
                 gGrace += [av, seat, llGetUnixTime() + (integer)STAND_GRACE_SEC];
+                // Furware must not keep a live "*N Name score" line while the chair is empty.
+                if (gMode == MODE_SOLO)
+                {
+                    llMessageLinked(LINK_SET, DISPLAY_CMD_RESET, "", NULL_KEY);
+                }
+                else
+                {
+                    llMessageLinked(LINK_SET, DISPLAY_CMD_EVENT, "CLEARSEAT|" + (string)seat, NULL_KEY);
+                }
                 pushStatus();
                 return;
             }
@@ -939,12 +948,17 @@ default
                 clearGraceFor(av);
                 forfeitAvatar(av);
                 clearSeatRoster(seat);
+                llMessageLinked(LINK_SET, DISPLAY_CMD_RESET, "", NULL_KEY);
                 pushStatus();
                 return;
             }
         }
         clearGraceFor(av);
         gGrace += [av, seat, llGetUnixTime() + (integer)STAND_GRACE_SEC];
+        if (seat >= 0)
+        {
+            llMessageLinked(LINK_SET, DISPLAY_CMD_EVENT, "CLEARSEAT|" + (string)seat, NULL_KEY);
+        }
         pushStatus();
     }
 
