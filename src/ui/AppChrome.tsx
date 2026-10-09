@@ -139,8 +139,8 @@ export function AppChrome({
         </div>
         <div className="chrome-actions">
           {onMenu ? (
-            <button type="button" className="chrome-help-btn" onClick={onMenu} title="Leave match and return to the menu">
-              Menu
+            <button type="button" className="chrome-help-btn" onClick={onMenu} title="Quit match and return to the menu">
+              Quit to Menu
             </button>
           ) : null}
           <button type="button" className="chrome-help-btn" onClick={() => setHelpOpen(true)}>

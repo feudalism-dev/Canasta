@@ -193,7 +193,7 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
     <div className="shell-game rummy-board">
       <header className="rummy-head">
         <button type="button" className="btn ghost" onClick={onExit}>
-          ← Menu
+          Quit to Menu
         </button>
         <div>
           <h2>
