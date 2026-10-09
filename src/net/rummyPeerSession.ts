@@ -4,7 +4,7 @@ import { COMPUTER_NAMES } from '../core/tableSeating'
 import { applyRummyMove } from '../core/rummy/rules'
 import { createRummyMatch, dealNextRummyRound, withPhysicalSeats } from '../core/rummy/state'
 import type { RummyMove, RummyState, RummyVariant } from '../core/rummy/types'
-import { clampRummyPlayerCount } from '../core/rummy/variants'
+import { clampRummyPlayerCount, isGinStyle } from '../core/rummy/variants'
 import type { Occupant } from '../core/tableSeating'
 import { MATCH_RESUME_GRACE_MS } from './matchResume'
 
@@ -192,7 +192,7 @@ function buildRummySession(
   let state: RummyState | null = null
   let status = isHost ? `Room ${code}` : 'Joining…'
   let variant: RummyVariant = opts?.variant || 'standard'
-  let playerCount = clampRummyPlayerCount(variant, opts?.playerCount || (variant === 'gin' ? 2 : 4))
+  let playerCount = clampRummyPlayerCount(variant, opts?.playerCount || (isGinStyle(variant) ? 2 : 4))
   let aiThinking = false
   let cancelled = false
   let running = false
@@ -302,7 +302,7 @@ function buildRummySession(
     }
     if (msg.t === 'variant' && isHost) {
       variant = msg.variant
-      if (variant === 'gin') playerCount = 2
+      playerCount = clampRummyPlayerCount(variant, playerCount)
       syncLobby()
       return
     }
@@ -421,12 +421,12 @@ function buildRummySession(
     setVariant: (v) => {
       if (!isHost) return
       variant = v
-      if (v === 'gin') playerCount = 2
+      playerCount = clampRummyPlayerCount(variant, playerCount)
       syncLobby()
     },
     setPlayerCount: (n) => {
       if (!isHost) return
-      playerCount = variant === 'gin' ? 2 : Math.max(2, Math.min(4, n))
+      playerCount = clampRummyPlayerCount(variant, n)
       syncLobby()
     },
     startMatch: (occupants = []) => {

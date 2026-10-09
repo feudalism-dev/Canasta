@@ -1,6 +1,6 @@
 import { findCard, takeCards } from '../cards'
 import { buildRummyDeck, shuffleSeeded, sortRummyHand } from './deck'
-import { rummyConfig } from './variants'
+import { oklahomaKnockMax, oklahomaScoreMult, rummyConfig, isGinStyle } from './variants'
 import type { RummyConfig, RummyPlayer, RummyState, RummyVariant } from './types'
 
 export function createRummyMatch(
@@ -9,10 +9,10 @@ export function createRummyMatch(
   variant: RummyVariant = 'standard',
   seed = Date.now(),
 ): RummyState {
-  const seatCap = variant === 'gin' ? 2 : Math.max(2, Math.min(4, names.length))
+  const seatCap = isGinStyle(variant) ? 2 : Math.max(2, Math.min(4, names.length))
   const useNames = names.slice(0, seatCap)
   const useComputers = computers.slice(0, seatCap)
-  const config = rummyConfig(variant, useNames.length)
+  let config = rummyConfig(variant, useNames.length)
   const deck = shuffleSeeded(buildRummyDeck(config.deckCount, config.jokers), seed)
   const players: RummyPlayer[] = useNames.map((name, i) => ({
     id: `p${i}`,
@@ -21,6 +21,7 @@ export function createRummyMatch(
     isComputer: !!useComputers[i],
     hand: [],
     melds: [],
+    scoredLayoffs: [],
     score: 0,
   }))
   let stock = deck
@@ -36,6 +37,21 @@ export function createRummyMatch(
   stock = stock.slice(1)
   const discard = up ? [up] : []
   for (const pl of players) pl.hand = sortRummyHand(pl.hand)
+
+  let scoreMultThisHand = 1
+  if (variant === 'oklahoma' && up) {
+    config = {
+      ...config,
+      knockMax: oklahomaKnockMax(up),
+    }
+    scoreMultThisHand = oklahomaScoreMult(up)
+  }
+
+  const knockNote =
+    variant === 'oklahoma' && up
+      ? ` Knock ≤ ${config.knockMax}${scoreMultThisHand > 1 ? ' (spades double)' : ''}.`
+      : ''
+
   return {
     config,
     players,
@@ -46,9 +62,11 @@ export function createRummyMatch(
     round: 1,
     drew: false,
     winnerId: null,
-    log: [`Dealt ${config.handSize} cards each (${config.variant}).`],
+    log: [`Dealt ${config.handSize} cards each (${config.variant}).${knockNote}`],
     lastHandNote: null,
     lastHandScores: null,
+    scoreMultThisHand,
+    mustUseCardId: null,
   }
 }
 

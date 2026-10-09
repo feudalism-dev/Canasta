@@ -23,4 +23,17 @@ describe('rummy melds', () => {
     expect(isRun(high)).toBe(true)
     expect(isRun(wrap)).toBe(false)
   })
+
+  it('allows jokers in sets and runs when enabled', () => {
+    const cfg = { allowJokersInMelds: true } as import('./types').RummyConfig
+    const set = [makeCard(0, 'H', '9', 0), makeCard(0, 'D', '9', 0), makeCard(0, 'J', 'JOKER', 0)]
+    const run = [
+      makeCard(0, 'C', '4', 0),
+      makeCard(0, 'C', '5', 0),
+      makeCard(0, 'J', 'JOKER', 1),
+    ]
+    expect(classifyMeld(set, cfg)).toBe('set')
+    expect(classifyMeld(run, cfg)).toBe('run')
+    expect(classifyMeld(set)).toBe(null)
+  })
 })

@@ -7,7 +7,7 @@ Sister product to the Canasta parlor. **Same HUD object** (table-rezzed on sit),
 | Family | Examples | Engine |
 |--------|----------|--------|
 | **canasta** (shipped) | Classic Canasta, Hand & Foot, Samba, Bolivia | Meld books / pile / canastas |
-| **rummy** (this work) | Standard Rummy → then Gin Rummy | Sets + runs, draw/discard, go out / knock |
+| **rummy** (this work) | Standard, Gin, Oklahoma, Rummy 500, Kalooki (open) | Sets + runs, draw/discard, go out / knock |
 | **trick** (later, not now) | Hearts, Rook, Spades, Euchre | Follow suit, tricks, point bags |
 
 Hearts and Rook are **not** Rummy. They need a third family when you want them. Do not force them under `family=rummy`.
@@ -27,7 +27,9 @@ Hearts and Rook are **not** Rummy. They need a third family when you want them. 
 3. Standard Rummy engine + solo HUD — done.
 4. Solo player count 2–4 (bots in empty seats) + PeerJS multiplayer — done (free-for-all, no teams).
 5. Gin Rummy as a rummy variant (knock / undercut / gin bonuses) — done (see `Docs/RULES_GIN.md`).
-6. Scoreboard letter(s) for rummy games; optional display polish.
+6. Oklahoma Gin, Rummy 500, Kalooki (open) in the game selector — done (see `Docs/RULES_RUMMY_VARIANTS.md`).
+7. Scoreboard letter(s) for rummy games; optional display polish.
+8. Later: Kalooki contract hands (not open free-meld).
 
 ## Multiplayer notes
 

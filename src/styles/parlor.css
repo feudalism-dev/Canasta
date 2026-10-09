@@ -1687,6 +1687,57 @@ ul {
   opacity: 0.85;
 }
 
+.rummy-discard-fan {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: min(100%, 28rem);
+}
+
+.rummy-discard-fan .pile-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.rummy-discard-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.rummy-discard-card {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  margin-left: -0.55rem;
+  transition: transform 0.12s ease;
+}
+
+.rummy-discard-card:first-child {
+  margin-left: 0;
+}
+
+.rummy-discard-card:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.rummy-discard-card:not(:disabled):hover {
+  transform: translateY(-6px);
+  z-index: 2;
+  position: relative;
+}
+
+.rummy-hand-slot.is-must-use {
+  outline: 2px solid color-mix(in srgb, var(--accent, #c9a227) 80%, white);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .rummy-melds {
   display: flex;
   flex-wrap: wrap;

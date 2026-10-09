@@ -4,25 +4,27 @@ import { applyRummyMove } from '../core/rummy/rules'
 import { deadwoodPoints } from '../core/rummy/score'
 import { cloneRummy, currentPlayer } from '../core/rummy/state'
 import type { RummyMove, RummyState } from '../core/rummy/types'
+import { isGinStyle } from '../core/rummy/variants'
 
-/** Prefer discarding high deadwood that is not part of an obvious set/run start. */
+/** Prefer discarding high deadwood; never discard a Kalooki joker. */
 function discardPick(state: RummyState): string | null {
   const me = currentPlayer(state)
   if (me.hand.length === 0) return null
-  let best = me.hand[0]!
+  let best: (typeof me.hand)[0] | null = null
   let bestScore = -1
   for (const c of me.hand) {
+    if (state.config.variant === 'kalooki' && c.rank === 'JOKER') continue
     const pts = deadwoodPoints(c, state.config)
     if (pts > bestScore) {
       bestScore = pts
       best = c
     }
   }
-  return best.id
+  return best?.id ?? me.hand.find((c) => c.rank !== 'JOKER')?.id ?? me.hand[0]!.id
 }
 
-/** Try every 3–4 card combo for a legal meld (small hands — fine for 7–11 cards). */
-function findMeldIds(state: RummyState): string[] | null {
+/** Try every 3–4 card combo for a legal meld (small hands — fine for 7–14 cards). */
+function findMeldIds(state: RummyState, requireId?: string | null): string[] | null {
   const me = currentPlayer(state)
   const hand = me.hand
   const n = hand.length
@@ -32,8 +34,9 @@ function findMeldIds(state: RummyState): string[] | null {
     const walk = (start: number, need: number): string[] | null => {
       if (need === 0) {
         const ids = idx.map((i) => hand[i]!.id)
+        if (requireId && !ids.includes(requireId)) return null
         const cards = idx.map((i) => hand[i]!)
-        if (classifyMeld(cards)) return ids
+        if (classifyMeld(cards, state.config)) return ids
         return null
       }
       for (let i = start; i <= n - need; i++) {
@@ -46,6 +49,30 @@ function findMeldIds(state: RummyState): string[] | null {
     }
     const found = walk(0, len)
     if (found) return found
+  }
+  // Longer runs (5+) for kalooki / 500
+  if (n >= 5) {
+    for (let len = Math.min(n, 8); len >= 5; len--) {
+      const idx: number[] = []
+      const walk = (start: number, need: number): string[] | null => {
+        if (need === 0) {
+          const ids = idx.map((i) => hand[i]!.id)
+          if (requireId && !ids.includes(requireId)) return null
+          const cards = idx.map((i) => hand[i]!)
+          if (classifyMeld(cards, state.config) === 'run') return ids
+          return null
+        }
+        for (let i = start; i <= n - need; i++) {
+          idx.push(i)
+          const hit = walk(i + 1, need - 1)
+          if (hit) return hit
+          idx.pop()
+        }
+        return null
+      }
+      const found = walk(0, len)
+      if (found) return found
+    }
   }
   return null
 }
@@ -69,26 +96,46 @@ function knockPick(state: RummyState): { cardId: string; gin: boolean; points: n
   return best
 }
 
+function canUseCardThisTurn(state: RummyState, cardId: string): boolean {
+  const meld = findMeldIds(state, cardId)
+  if (meld) return true
+  const me = currentPlayer(state)
+  const card = me.hand.find((c) => c.id === cardId)
+  if (!card) return false
+  return layoffTargets(state.players, [card], state.config).length > 0
+}
+
 /** One legal computer action for the current player, or null if not a computer's turn. */
 export function pickRummyBotMove(state: RummyState): RummyMove | null {
   const me = currentPlayer(state)
   if (!me.isComputer) return null
   if (state.phase === 'roundEnd' || state.phase === 'matchEnd') return null
-  const isGin = state.config.variant === 'gin'
+  const ginStyle = isGinStyle(state.config.variant)
 
   if (!state.drew || state.phase === 'draw') {
-    if (state.discard.length > 0) {
+    if (state.config.deepDiscard && state.discard.length > 0) {
+      // Prefer deeper takes when the buried card can be used immediately.
+      for (let i = 0; i < state.discard.length; i++) {
+        const trial = cloneRummy(state)
+        const take = applyRummyMove(trial, { t: 'takeDiscardDeep', fromIndex: i })
+        if (!take.ok) continue
+        const must = take.state.mustUseCardId
+        if (must && canUseCardThisTurn(take.state, must)) {
+          return { t: 'takeDiscardDeep', fromIndex: i }
+        }
+      }
+    } else if (state.discard.length > 0) {
       const trial = cloneRummy(state)
       const take = applyRummyMove(trial, { t: 'takeDiscard' })
       if (take.ok) {
-        if (isGin) {
+        if (ginStyle) {
           const knock = knockPick(take.state)
           if (knock && (knock.gin || knock.points <= 5)) return { t: 'takeDiscard' }
         } else if (findMeldIds(take.state)) {
           return { t: 'takeDiscard' }
         } else {
           const top = state.discard[state.discard.length - 1]
-          if (top && layoffTargets(take.state.players, [top]).length) {
+          if (top && layoffTargets(take.state.players, [top], take.state.config).length) {
             return { t: 'takeDiscard' }
           }
         }
@@ -97,7 +144,7 @@ export function pickRummyBotMove(state: RummyState): RummyMove | null {
     return { t: 'drawStock' }
   }
 
-  if (isGin) {
+  if (ginStyle) {
     const knock = knockPick(state)
     if (knock && (knock.gin || knock.points <= 8)) {
       return { t: 'knock', cardId: knock.cardId }
@@ -107,12 +154,28 @@ export function pickRummyBotMove(state: RummyState): RummyMove | null {
     return null
   }
 
+  if (state.mustUseCardId) {
+    const meldMust = findMeldIds(state, state.mustUseCardId)
+    if (meldMust) return { t: 'meld', cardIds: meldMust }
+    const mustCard = me.hand.find((c) => c.id === state.mustUseCardId)
+    if (mustCard) {
+      const hits = layoffTargets(state.players, [mustCard], state.config)
+      if (hits[0]) {
+        return {
+          t: 'layoff',
+          meldOwnerSeat: hits[0].seat,
+          meldId: hits[0].meldId,
+          cardIds: [mustCard.id],
+        }
+      }
+    }
+  }
+
   const meldIds = findMeldIds(state)
   if (meldIds) return { t: 'meld', cardIds: meldIds }
 
-  // Prefer laying off single cards (helps go out); try every card.
   for (const c of me.hand) {
-    const hits = layoffTargets(state.players, [c])
+    const hits = layoffTargets(state.players, [c], state.config)
     if (hits[0]) {
       return {
         t: 'layoff',
@@ -122,6 +185,8 @@ export function pickRummyBotMove(state: RummyState): RummyMove | null {
       }
     }
   }
+
+  if (state.mustUseCardId) return null
 
   const cardId = discardPick(state)
   if (cardId) return { t: 'discard', cardId }

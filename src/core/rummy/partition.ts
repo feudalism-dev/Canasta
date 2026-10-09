@@ -2,6 +2,7 @@ import type { Card } from '../cards'
 import { canLayOff, classifyMeld } from './melds'
 import { deadwoodPoints } from './score'
 import type { RummyConfig, RummyMeld } from './types'
+import { isGinStyle } from './variants'
 
 export type HandPartition = {
   melds: { kind: 'set' | 'run'; cards: Card[] }[]
@@ -10,7 +11,10 @@ export type HandPartition = {
 }
 
 /** All legal melds (size 3–4 for sets; 3+ for runs) inside `hand`. */
-export function enumerateMelds(hand: Card[]): { kind: 'set' | 'run'; cards: Card[] }[] {
+export function enumerateMelds(
+  hand: Card[],
+  config?: RummyConfig,
+): { kind: 'set' | 'run'; cards: Card[] }[] {
   const out: { kind: 'set' | 'run'; cards: Card[] }[] = []
   const n = hand.length
   if (n < 3) return out
@@ -20,7 +24,7 @@ export function enumerateMelds(hand: Card[]): { kind: 'set' | 'run'; cards: Card
     const walk = (start: number, need: number) => {
       if (need === 0) {
         const cards = idx.map((i) => hand[i]!)
-        const kind = classifyMeld(cards)
+        const kind = classifyMeld(cards, config)
         if (kind === 'set' && cards.length <= 4) out.push({ kind, cards })
         if (kind === 'run') out.push({ kind, cards })
         return
@@ -41,7 +45,7 @@ export function enumerateMelds(hand: Card[]): { kind: 'set' | 'run'; cards: Card
  * Exhaustive over meld combinations — fine for ≤11 cards.
  */
 export function bestPartition(hand: Card[], config: RummyConfig): HandPartition {
-  const candidates = enumerateMelds(hand)
+  const candidates = enumerateMelds(hand, config)
   let best: HandPartition = {
     melds: [],
     deadwood: [...hand],
@@ -90,7 +94,7 @@ export function canKnockWithDiscard(
   discardId: string,
   config: RummyConfig,
 ): { ok: true; partition: HandPartition; gin: boolean } | { ok: false; error: string } {
-  if (config.variant !== 'gin') return { ok: false, error: 'Knock is Gin only' }
+  if (!isGinStyle(config.variant)) return { ok: false, error: 'Knock is Gin / Oklahoma only' }
   const part = partitionAfterDiscard(hand, discardId, config)
   if (!part) return { ok: false, error: 'Card not in hand' }
   const max = config.knockMax ?? 10
@@ -116,7 +120,7 @@ export function autoLayoffs(
     for (const card of rest) {
       for (let mi = 0; mi < nextMelds.length; mi++) {
         const m = nextMelds[mi]!
-        const err = canLayOff(m.cards, m.kind, [card])
+        const err = canLayOff(m.cards, m.kind, [card], config)
         if (err) continue
         const save = deadwoodPoints(card, config)
         if (!best || save > best.save) best = { card, meldIndex: mi, save }

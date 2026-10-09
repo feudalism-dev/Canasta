@@ -359,12 +359,12 @@ export function SlTableScreens({
             <label>
               Players at the table (you + bots in empty seats)
               <select
-                value={rummyVariant === 'gin' ? 2 : rummyPlayerCount}
-                disabled={!canEditRules || rummyVariant === 'gin'}
+                value={rummyVariant === 'gin' || rummyVariant === 'oklahoma' ? 2 : rummyPlayerCount}
+                disabled={!canEditRules || rummyVariant === 'gin' || rummyVariant === 'oklahoma'}
                 onChange={(e) => onRummyPlayerCount(Number(e.target.value))}
               >
                 <option value={2}>2 — you + 1 bot</option>
-                {rummyVariant !== 'gin' ? (
+                {rummyVariant !== 'gin' && rummyVariant !== 'oklahoma' ? (
                   <>
                     <option value={3}>3 — you + 2 bots</option>
                     <option value={4}>4 — you + 3 bots</option>
@@ -375,7 +375,13 @@ export function SlTableScreens({
             <p className="muted">
               {rummyVariant === 'gin'
                 ? 'Gin Rummy is always 2 players. Knock with ≤10 deadwood; first to 100 (highest) wins.'
-                : 'Standard Rummy is free-for-all (no partners). Multiplayer: empty chairs are bots; humans Join their seat.'}
+                : rummyVariant === 'oklahoma'
+                  ? 'Oklahoma Gin is always 2 players. Knock limit comes from the upcard; play to 150 (highest).'
+                  : rummyVariant === 'rummy500'
+                    ? 'Rummy 500: meld scoring to 500 (highest). Tap any discard card to take it and everything above.'
+                    : rummyVariant === 'kalooki'
+                      ? 'Kalooki (open): 2 decks + jokers, 9 hands — lowest score wins. Free-for-all.'
+                      : 'Standard Rummy is free-for-all (no partners). Multiplayer: empty chairs are bots; humans Join their seat.'}
             </p>
           </>
         ) : null}

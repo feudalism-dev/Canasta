@@ -1,7 +1,7 @@
 import type { Card, Suit } from '../cards'
 
 /** Rummy-family variants. */
-export type RummyVariant = 'standard' | 'gin'
+export type RummyVariant = 'standard' | 'gin' | 'oklahoma' | 'rummy500' | 'kalooki'
 
 export type RummyPhase = 'draw' | 'meld' | 'discard' | 'roundEnd' | 'matchEnd'
 
@@ -18,8 +18,13 @@ export type RummyPlayer = {
   seat: number
   isComputer: boolean
   hand: Card[]
-  /** Melds this player has laid this round (standard mid-hand; gin only after knock). */
+  /** Melds this player has laid this round (standard / 500 / kalooki; gin-style only after knock). */
   melds: RummyMeld[]
+  /**
+   * Rummy 500: cards laid off onto others' melds still score for you
+   * (they also sit on the target meld for play).
+   */
+  scoredLayoffs: Card[]
   score: number
 }
 
@@ -28,20 +33,30 @@ export type RummyConfig = {
   playerCount: number
   handSize: number
   deckCount: number
-  /** Include jokers as wilds (standard v1: false). */
+  /** Include jokers as wilds. */
   jokers: boolean
-  /** Face cards count as this many deadwood points. */
+  /** Face cards count as this many deadwood / meld points. */
   faceDeadwood: number
-  /** Ace deadwood (standard/gin: 1). */
+  /** Ace points (red ace in Kalooki; general ace otherwise). */
   aceDeadwood: number
+  /** Kalooki: black ace penalty. */
+  blackAceDeadwood?: number
   playTo: number | null
-  /** Gin: max deadwood to knock (classic 10). */
+  /** Fixed number of hands (Kalooki open = 9). */
+  handsPerMatch?: number | null
+  /** Gin-style: max deadwood to knock. */
   knockMax?: number
-  /** Gin: bonus for going gin (0 deadwood). */
   ginBonus?: number
-  /** Gin: bonus when undercutting the knocker. */
   undercutBonus?: number
-  /** true = lowest score wins (standard); false = highest wins (gin). */
+  /** Oklahoma Gin. */
+  oklahoma?: boolean
+  /** Rummy 500: take from anywhere in the discard fan. */
+  deepDiscard?: boolean
+  /** Rummy 500: score melds laid minus hand. */
+  meldScoring?: boolean
+  /** Kalooki: jokers legal in melds. */
+  allowJokersInMelds?: boolean
+  /** true = lowest score wins; false = highest wins. */
   scoreAscending: boolean
 }
 
@@ -49,7 +64,7 @@ export type RummyConfig = {
 export type RummyHandScoreLine = {
   playerId: string
   name: string
-  /** Points added this hand (0 if none). */
+  /** Points added this hand (0 if none; may be negative in Rummy 500). */
   delta: number
   /** Match total after this hand. */
   total: number
@@ -67,19 +82,26 @@ export type RummyState = {
   drew: boolean
   winnerId: string | null
   log: string[]
-  /** Short summary of the last hand result (knock / gin / draw). */
   lastHandNote: string | null
-  /** Score deltas from the last completed hand (null mid-hand). */
   lastHandScores: RummyHandScoreLine[] | null
+  /** Oklahoma: multiplier for this hand (2 if upcard was a spade). */
+  scoreMultThisHand: number
+  /**
+   * Rummy 500: after a deep discard take, this card must be melded or laid off
+   * before the turn can end.
+   */
+  mustUseCardId: string | null
 }
 
 export type RummyMove =
   | { t: 'drawStock' }
   | { t: 'takeDiscard' }
+  /** Rummy 500: take discard[fromIndex] and every card above it. */
+  | { t: 'takeDiscardDeep'; fromIndex: number }
   | { t: 'meld'; cardIds: string[] }
   | { t: 'layoff'; meldOwnerSeat: number; meldId: string; cardIds: string[] }
   | { t: 'discard'; cardId: string }
-  /** Gin: discard this card and knock with remaining hand. */
+  /** Gin / Oklahoma: discard this card and knock with remaining hand. */
   | { t: 'knock'; cardId: string }
 
 export type SuitOrder = Record<Suit, number>

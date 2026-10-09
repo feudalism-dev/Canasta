@@ -501,12 +501,12 @@ function AppInner() {
         rummyVariant={rummyVariant}
         onRummyVariant={(v) => {
           setRummyVariant(v)
-          if (v === 'gin') setRummyPlayerCount(2)
+          if (v === 'gin' || v === 'oklahoma') setRummyPlayerCount(2)
           rummyPeer?.setVariant(v)
         }}
-        rummyPlayerCount={rummyVariant === 'gin' ? 2 : rummyPlayerCount}
+        rummyPlayerCount={rummyVariant === 'gin' || rummyVariant === 'oklahoma' ? 2 : rummyPlayerCount}
         onRummyPlayerCount={(n) => {
-          const next = rummyVariant === 'gin' ? 2 : n
+          const next = rummyVariant === 'gin' || rummyVariant === 'oklahoma' ? 2 : n
           setRummyPlayerCount(next)
           rummyPeer?.setPlayerCount(next)
         }}
