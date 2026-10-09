@@ -9,14 +9,16 @@ export function createRummyMatch(
   variant: RummyVariant = 'standard',
   seed = Date.now(),
 ): RummyState {
-  const playerCount = names.length
-  const config = rummyConfig(variant, playerCount)
+  const seatCap = variant === 'gin' ? 2 : Math.max(2, Math.min(4, names.length))
+  const useNames = names.slice(0, seatCap)
+  const useComputers = computers.slice(0, seatCap)
+  const config = rummyConfig(variant, useNames.length)
   const deck = shuffleSeeded(buildRummyDeck(config.deckCount, config.jokers), seed)
-  const players: RummyPlayer[] = names.map((name, i) => ({
+  const players: RummyPlayer[] = useNames.map((name, i) => ({
     id: `p${i}`,
     name,
     seat: i,
-    isComputer: !!computers[i],
+    isComputer: !!useComputers[i],
     hand: [],
     melds: [],
     score: 0,
@@ -45,6 +47,7 @@ export function createRummyMatch(
     drew: false,
     winnerId: null,
     log: [`Dealt ${config.handSize} cards each (${config.variant}).`],
+    lastHandNote: null,
   }
 }
 
@@ -83,5 +86,6 @@ export function dealNextRummyRound(prev: RummyState, seed = Date.now()): RummySt
     score: prev.players[i]?.score ?? 0,
   }))
   next.log = [`Hand ${next.round} — scores carry over.`]
+  next.lastHandNote = null
   return next
 }

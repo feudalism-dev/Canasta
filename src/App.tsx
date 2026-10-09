@@ -487,12 +487,14 @@ function AppInner() {
         rummyVariant={rummyVariant}
         onRummyVariant={(v) => {
           setRummyVariant(v)
+          if (v === 'gin') setRummyPlayerCount(2)
           rummyPeer?.setVariant(v)
         }}
-        rummyPlayerCount={rummyPlayerCount}
+        rummyPlayerCount={rummyVariant === 'gin' ? 2 : rummyPlayerCount}
         onRummyPlayerCount={(n) => {
-          setRummyPlayerCount(n)
-          rummyPeer?.setPlayerCount(n)
+          const next = rummyVariant === 'gin' ? 2 : n
+          setRummyPlayerCount(next)
+          rummyPeer?.setPlayerCount(next)
         }}
         onFamily={setFamily}
         partnership={partnership}

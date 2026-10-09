@@ -1,4 +1,5 @@
-import { classifyMeld } from '../core/rummy/melds'
+import { classifyMeld, layoffTargets } from '../core/rummy/melds'
+import { canKnockWithDiscard } from '../core/rummy/partition'
 import { applyRummyMove } from '../core/rummy/rules'
 import { deadwoodPoints } from '../core/rummy/score'
 import { cloneRummy, currentPlayer } from '../core/rummy/state'
@@ -49,24 +50,78 @@ function findMeldIds(state: RummyState): string[] | null {
   return null
 }
 
+/** Best knock discard: prefer gin, else lowest remaining deadwood. */
+function knockPick(state: RummyState): { cardId: string; gin: boolean; points: number } | null {
+  const me = currentPlayer(state)
+  let best: { cardId: string; gin: boolean; points: number } | null = null
+  for (const c of me.hand) {
+    const check = canKnockWithDiscard(me.hand, c.id, state.config)
+    if (!check.ok) continue
+    const cand = { cardId: c.id, gin: check.gin, points: check.partition.points }
+    if (
+      !best ||
+      (cand.gin && !best.gin) ||
+      (cand.gin === best.gin && cand.points < best.points)
+    ) {
+      best = cand
+    }
+  }
+  return best
+}
+
 /** One legal computer action for the current player, or null if not a computer's turn. */
 export function pickRummyBotMove(state: RummyState): RummyMove | null {
   const me = currentPlayer(state)
   if (!me.isComputer) return null
   if (state.phase === 'roundEnd' || state.phase === 'matchEnd') return null
+  const isGin = state.config.variant === 'gin'
 
   if (!state.drew || state.phase === 'draw') {
-    // Prefer discard if it completes a meld in hand (peek); else stock.
     if (state.discard.length > 0) {
       const trial = cloneRummy(state)
       const take = applyRummyMove(trial, { t: 'takeDiscard' })
-      if (take.ok && findMeldIds(take.state)) return { t: 'takeDiscard' }
+      if (take.ok) {
+        if (isGin) {
+          const knock = knockPick(take.state)
+          if (knock && (knock.gin || knock.points <= 5)) return { t: 'takeDiscard' }
+        } else if (findMeldIds(take.state)) {
+          return { t: 'takeDiscard' }
+        } else {
+          const top = state.discard[state.discard.length - 1]
+          if (top && layoffTargets(take.state.players, [top]).length) {
+            return { t: 'takeDiscard' }
+          }
+        }
+      }
     }
     return { t: 'drawStock' }
   }
 
+  if (isGin) {
+    const knock = knockPick(state)
+    if (knock && (knock.gin || knock.points <= 8)) {
+      return { t: 'knock', cardId: knock.cardId }
+    }
+    const cardId = discardPick(state)
+    if (cardId) return { t: 'discard', cardId }
+    return null
+  }
+
   const meldIds = findMeldIds(state)
   if (meldIds) return { t: 'meld', cardIds: meldIds }
+
+  // Prefer laying off single cards (helps go out); try every card.
+  for (const c of me.hand) {
+    const hits = layoffTargets(state.players, [c])
+    if (hits[0]) {
+      return {
+        t: 'layoff',
+        meldOwnerSeat: hits[0].seat,
+        meldId: hits[0].meldId,
+        cardIds: [c.id],
+      }
+    }
+  }
 
   const cardId = discardPick(state)
   if (cardId) return { t: 'discard', cardId }

@@ -46,12 +46,33 @@ export function classifyMeld(cards: Card[]): 'set' | 'run' | null {
 
 export function canLayOff(meldCards: Card[], kind: 'set' | 'run', add: Card[]): string | null {
   if (add.length === 0) return 'No cards to add'
+  if (meldCards.length < 3) return 'Not a complete meld'
   const next = [...meldCards, ...add]
   if (kind === 'set') {
     if (next.length > 4) return 'Sets may have at most 4 cards'
-    if (allSameRank(next) == null) return 'Layoff must match the set rank'
+    const rank = meldCards[0]!.rank
+    if (rank === 'JOKER' || add.some((c) => c.rank !== rank)) {
+      return 'Layoff must match the set rank'
+    }
     return null
   }
   if (!isRun(next)) return 'Layoff must extend the run'
   return null
+}
+
+/** Melds that accept these hand cards as a layoff (any player's table melds). */
+export function layoffTargets(
+  players: { seat: number; name: string; melds: { id: string; kind: 'set' | 'run'; cards: Card[] }[] }[],
+  add: Card[],
+): { seat: number; meldId: string; ownerName: string; kind: 'set' | 'run' }[] {
+  if (add.length === 0) return []
+  const out: { seat: number; meldId: string; ownerName: string; kind: 'set' | 'run' }[] = []
+  for (const pl of players) {
+    for (const m of pl.melds) {
+      if (canLayOff(m.cards, m.kind, add) == null) {
+        out.push({ seat: pl.seat, meldId: m.id, ownerName: pl.name, kind: m.kind })
+      }
+    }
+  }
+  return out
 }

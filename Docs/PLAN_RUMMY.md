@@ -26,7 +26,7 @@ Hearts and Rook are **not** Rummy. They need a third family when you want them. 
 2. Web reads `family` from table status — done.
 3. Standard Rummy engine + solo HUD — done.
 4. Solo player count 2–4 (bots in empty seats) + PeerJS multiplayer — done (free-for-all, no teams).
-5. Gin Rummy as a rummy variant (knock / undercut / gin bonuses).
+5. Gin Rummy as a rummy variant (knock / undercut / gin bonuses) — done (see `Docs/RULES_GIN.md`).
 6. Scoreboard letter(s) for rummy games; optional display polish.
 
 ## Multiplayer notes
@@ -45,4 +45,4 @@ Hearts and Rook are **not** Rummy. They need a third family when you want them. 
 - Go out when hand is empty after a legal discard (or final meld).
 - Deadwood / hand-end scoring: unmelded cards count against (face 10, A 1 or 15 — pick Pagat-style and document in RULES_RUMMY.md).
 
-Gin is **phase 2** behind the same `family=rummy` allow-list.
+Gin is available in the Rummy game selector (2 players only).

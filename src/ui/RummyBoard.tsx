@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import type { RummyMove, RummyState, RummyVariant } from '../core/rummy/types'
 import { createRummyMatch, dealNextRummyRound } from '../core/rummy/state'
 import { applyRummyMove } from '../core/rummy/rules'
+import { canKnockWithDiscard } from '../core/rummy/partition'
+import { layoffTargets } from '../core/rummy/melds'
 import { pumpRummyBots } from '../ai/rummyBot'
 import { CardView } from './CardView'
 
@@ -42,9 +44,10 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
       setFallback(null)
       return
     }
+    const seats = variant === 'gin' ? 2 : playerCount
     const names = [yourName || 'You']
     const computers = [false]
-    for (let i = 1; i < playerCount; i++) {
+    for (let i = 1; i < seats; i++) {
       names.push(`Computer ${i}`)
       computers.push(true)
     }
@@ -77,6 +80,7 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
   const localIndex = controller?.localIndex ?? 0
   const thinking = controller?.aiThinking ?? aiThinking
   const you = state?.players[localIndex]
+  const isGin = (state?.config.variant ?? variant) === 'gin'
   const yourTurn = Boolean(
     state &&
       you &&
@@ -87,21 +91,49 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
   const roundOver = state?.phase === 'roundEnd'
   const matchOver = state?.phase === 'matchEnd'
 
+  const knockInfo =
+    state && you && isGin && yourTurn && state.drew && selected.length === 1
+      ? canKnockWithDiscard(you.hand, selected[0]!, state.config)
+      : null
+
+  const selectedCards =
+    state && you ? you.hand.filter((c) => selected.includes(c.id)) : []
+  const layTargets =
+    !isGin && state && yourTurn && state.drew && selectedCards.length > 0
+      ? layoffTargets(state.players, selectedCards)
+      : []
+
   const status = useMemo(() => {
     if (!state || !you) return 'Dealing…'
     if (matchOver) {
       const winner = state.players.find((p) => p.id === state.winnerId)
-      return `Match over — ${winner?.name ?? 'lowest score'} wins`
+      const how = state.config.scoreAscending ? 'lowest score' : 'highest score'
+      return `Match over — ${winner?.name ?? how} wins`
     }
-    if (roundOver) return 'Hand over — Deal next hand when ready.'
+    if (roundOver) {
+      return state.lastHandNote
+        ? `${state.lastHandNote} Deal next hand when ready.`
+        : 'Hand over — Deal next hand when ready.'
+    }
     if (thinking) return 'Computers are thinking…'
     if (!yourTurn) return `${state.players[state.current]!.name}'s turn`
-    if (state.phase === 'draw') return '1) Draw: tap Stock or the discard pile'
-    if (you.hand.length <= 1 && state.drew) {
-      return 'You can go out — meld or discard your last card(s)'
+    if (state.phase === 'draw') {
+      if (isGin && state.stock.length <= 2) {
+        return '1) Stock closed — take discard, or tap Stock to end the hand'
+      }
+      return '1) Draw: tap Stock or the discard pile'
     }
-    return '2) Optional meld (3+) · 3) Discard one card to end your turn'
-  }, [state, you, yourTurn, roundOver, matchOver, thinking])
+    if (isGin) {
+      return '2) Discard one card — or Knock if deadwood ≤ 10 (Gin = 0)'
+    }
+    if (selected.length && layTargets.length) {
+      return 'Tap a highlighted meld to lay off, or use Lay off'
+    }
+    if (you.hand.length <= 1 && state.drew) {
+      return 'Lay off onto a meld or discard your last card to go out'
+    }
+    return '2) Meld (3+) or lay off onto a table meld · 3) Discard one to end turn'
+  }, [state, you, yourTurn, roundOver, matchOver, thinking, isGin, selected.length, layTargets.length])
 
   const play = (move: RummyMove) => {
     if (controller) {
@@ -149,6 +181,7 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
 
   const topDiscard = state.discard[state.discard.length - 1]
   const scores = state.players.map((p) => `${p.name} ${p.score}`).join(' · ')
+  const title = isGin ? 'Gin Rummy' : 'Standard Rummy'
 
   return (
     <div className="shell-game rummy-board">
@@ -157,13 +190,18 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
           ← Menu
         </button>
         <div>
-          <h2>Standard Rummy · {state.players.length} players</h2>
+          <h2>
+            {title} · {state.players.length} players
+          </h2>
           <p className="muted">{status}</p>
           <p className="muted">
             Hand {state.round} · {scores} · Stock {state.stock.length}
+            {isGin ? ` · knock ≤ ${state.config.knockMax ?? 10}` : ''}
           </p>
           <p className="rummy-tip">
-            Free-for-all (no teams). Empty your hand to go out. Melds: 3+ of a kind, or 3+ suited run.
+            {isGin
+              ? 'Keep melds in hand. Knock with ≤10 deadwood after discard (0 = Gin). Opponent may undercut. First to 100 (highest) wins.'
+              : 'Free-for-all. Meld 3+ or select cards and tap a table meld to lay off. Empty your hand (layoff or final discard) to go out.'}
           </p>
         </div>
       </header>
@@ -226,18 +264,37 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
 
       <div className="rummy-melds">
         {state.players.flatMap((pl) =>
-          pl.melds.map((m) => (
-            <div key={`${pl.id}-${m.id}`} className="rummy-meld">
-              <span className="muted tiny">
-                {pl.name}: {m.kind}
-              </span>
-              <div className="rummy-card-row">
-                {m.cards.map((c) => (
-                  <CardView key={c.id} card={c} size="sm" />
-                ))}
-              </div>
-            </div>
-          )),
+          pl.melds.map((m) => {
+            const canLay = layTargets.some((t) => t.seat === pl.seat && t.meldId === m.id)
+            return (
+              <button
+                key={`${pl.id}-${m.id}`}
+                type="button"
+                className={`rummy-meld${canLay ? ' layoff-target' : ''}`}
+                disabled={!canLay}
+                title={canLay ? 'Lay off selected card(s) here' : undefined}
+                onClick={() => {
+                  if (!canLay) return
+                  play({
+                    t: 'layoff',
+                    meldOwnerSeat: pl.seat,
+                    meldId: m.id,
+                    cardIds: selected,
+                  })
+                }}
+              >
+                <span className="muted tiny">
+                  {pl.name}: {m.kind}
+                  {canLay ? ' · tap to lay off' : ''}
+                </span>
+                <div className="rummy-card-row">
+                  {m.cards.map((c) => (
+                    <CardView key={c.id} card={c} size="sm" />
+                  ))}
+                </div>
+              </button>
+            )
+          }),
         )}
       </div>
 
@@ -266,14 +323,65 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
 
       {!roundOver && !matchOver ? (
         <div className="rummy-actions">
-          <button
-            type="button"
-            className="btn primary"
-            disabled={!yourTurn || !state.drew || selected.length < 3}
-            onClick={() => play({ t: 'meld', cardIds: selected })}
-          >
-            Meld
-          </button>
+          {!isGin ? (
+            <>
+              <button
+                type="button"
+                className="btn primary"
+                disabled={!yourTurn || !state.drew || selected.length < 3}
+                onClick={() => play({ t: 'meld', cardIds: selected })}
+              >
+                Meld
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={!yourTurn || !state.drew || layTargets.length !== 1}
+                title={
+                  layTargets.length > 1
+                    ? 'Multiple melds fit — tap the meld you want'
+                    : layTargets.length === 0
+                      ? 'Select card(s) that extend a table meld'
+                      : `Lay off on ${layTargets[0]!.ownerName}'s ${layTargets[0]!.kind}`
+                }
+                onClick={() => {
+                  const t = layTargets[0]
+                  if (!t) return
+                  play({
+                    t: 'layoff',
+                    meldOwnerSeat: t.seat,
+                    meldId: t.meldId,
+                    cardIds: selected,
+                  })
+                }}
+              >
+                Lay off
+              </button>
+            </>
+          ) : null}
+          {isGin ? (
+            <button
+              type="button"
+              className="btn primary"
+              disabled={!yourTurn || !state.drew || selected.length !== 1 || !knockInfo?.ok}
+              onClick={() => play({ t: 'knock', cardId: selected[0]! })}
+              title={
+                knockInfo && !knockInfo.ok
+                  ? knockInfo.error
+                  : knockInfo?.ok && knockInfo.gin
+                    ? 'Gin!'
+                    : knockInfo?.ok
+                      ? `Knock with ${knockInfo.partition.points} deadwood`
+                      : 'Select one card to discard when knocking'
+              }
+            >
+              {knockInfo?.ok && knockInfo.gin
+                ? 'Gin!'
+                : knockInfo?.ok
+                  ? `Knock (${knockInfo.partition.points})`
+                  : 'Knock'}
+            </button>
+          ) : null}
           <button
             type="button"
             className="btn secondary"

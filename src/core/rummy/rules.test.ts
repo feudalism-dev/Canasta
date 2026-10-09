@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { makeCard } from '../cards'
 import { applyRummyMove } from './rules'
 import { createRummyMatch } from './state'
 
@@ -19,5 +20,64 @@ describe('rummy rules', () => {
     if (!disc.ok) return
     expect(disc.state.current).toBe(1)
     expect(disc.state.phase).toBe('draw')
+  })
+
+  it('allows laying off onto an existing meld and going out', () => {
+    let state = createRummyMatch(['You', 'Bot'], [false, true], 'standard', 7)
+    state = structuredClone(state)
+    state.drew = true
+    state.phase = 'meld'
+    state.current = 0
+    state.players[0]!.melds = [
+      {
+        id: 'm0-0',
+        kind: 'set',
+        cards: [makeCard(0, 'H', '7', 0), makeCard(0, 'D', '7', 0), makeCard(0, 'S', '7', 0)],
+      },
+    ]
+    const last = makeCard(0, 'C', '7', 0)
+    state.players[0]!.hand = [last]
+    state.players[1]!.hand = [makeCard(0, 'H', '2', 0), makeCard(0, 'D', '3', 0)]
+
+    const res = applyRummyMove(state, {
+      t: 'layoff',
+      meldOwnerSeat: 0,
+      meldId: 'm0-0',
+      cardIds: [last.id],
+    })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.state.players[0]!.hand).toHaveLength(0)
+    expect(res.state.players[0]!.melds[0]!.cards).toHaveLength(4)
+    expect(res.state.phase).toBe('roundEnd')
+  })
+
+  it('allows laying off onto an opponent meld', () => {
+    let state = createRummyMatch(['You', 'Bot'], [false, true], 'standard', 11)
+    state = structuredClone(state)
+    state.drew = true
+    state.phase = 'meld'
+    state.current = 0
+    state.players[1]!.melds = [
+      {
+        id: 'm1-0',
+        kind: 'run',
+        cards: [makeCard(0, 'H', '5', 0), makeCard(0, 'H', '6', 0), makeCard(0, 'H', '7', 0)],
+      },
+    ]
+    const add = makeCard(0, 'H', '8', 0)
+    state.players[0]!.hand = [add, makeCard(0, 'D', 'K', 0)]
+
+    const res = applyRummyMove(state, {
+      t: 'layoff',
+      meldOwnerSeat: 1,
+      meldId: 'm1-0',
+      cardIds: [add.id],
+    })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.state.players[0]!.hand).toHaveLength(1)
+    expect(res.state.players[1]!.melds[0]!.cards).toHaveLength(4)
+    expect(res.state.phase).toBe('meld')
   })
 })

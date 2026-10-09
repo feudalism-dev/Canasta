@@ -1701,6 +1701,24 @@ ul {
   padding: 0.35rem;
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(201, 162, 39, 0.2);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+button.rummy-meld:disabled {
+  opacity: 1;
+}
+
+button.rummy-meld.layoff-target {
+  cursor: pointer;
+  border-color: rgba(201, 162, 39, 0.85);
+  box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.35);
+}
+
+button.rummy-meld.layoff-target:hover {
+  background: rgba(201, 162, 39, 0.12);
 }
 
 .rummy-card-row,

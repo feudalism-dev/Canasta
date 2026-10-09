@@ -3,6 +3,7 @@ import { COMPUTER_NAMES } from '../core/tableSeating'
 import { applyRummyMove } from '../core/rummy/rules'
 import { createRummyMatch, dealNextRummyRound } from '../core/rummy/state'
 import type { RummyMove, RummyState, RummyVariant } from '../core/rummy/types'
+import { clampRummyPlayerCount } from '../core/rummy/variants'
 
 export type RummyLocalSession = {
   state: RummyState
@@ -35,7 +36,7 @@ export function startRummySolo(
   playerCount: number,
   variant: RummyVariant = 'standard',
 ): RummyLocalSession {
-  const roster = rummySoloRoster(name, playerCount)
+  const roster = rummySoloRoster(name, clampRummyPlayerCount(variant, playerCount))
   let state = createRummyMatch(roster.names, roster.computers, variant)
   const localIndex = roster.localIndex
   let aiThinking = false

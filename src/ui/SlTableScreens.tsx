@@ -351,17 +351,23 @@ export function SlTableScreens({
             <label>
               Players at the table (you + bots in empty seats)
               <select
-                value={rummyPlayerCount}
-                disabled={!canEditRules}
+                value={rummyVariant === 'gin' ? 2 : rummyPlayerCount}
+                disabled={!canEditRules || rummyVariant === 'gin'}
                 onChange={(e) => onRummyPlayerCount(Number(e.target.value))}
               >
                 <option value={2}>2 — you + 1 bot</option>
-                <option value={3}>3 — you + 2 bots</option>
-                <option value={4}>4 — you + 3 bots</option>
+                {rummyVariant !== 'gin' ? (
+                  <>
+                    <option value={3}>3 — you + 2 bots</option>
+                    <option value={4}>4 — you + 3 bots</option>
+                  </>
+                ) : null}
               </select>
             </label>
             <p className="muted">
-              Standard Rummy is free-for-all (no partners). Multiplayer: empty chairs are bots; humans Join their seat.
+              {rummyVariant === 'gin'
+                ? 'Gin Rummy is always 2 players. Knock with ≤10 deadwood; first to 100 (highest) wins.'
+                : 'Standard Rummy is free-for-all (no partners). Multiplayer: empty chairs are bots; humans Join their seat.'}
             </p>
           </>
         ) : null}

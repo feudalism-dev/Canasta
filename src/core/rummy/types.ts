@@ -1,6 +1,6 @@
 import type { Card, Suit } from '../cards'
 
-/** Rummy-family variants (Gin is phase 2). */
+/** Rummy-family variants. */
 export type RummyVariant = 'standard' | 'gin'
 
 export type RummyPhase = 'draw' | 'meld' | 'discard' | 'roundEnd' | 'matchEnd'
@@ -18,7 +18,7 @@ export type RummyPlayer = {
   seat: number
   isComputer: boolean
   hand: Card[]
-  /** Melds this player (or team) has laid this round. */
+  /** Melds this player has laid this round (standard mid-hand; gin only after knock). */
   melds: RummyMeld[]
   score: number
 }
@@ -32,9 +32,17 @@ export type RummyConfig = {
   jokers: boolean
   /** Face cards count as this many deadwood points. */
   faceDeadwood: number
-  /** Ace deadwood (standard: 1). */
+  /** Ace deadwood (standard/gin: 1). */
   aceDeadwood: number
   playTo: number | null
+  /** Gin: max deadwood to knock (classic 10). */
+  knockMax?: number
+  /** Gin: bonus for going gin (0 deadwood). */
+  ginBonus?: number
+  /** Gin: bonus when undercutting the knocker. */
+  undercutBonus?: number
+  /** true = lowest score wins (standard); false = highest wins (gin). */
+  scoreAscending: boolean
 }
 
 export type RummyState = {
@@ -49,6 +57,8 @@ export type RummyState = {
   drew: boolean
   winnerId: string | null
   log: string[]
+  /** Short summary of the last hand result (knock / gin / draw). */
+  lastHandNote: string | null
 }
 
 export type RummyMove =
@@ -57,5 +67,7 @@ export type RummyMove =
   | { t: 'meld'; cardIds: string[] }
   | { t: 'layoff'; meldOwnerSeat: number; meldId: string; cardIds: string[] }
   | { t: 'discard'; cardId: string }
+  /** Gin: discard this card and knock with remaining hand. */
+  | { t: 'knock'; cardId: string }
 
 export type SuitOrder = Record<Suit, number>
