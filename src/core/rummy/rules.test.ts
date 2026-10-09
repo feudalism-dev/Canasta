@@ -56,6 +56,23 @@ describe('rummy rules', () => {
     expect(res.state.players[1]!.score).toBe(5)
   })
 
+  it('ends as a scoreless draw when stock is empty (no discard reshuffle)', () => {
+    let state = createRummyMatch(['You', 'Bot'], [false, true], 'standard', 13)
+    state = structuredClone(state)
+    state.stock = []
+    state.discard = [makeCard(0, 'H', '2', 0), makeCard(0, 'D', '3', 0)]
+    state.phase = 'draw'
+    state.drew = false
+    state.current = 0
+    const before = state.players.map((p) => p.score)
+    const res = applyRummyMove(state, { t: 'drawStock' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.state.phase).toBe('roundEnd')
+    expect(res.state.lastHandNote).toMatch(/draw/i)
+    expect(res.state.players.map((p) => p.score)).toEqual(before)
+  })
+
   it('allows laying off onto an opponent meld', () => {
     let state = createRummyMatch(['You', 'Bot'], [false, true], 'standard', 11)
     state = structuredClone(state)

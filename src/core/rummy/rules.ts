@@ -136,11 +136,12 @@ function resolveGinKnock(state: RummyState, discardId: string): RummyApplyResult
   return { ok: true, state }
 }
 
-function endGinStockDraw(state: RummyState): void {
+/** Stock gone (or Gin stock closed) — hand is a draw, no points. */
+function endStockExhausted(state: RummyState, note: string): void {
   state.phase = 'roundEnd'
-  state.lastHandNote = 'Stock closed — no score this hand.'
+  state.lastHandNote = note
   state.lastHandScores = scoreLinesFromDeltas(state, new Map())
-  state.log.push(state.lastHandNote)
+  state.log.push(note)
 }
 
 export function applyRummyMove(state: RummyState, move: RummyMove): RummyApplyResult {
@@ -154,23 +155,19 @@ export function applyRummyMove(state: RummyState, move: RummyMove): RummyApplyRe
   if (move.t === 'drawStock') {
     if (next.phase !== 'draw' || next.drew) return { ok: false, error: 'Already drew' }
     if (isGin && next.stock.length <= 2) {
-      endGinStockDraw(next)
+      endStockExhausted(next, 'Stock closed — no score this hand.')
       return { ok: true, state: next }
     }
     if (next.stock.length === 0) {
-      if (isGin) {
-        endGinStockDraw(next)
-        return { ok: true, state: next }
-      }
-      if (next.discard.length <= 1) return { ok: false, error: 'Stock empty' }
-      const top = next.discard[next.discard.length - 1]!
-      const rest = next.discard.slice(0, -1)
-      next.stock = rest.reverse()
-      next.discard = [top]
-      next.log.push('Stock recycled from discard.')
+      // No reshuffle from discard — stalemate / depleted stock is a draw.
+      endStockExhausted(next, 'Stock empty — hand is a draw (no score).')
+      return { ok: true, state: next }
     }
     const card = next.stock[0]
-    if (!card) return { ok: false, error: 'Stock empty' }
+    if (!card) {
+      endStockExhausted(next, 'Stock empty — hand is a draw (no score).')
+      return { ok: true, state: next }
+    }
     next.stock = next.stock.slice(1)
     me.hand.push(card)
     next.drew = true
@@ -250,7 +247,13 @@ export function applyRummyMove(state: RummyState, move: RummyMove): RummyApplyRe
       return { ok: true, state: next }
     }
     if (isGin && next.stock.length <= 2) {
-      endGinStockDraw(next)
+      endStockExhausted(next, 'Stock closed — no score this hand.')
+      return { ok: true, state: next }
+    }
+    // Standard: after the last stock card has been drawn and someone discards
+    // without going out, end as a draw rather than cycling forever on the discard.
+    if (!isGin && next.stock.length === 0) {
+      endStockExhausted(next, 'Stock empty — hand is a draw (no score).')
       return { ok: true, state: next }
     }
     advanceTurn(next)

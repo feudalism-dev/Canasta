@@ -127,7 +127,10 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
     if (!yourTurn) return `Wait — ${actingName} is playing`
     if (state.phase === 'draw') {
       if (isGin && state.stock.length <= 2) {
-        return 'Stock closed — take discard, or tap Stock to end the hand'
+        return 'Stock closed — take discard, or tap Stock to end the hand (draw)'
+      }
+      if (state.stock.length === 0) {
+        return 'Stock empty — take discard, or tap Stock to call the hand a draw'
       }
       return 'Draw: tap Stock or the discard pile'
     }
@@ -217,7 +220,7 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
           <p className="rummy-tip">
             {isGin
               ? 'Keep melds in hand. Knock with ≤10 deadwood after discard (0 = Gin). Opponent may undercut. First to 100 (highest) wins.'
-              : 'Free-for-all. Meld 3+ or select cards and tap a table meld to lay off. Empty your hand (layoff or final discard) to go out. Lowest score to 100 wins.'}
+              : 'Free-for-all. Meld 3+ or lay off onto table melds. Go out by emptying your hand. Stock is not reshuffled — if it runs out, the hand is a draw (0 points). Lowest score to 100 wins.'}
           </p>
         </div>
       </header>
