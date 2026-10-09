@@ -1296,6 +1296,38 @@ ul {
   grid-area: south;
 }
 
+.spec-seat-block {
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.15 * var(--rem));
+  min-width: 0;
+}
+
+.spec-rummy-melds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(0.2 * var(--rem));
+  justify-content: center;
+}
+
+.spec-rummy-meld {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  align-items: center;
+  padding: 0.1rem 0.15rem;
+  background: color-mix(in srgb, var(--felt-deep, #1a3d2e) 55%, transparent);
+  border-radius: 4px;
+}
+
+.spec-rummy-meld .rummy-card-row {
+  gap: 0.08rem;
+}
+
+.spec-grid.is-rummy {
+  grid-template-rows: auto 0 1fr 0 auto;
+}
+
 .spec-parlor {
   position: relative;
   z-index: 1;

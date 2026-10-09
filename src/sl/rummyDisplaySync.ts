@@ -1,7 +1,13 @@
 import type { RummyState } from '../core/rummy/types'
-import { tableEvent, tableSetNames } from './tableApi'
+import {
+  encodeRummyPublicBoard,
+  idleRummyPublicBoard,
+  rummyPublicBoardFromState,
+} from '../core/rummy/publicBoard'
+import { tableEvent, tableSetBoard, tableSetNames } from './tableApi'
 
 let lastTurn = -2
+let lastBoardPosted = ''
 let timer: ReturnType<typeof setTimeout> | null = null
 let flushing = false
 let pending: { state: RummyState; slCap: string; uid: string; seat: number } | null = null
@@ -25,7 +31,6 @@ export function rummyScoresPipe(state: RummyState): number[] {
 
 async function flush(state: RummyState, slCap: string, uid: string, seat: number): Promise<void> {
   const names = rummyNamesPipe(state)
-  // Always refresh names/scores so a stand→re-sit or Display reset can repaint Furware.
   try {
     await tableSetNames(slCap, uid, seat, names)
   } catch {
@@ -55,14 +60,36 @@ async function flush(state: RummyState, slCap: string, uid: string, seat: number
     }
   }
 
+  const board =
+    state.phase === 'matchEnd'
+      ? idleRummyPublicBoard()
+      : rummyPublicBoardFromState(state)
+  const compact = encodeRummyPublicBoard(board)
+  if (compact !== lastBoardPosted) {
+    try {
+      await tableSetBoard(slCap, uid, seat, compact)
+      lastBoardPosted = compact
+    } catch {
+      lastBoardPosted = ''
+    }
+  }
+
   if (state.phase === 'matchEnd') {
-    const game = state.config.variant === 'gin' ? 'g' : 'r'
+    const game =
+      state.config.variant === 'gin' || state.config.variant === 'oklahoma'
+        ? 'g'
+        : state.config.variant === 'rummy500'
+          ? 'f'
+          : state.config.variant === 'kalooki'
+            ? 'k'
+            : 'r'
     try {
       await tableEvent(slCap, uid, seat, `GAME_OVER|1|0|NONE|0|${game}`)
     } catch {
       /* ignore */
     }
     lastTurn = -2
+    lastBoardPosted = ''
   }
 }
 
@@ -81,7 +108,7 @@ async function pump(): Promise<void> {
   if (pending) void pump()
 }
 
-/** Push Furware names / per-seat scores / turn from the Rummy HUD. */
+/** Push Furware names / scores / turn + spectator BOARD from the Rummy HUD. */
 export function emitRummyDisplay(
   state: RummyState,
   slCap: string,
@@ -98,5 +125,6 @@ export function emitRummyDisplay(
 
 export function resetRummyDisplaySync(): void {
   lastTurn = -2
+  lastBoardPosted = ''
   pending = null
 }

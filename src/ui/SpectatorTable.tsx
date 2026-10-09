@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { isWild, rankLabel } from '../core/cards'
+import { isWild, rankLabel, type Card } from '../core/cards'
 import { normalizeFamily, type GameFamily } from '../core/family'
 import {
   decodePublicBoard,
@@ -10,6 +10,14 @@ import {
   type PublicBoard,
   type PublicPlayer,
 } from '../core/publicBoard'
+import {
+  decodeRummyPublicBoard,
+  idleRummyPublicBoard,
+  isRummyBoardPayload,
+  rummyVariantLabel,
+  type RummyPublicBoard,
+  type RummyPublicPlayer,
+} from '../core/rummy/publicBoard'
 import { isHandAndFoot, variantLabel } from '../core/houseRules'
 import { tableGetBoard, tableStatus } from '../sl/tableApi'
 import { CardView } from './CardView'
@@ -27,8 +35,18 @@ function playerAt(board: PublicBoard, seat: number): PublicPlayer | undefined {
   return board.players.find((p) => p.seat === seat)
 }
 
+function rummyPlayerAt(board: RummyPublicBoard, seat: number): RummyPublicPlayer | undefined {
+  return board.players.find((p) => p.seat === seat)
+}
+
 function whoLabel(board: PublicBoard, seat: number): string {
   const p = playerAt(board, seat)
+  if (p?.name) return `${p.name} (Player ${seat + 1})`
+  return `Player ${seat + 1}`
+}
+
+function rummyWhoLabel(board: RummyPublicBoard, seat: number): string {
+  const p = rummyPlayerAt(board, seat)
   if (p?.name) return `${p.name} (Player ${seat + 1})`
   return `Player ${seat + 1}`
 }
@@ -69,6 +87,56 @@ function SeatChip({
   )
 }
 
+function RummySeatChip({
+  board,
+  seat,
+  label,
+}: {
+  board: RummyPublicBoard
+  seat: number
+  label: string
+}) {
+  const p = rummyPlayerAt(board, seat)
+  const vacant = !p
+  const isTurn = board.live && board.currentSeat === seat
+  const melds = board.melds.filter((m) => m.seat === seat)
+  return (
+    <div className={`spec-seat-block ${isTurn ? 'is-turn' : ''} ${vacant ? 'is-vacant' : ''}`} data-seat={seat}>
+      <div className={`spec-seat ${isTurn ? 'is-turn' : ''} ${vacant ? 'is-vacant' : ''}`}>
+        <span className="spec-seat-num">
+          Player {seat + 1} · {label}
+        </span>
+        <strong>{vacant ? '—' : p.name}</strong>
+        {vacant ? (
+          <span className="muted tiny">Empty</span>
+        ) : (
+          <>
+            <span>
+              {p.handCount} in hand · {p.score} pts
+            </span>
+            <em>Seat</em>
+          </>
+        )}
+        {isTurn ? <span className="turn-pill">Turn</span> : null}
+      </div>
+      {melds.length > 0 ? (
+        <div className="spec-rummy-melds" aria-label={`${p?.name ?? 'Seat'} melds`}>
+          {melds.map((m, i) => (
+            <div key={`${seat}-${i}`} className="spec-rummy-meld">
+              <span className="muted tiny">{m.kind}</span>
+              <div className="rummy-card-row">
+                {m.cards.map((c: Card) => (
+                  <CardView key={c.id} card={c} size="sm" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function phaseLine(board: PublicBoard, family: GameFamily): string {
   if (!board.live) {
     return family === 'rummy' ? 'Rummy parlor open — waiting for a deal' : 'The parlor is open — waiting for a deal'
@@ -82,8 +150,21 @@ function phaseLine(board: PublicBoard, family: GameFamily): string {
   return board.lastMessage || (family === 'rummy' ? 'Rummy' : 'Canasta')
 }
 
+function rummyPhaseLine(board: RummyPublicBoard): string {
+  if (!board.live) return 'Rummy parlor open — waiting for a deal'
+  const who = rummyWhoLabel(board, board.currentSeat)
+  if (board.phase === 'draw') return `${who} is drawing…`
+  if (board.phase === 'meld' || board.phase === 'discard') {
+    return `${who} is playing — meld or discard`
+  }
+  if (board.phase === 'roundEnd') return 'Hand over — scoring'
+  if (board.phase === 'matchEnd') return 'Match over'
+  return board.lastMessage || 'Rummy'
+}
+
 export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const [board, setBoard] = useState<PublicBoard>(idlePublicBoard)
+  const [rummyBoard, setRummyBoard] = useState<RummyPublicBoard>(idleRummyPublicBoard)
   const [linkOk, setLinkOk] = useState(true)
   const [family, setFamily] = useState<GameFamily>(() => normalizeFamily(familyHint))
   const rootRef = useRef<HTMLDivElement>(null)
@@ -103,13 +184,21 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     const applyRaw = (raw: string | undefined) => {
       if (!raw || !raw.trim()) return false
       const text = raw.trim()
+      if (isRummyBoardPayload(text)) {
+        const next = decodeRummyPublicBoard(text)
+        setRummyBoard(next)
+        if (next.live) setBoard(idlePublicBoard())
+        return true
+      }
       const next = decodePublicBoard(text)
       if (next.live) {
         setBoard(next)
+        setRummyBoard(idleRummyPublicBoard())
         return true
       }
       if (isIdleBoardPayload(text)) {
         setBoard(idlePublicBoard())
+        setRummyBoard(idleRummyPublicBoard())
         return true
       }
       return false
@@ -124,6 +213,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         if (st.family) setFamily(normalizeFamily(st.family))
         if (st.mode === 'idle' || st.mode === 'resetting') {
           setBoard(idlePublicBoard())
+          setRummyBoard(idleRummyPublicBoard())
           inflight = false
           return
         }
@@ -147,27 +237,45 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     }
   }, [slCap])
 
-  const config = spectatorConfig(board)
-  const variant = family === 'rummy' ? 'Rummy' : variantLabel(board.variant)
-  const roundLine =
-    family === 'rummy'
-      ? ''
-      : isHandAndFoot(board.variant)
-        ? `R${board.round}/4`
-        : board.playTo
-          ? `to ${board.playTo}`
-          : ''
-  const top = board.top ? { id: 'spec-top', rank: board.top.rank, suit: board.top.suit } : null
-  const sideways = Boolean(top && (isWild(top) || board.frozen))
   const isRummy = family === 'rummy'
+  const rummyLive = isRummy && rummyBoard.live
+  const canastaLive = !isRummy && board.live
+  const config = spectatorConfig(board)
+  const variant = isRummy ? rummyVariantLabel(rummyBoard.variant) : variantLabel(board.variant)
+  const roundLine = isRummy
+    ? rummyBoard.handsPerMatch != null
+      ? `H${rummyBoard.round}/${rummyBoard.handsPerMatch}`
+      : rummyBoard.playTo != null
+        ? `to ${rummyBoard.playTo}`
+        : `H${rummyBoard.round}`
+    : isHandAndFoot(board.variant)
+      ? `R${board.round}/4`
+      : board.playTo
+        ? `to ${board.playTo}`
+        : ''
+
+  const topCard = rummyLive
+    ? rummyBoard.top
+      ? { id: 'spec-top', rank: rummyBoard.top.rank, suit: rummyBoard.top.suit }
+      : null
+    : board.top
+      ? { id: 'spec-top', rank: board.top.rank, suit: board.top.suit }
+      : null
+  const stockCount = rummyLive ? rummyBoard.stock : board.stock
+  const discardCount = rummyLive ? rummyBoard.discardCount : board.discardCount
+  const frozen = !rummyLive && board.frozen
+  const sideways = Boolean(topCard && (isWild(topCard) || frozen))
 
   return (
-    <div className={`spectator-root ${board.live ? 'is-live' : ''}`} ref={rootRef}>
+    <div
+      className={`spectator-root ${rummyLive || canastaLive ? 'is-live' : ''}`}
+      ref={rootRef}
+    >
       <div className="table-felt" />
       <div className="table-brass" />
-      <TableFlyLayer board={board} rootRef={rootRef} />
+      {!isRummy ? <TableFlyLayer board={board} rootRef={rootRef} /> : null}
 
-      {board.live ? (
+      {rummyLive || canastaLive ? (
         <>
           <header className="spec-banner">
             <div className="brand-mark">
@@ -184,10 +292,18 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               )}
             </div>
             <div className="score-ticker">
-              {isRummy ? (
-                <div>
-                  <em>{variant}</em>
-                </div>
+              {rummyLive ? (
+                <>
+                  <div>
+                    <em>{variant}</em> {roundLine}
+                  </div>
+                  {rummyBoard.knockMax != null ? (
+                    <div>
+                      <em>knock</em> ≤{rummyBoard.knockMax}
+                      {rummyBoard.scoreMult > 1 ? ' ×2' : ''}
+                    </div>
+                  ) : null}
+                </>
               ) : (
                 <>
                   <div>
@@ -203,26 +319,62 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               )}
             </div>
           </header>
-          <p className="spec-turn">{phaseLine(board, family)}</p>
-          {board.lastMessage ? <p className="spec-msg">{board.lastMessage}</p> : null}
+          <p className="spec-turn">
+            {rummyLive ? rummyPhaseLine(rummyBoard) : phaseLine(board, family)}
+          </p>
+          {(rummyLive ? rummyBoard.lastMessage : board.lastMessage) ? (
+            <p className="spec-msg">{rummyLive ? rummyBoard.lastMessage : board.lastMessage}</p>
+          ) : null}
         </>
       ) : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
 
-      {board.live ? (
+      {rummyLive ? (
+        <div className="spec-grid is-rummy">
+          <div className="spec-north">
+            <RummySeatChip board={rummyBoard} seat={2} label="opposite" />
+          </div>
+          <div className="spec-them" />
+          <div className="spec-west">
+            <RummySeatChip board={rummyBoard} seat={3} label="left" />
+          </div>
+          <div className="spec-mid">
+            <div className="piles spec-piles">
+              <div className="pile-slot" data-stock-pile>
+                <span className="pile-label">Stock · {stockCount}</span>
+                <CardView facedown size="lg" />
+              </div>
+              <div className="pile-slot discard" data-discard-pile>
+                <span className="pile-label">Discard · {discardCount}</span>
+                {topCard ? (
+                  <CardView card={topCard} size="lg" />
+                ) : (
+                  <div className="pile-empty">Empty</div>
+                )}
+                {topCard ? <span className="preview">{rankLabel(topCard.rank)}</span> : null}
+              </div>
+            </div>
+          </div>
+          <div className="spec-east">
+            <RummySeatChip board={rummyBoard} seat={1} label="right" />
+          </div>
+          <div className="spec-us" />
+          <div className="spec-south">
+            <RummySeatChip board={rummyBoard} seat={0} label="this side" />
+          </div>
+        </div>
+      ) : canastaLive ? (
         <div className="spec-grid">
           <div className="spec-north">
             <SeatChip board={board} seat={2} label="opposite" family={family} />
           </div>
           <div className="spec-them" data-team-tray="1">
-            {isRummy ? null : (
-              <MeldTray
-                title="Players 2 & 4 — books"
-                melds={publicMeldsAsEngine(board.teams[1]!.melds)}
-                config={config}
-                redThrees={board.teams[1]!.redThrees}
-              />
-            )}
+            <MeldTray
+              title="Players 2 & 4 — books"
+              melds={publicMeldsAsEngine(board.teams[1]!.melds)}
+              config={config}
+              redThrees={board.teams[1]!.redThrees}
+            />
           </div>
           <div className="spec-west">
             <SeatChip board={board} seat={3} label="left" family={family} />
@@ -230,22 +382,22 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           <div className="spec-mid">
             <div className="piles spec-piles">
               <div className="pile-slot" data-stock-pile>
-                <span className="pile-label">Stock · {board.stock}</span>
+                <span className="pile-label">Stock · {stockCount}</span>
                 <CardView facedown size="lg" />
               </div>
-              <div className={`pile-slot discard ${board.frozen ? 'is-frozen' : ''}`} data-discard-pile>
+              <div className={`pile-slot discard ${frozen ? 'is-frozen' : ''}`} data-discard-pile>
                 <span className="pile-label">
-                  Discard · {board.discardCount}
-                  {board.frozen ? ' · frozen' : ''}
+                  Discard · {discardCount}
+                  {frozen ? ' · frozen' : ''}
                 </span>
-                {top ? (
+                {topCard ? (
                   <div className={sideways ? 'side-wrap' : undefined}>
-                    <CardView card={top} size="lg" sideways={sideways} />
+                    <CardView card={topCard} size="lg" sideways={sideways} />
                   </div>
                 ) : (
                   <div className="pile-empty">Empty</div>
                 )}
-                {top ? <span className="preview">{rankLabel(top.rank)}</span> : null}
+                {topCard ? <span className="preview">{rankLabel(topCard.rank)}</span> : null}
               </div>
             </div>
           </div>
@@ -253,15 +405,13 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             <SeatChip board={board} seat={1} label="right" family={family} />
           </div>
           <div className="spec-us" data-team-tray="0">
-            {isRummy ? null : (
-              <MeldTray
-                title="Players 1 & 3 — books"
-                melds={publicMeldsAsEngine(board.teams[0]!.melds)}
-                config={config}
-                redThrees={board.teams[0]!.redThrees}
-                highlight
-              />
-            )}
+            <MeldTray
+              title="Players 1 & 3 — books"
+              melds={publicMeldsAsEngine(board.teams[0]!.melds)}
+              config={config}
+              redThrees={board.teams[0]!.redThrees}
+              highlight
+            />
           </div>
           <div className="spec-south">
             <SeatChip board={board} seat={0} label="this side" family={family} />
@@ -280,7 +430,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               <em>/ CANASTA</em>
             </h2>
           )}
-          <p>{isRummy ? 'Sit to play · standard Rummy' : 'Sit to play · partners sit across'}</p>
+          <p>{isRummy ? 'Sit to play · free-for-all Rummy' : 'Sit to play · partners sit across'}</p>
         </div>
       )}
     </div>
