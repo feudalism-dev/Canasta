@@ -45,6 +45,16 @@ export type RummyConfig = {
   scoreAscending: boolean
 }
 
+/** Per-player score change from the hand that just ended. */
+export type RummyHandScoreLine = {
+  playerId: string
+  name: string
+  /** Points added this hand (0 if none). */
+  delta: number
+  /** Match total after this hand. */
+  total: number
+}
+
 export type RummyState = {
   config: RummyConfig
   players: RummyPlayer[]
@@ -59,6 +69,8 @@ export type RummyState = {
   log: string[]
   /** Short summary of the last hand result (knock / gin / draw). */
   lastHandNote: string | null
+  /** Score deltas from the last completed hand (null mid-hand). */
+  lastHandScores: RummyHandScoreLine[] | null
 }
 
 export type RummyMove =

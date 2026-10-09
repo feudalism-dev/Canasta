@@ -50,6 +50,10 @@ describe('rummy rules', () => {
     expect(res.state.players[0]!.hand).toHaveLength(0)
     expect(res.state.players[0]!.melds[0]!.cards).toHaveLength(4)
     expect(res.state.phase).toBe('roundEnd')
+    expect(res.state.lastHandScores).toHaveLength(2)
+    expect(res.state.lastHandScores!.find((l) => l.playerId === 'p0')?.delta).toBe(0)
+    expect(res.state.lastHandScores!.find((l) => l.playerId === 'p1')?.delta).toBe(5) // 2+3
+    expect(res.state.players[1]!.score).toBe(5)
   })
 
   it('allows laying off onto an opponent meld', () => {

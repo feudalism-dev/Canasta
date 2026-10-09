@@ -3,9 +3,18 @@ import { classifyMeld, canLayOff } from './melds'
 import { autoLayoffs, bestPartition, canKnockWithDiscard } from './partition'
 import { handDeadwood } from './score'
 import { cloneRummy, currentPlayer, removeFromHand } from './state'
-import type { RummyMove, RummyPlayer, RummyState } from './types'
+import type { RummyHandScoreLine, RummyMove, RummyPlayer, RummyState } from './types'
 
 export type RummyApplyResult = { ok: true; state: RummyState } | { ok: false; error: string }
+
+function scoreLinesFromDeltas(state: RummyState, deltas: Map<string, number>): RummyHandScoreLine[] {
+  return state.players.map((p) => ({
+    playerId: p.id,
+    name: p.name,
+    delta: deltas.get(p.id) ?? 0,
+    total: p.score,
+  }))
+}
 
 function advanceTurn(state: RummyState): void {
   state.current = (state.current + 1) % state.players.length
@@ -36,12 +45,20 @@ function endRoundIfOut(state: RummyState): void {
   const me = currentPlayer(state)
   if (me.hand.length > 0) return
   state.phase = 'roundEnd'
-  state.lastHandNote = `${me.name} went out.`
+  const deltas = new Map<string, number>()
+  deltas.set(me.id, 0)
+  const parts: string[] = []
   for (const pl of state.players) {
     if (pl.id === me.id) continue
-    pl.score += handDeadwood(pl.hand, state.config)
+    const dw = handDeadwood(pl.hand, state.config)
+    pl.score += dw
+    deltas.set(pl.id, dw)
+    parts.push(`${pl.name} +${dw}`)
   }
-  state.log.push(`${me.name} went out.`)
+  state.lastHandScores = scoreLinesFromDeltas(state, deltas)
+  state.lastHandNote =
+    parts.length > 0 ? `${me.name} went out — ${parts.join(', ')}` : `${me.name} went out.`
+  state.log.push(state.lastHandNote)
   maybeMatchEnd(state, me.id)
 }
 
@@ -90,23 +107,30 @@ function resolveGinKnock(state: RummyState, discardId: string): RummyApplyResult
   const ginBonus = state.config.ginBonus ?? 25
   const undercutBonus = state.config.undercutBonus ?? 25
 
+  const deltas = new Map<string, number>()
+  deltas.set(me.id, 0)
+  deltas.set(opp.id, 0)
   let note: string
   if (isGin) {
     const pts = oDw + ginBonus
     me.score += pts
+    deltas.set(me.id, pts)
     note = `${me.name} went gin (+${pts}: ${oDw} deadwood + ${ginBonus} gin).`
   } else if (oDw <= kDw) {
     const pts = kDw - oDw + undercutBonus
     opp.score += pts
+    deltas.set(opp.id, pts)
     note = `${opp.name} undercut (+${pts}: ${kDw - oDw} + ${undercutBonus} undercut).`
   } else {
     const pts = oDw - kDw
     me.score += pts
+    deltas.set(me.id, pts)
     note = `${me.name} knocked (+${pts}: ${oDw} - ${kDw} deadwood).`
   }
 
   state.phase = 'roundEnd'
   state.lastHandNote = note
+  state.lastHandScores = scoreLinesFromDeltas(state, deltas)
   state.log.push(note)
   maybeMatchEnd(state, me.id)
   return { ok: true, state }
@@ -115,6 +139,7 @@ function resolveGinKnock(state: RummyState, discardId: string): RummyApplyResult
 function endGinStockDraw(state: RummyState): void {
   state.phase = 'roundEnd'
   state.lastHandNote = 'Stock closed — no score this hand.'
+  state.lastHandScores = scoreLinesFromDeltas(state, new Map())
   state.log.push(state.lastHandNote)
 }
 

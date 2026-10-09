@@ -180,8 +180,14 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
   }
 
   const topDiscard = state.discard[state.discard.length - 1]
-  const scores = state.players.map((p) => `${p.name} ${p.score}`).join(' · ')
   const title = isGin ? 'Gin Rummy' : 'Standard Rummy'
+  const playTo = state.config.playTo
+  const scoreGoal = playTo != null ? `First to ${playTo} (${isGin ? 'highest' : 'lowest'} wins)` : null
+  const ranked = [...state.players].sort((a, b) =>
+    state.config.scoreAscending ? a.score - b.score : b.score - a.score,
+  )
+  const leaderId = ranked[0]?.id
+  const handScoreById = new Map((state.lastHandScores ?? []).map((l) => [l.playerId, l]))
 
   return (
     <div className="shell-game rummy-board">
@@ -195,49 +201,87 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
           </h2>
           <p className="muted">{status}</p>
           <p className="muted">
-            Hand {state.round} · {scores} · Stock {state.stock.length}
+            Hand {state.round} · Stock {state.stock.length}
             {isGin ? ` · knock ≤ ${state.config.knockMax ?? 10}` : ''}
+            {scoreGoal ? ` · ${scoreGoal}` : ''}
           </p>
           <p className="rummy-tip">
             {isGin
               ? 'Keep melds in hand. Knock with ≤10 deadwood after discard (0 = Gin). Opponent may undercut. First to 100 (highest) wins.'
-              : 'Free-for-all. Meld 3+ or select cards and tap a table meld to lay off. Empty your hand (layoff or final discard) to go out.'}
+              : 'Free-for-all. Meld 3+ or select cards and tap a table meld to lay off. Empty your hand (layoff or final discard) to go out. Lowest score to 100 wins.'}
           </p>
         </div>
       </header>
       {err ? <p className="error">{err}</p> : null}
 
+      <div className="rummy-scoreboard" aria-label="Match scores">
+        {state.players.map((p) => {
+          const line = handScoreById.get(p.id)
+          const isLeader = p.id === leaderId
+          const isWinner = matchOver && p.id === state.winnerId
+          return (
+            <div
+              key={p.id}
+              className={`rummy-score-card${isLeader ? ' is-leader' : ''}${isWinner ? ' is-winner' : ''}`}
+            >
+              <span className="rummy-score-name">
+                {p.name}
+                {p.seat === you.seat ? ' (you)' : ''}
+                {isWinner ? ' — wins' : isLeader && !matchOver ? ' · lead' : ''}
+              </span>
+              <span className="rummy-score-total">{p.score}</span>
+              {roundOver || matchOver ? (
+                <span className="rummy-score-delta">
+                  {line ? (line.delta > 0 ? `+${line.delta} this hand` : '0 this hand') : '—'}
+                </span>
+              ) : (
+                <span className="rummy-score-delta muted">
+                  {state.current === p.seat ? 'turn' : `${p.hand.length} cards`}
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
       {roundOver || matchOver ? (
-        <div className="rummy-actions">
-          {roundOver ? (
+        <div className="rummy-hand-end">
+          <p className="rummy-hand-end-note">
+            {matchOver
+              ? `Match over — ${state.players.find((p) => p.id === state.winnerId)?.name ?? 'winner'} wins.`
+              : state.lastHandNote ?? 'Hand over.'}
+          </p>
+          <div className="rummy-actions">
+            {roundOver ? (
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => {
+                  if (controller) controller.nextHand()
+                  else setFallback(dealNextRummyRound(state))
+                }}
+              >
+                Deal next hand
+              </button>
+            ) : null}
             <button
               type="button"
-              className="btn primary"
+              className={matchOver ? 'btn primary' : 'btn secondary'}
               onClick={() => {
-                if (controller) controller.nextHand()
-                else setFallback(dealNextRummyRound(state))
+                if (controller?.newMatch) controller.newMatch()
+                else if (!controller) {
+                  const names = state.players.map((p) => p.name)
+                  const computers = state.players.map((p) => p.isComputer)
+                  setFallback(createRummyMatch(names, computers, variant))
+                }
               }}
             >
-              Deal next hand
+              New match
             </button>
-          ) : null}
-          <button
-            type="button"
-            className={matchOver ? 'btn primary' : 'btn secondary'}
-            onClick={() => {
-              if (controller?.newMatch) controller.newMatch()
-              else if (!controller) {
-                const names = state.players.map((p) => p.name)
-                const computers = state.players.map((p) => p.isComputer)
-                setFallback(createRummyMatch(names, computers, variant))
-              }
-            }}
-          >
-            New match
-          </button>
-          <button type="button" className="btn ghost" onClick={onExit}>
-            Leave table
-          </button>
+            <button type="button" className="btn ghost" onClick={onExit}>
+              Leave table
+            </button>
+          </div>
         </div>
       ) : null}
 

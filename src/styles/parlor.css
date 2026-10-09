@@ -1741,6 +1741,62 @@ button.rummy-meld.layoff-target:hover {
 
 .rummy-tip { margin: 0.35rem 0 0; font-size: 0.85rem; opacity: 0.9; max-width: 40rem; }
 
+.rummy-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.rummy-score-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(201, 162, 39, 0.22);
+}
+
+.rummy-score-card.is-leader {
+  border-color: rgba(201, 162, 39, 0.7);
+}
+
+.rummy-score-card.is-winner {
+  border-color: rgba(120, 200, 120, 0.75);
+  background: rgba(40, 80, 40, 0.35);
+}
+
+.rummy-score-name {
+  font-size: 0.8rem;
+  opacity: 0.95;
+}
+
+.rummy-score-total {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+.rummy-score-delta {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.rummy-hand-end {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(201, 162, 39, 0.35);
+}
+
+.rummy-hand-end-note {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
 .rummy-opponents {
   display: flex;
   flex-wrap: wrap;

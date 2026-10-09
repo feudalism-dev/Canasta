@@ -48,6 +48,7 @@ export function createRummyMatch(
     winnerId: null,
     log: [`Dealt ${config.handSize} cards each (${config.variant}).`],
     lastHandNote: null,
+    lastHandScores: null,
   }
 }
 
@@ -87,5 +88,6 @@ export function dealNextRummyRound(prev: RummyState, seed = Date.now()): RummySt
   }))
   next.log = [`Hand ${next.round} — scores carry over.`]
   next.lastHandNote = null
+  next.lastHandScores = null
   return next
 }
