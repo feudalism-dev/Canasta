@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { HouseRules, Variant } from '../core/types'
-import { normalizeFamily, type GameFamily } from '../core/family'
+import { familyHintPresent, resolveTableFamily, type GameFamily } from '../core/family'
 import type { RummyVariant } from '../core/rummy/types'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
@@ -131,10 +131,14 @@ export function SlTableScreens({
   }, [variant, table?.house, onHouse])
 
   useEffect(() => {
-    onFamily(normalizeFamily(table?.family))
-  }, [table?.family, onFamily])
+    // Never push the canasta default while status has not answered yet — that flashes
+    // Hand & Foot on Rummy tables (shared HUD MoAP historically omitted ?family=).
+    if (!familyHintPresent(table?.family, boot.family)) return
+    onFamily(resolveTableFamily(table?.family, boot.family))
+  }, [table?.family, boot.family, onFamily])
 
-  const family = normalizeFamily(table?.family)
+  const familyKnown = familyHintPresent(table?.family, boot.family)
+  const family = resolveTableFamily(table?.family, boot.family)
   const isRummyTable = family === 'rummy'
 
   const enterTable = async (name: string) => {
@@ -294,8 +298,12 @@ export function SlTableScreens({
           Seat {youSeat + 1} · {mode}
           {seatedBrowser ? ' · browser' : ''}
         </p>
-        <h1>{isRummyTable ? 'Rummy' : 'Hand & Foot / Canasta'}</h1>
-        {isRummyTable ? (
+        <h1>
+          {!familyKnown ? 'Table lobby' : isRummyTable ? 'Rummy' : 'Hand & Foot / Canasta'}
+        </h1>
+        {!familyKnown ? (
+          <p className="muted">Connecting to this table…</p>
+        ) : isRummyTable ? (
           <p className="muted">This table is locked to the Rummy family (creator SKU).</p>
         ) : null}
         <label>

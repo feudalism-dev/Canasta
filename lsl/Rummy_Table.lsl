@@ -8,6 +8,8 @@ integer AVSITTER_STAND = 90065;
 integer AVSITTER_SITTER = 90070;
 
 string HUD_OBJECT_NAME = "Canasta HUD";
+/** Creator lock — also sent on CN_READY so the shared HUD MoAP gets ?family=rummy. */
+string TABLE_FAMILY = "rummy";
 
 integer DISPLAY_CMD_EVENT = 91001;
 integer DISPLAY_CMD_START = 91002;
@@ -306,7 +308,7 @@ string sendReady(key av, integer seat)
     if (av == NULL_KEY || seat < 0 || seat >= MAX_SEATS) return "";
     string nm = llDumpList2String(llParseStringKeepNulls(llList2String(gSeatName, seat), ["|"], []), " ");
     string msg = "CN_READY|" + (string)llGetKey() + "|" + (string)seat + "|"
-        + (string)av + "|" + gCapUrl + "|" + nm;
+        + (string)av + "|" + gCapUrl + "|" + nm + "|" + TABLE_FAMILY;
     llRegionSayTo(av, commandChannel(av), msg);
     return msg;
 }

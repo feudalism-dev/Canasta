@@ -24,6 +24,8 @@ string gTableId = "";
 integer gSeat = -1;
 string gSlCap = "";
 string gNameHint = "";
+/** From CN_READY field 6 (canasta|rummy). Empty until handshake. */
+string gFamily = "";
 
 integer gPendingAttach = FALSE;
 integer gPendingDetach = FALSE;
@@ -115,6 +117,7 @@ string sessionHome(integer parked, string client)
         + "&rev=" + (string)effectiveRev();
     if (gNameHint != "") home += "&name=" + llEscapeURL(gNameHint);
     home += "&sl_cap=" + llEscapeURL(gSlCap);
+    if (gFamily != "") home += "&family=" + llEscapeURL(gFamily);
     if (parked)
     {
         home += "&parked=1";
@@ -132,6 +135,7 @@ string standalonePlayUrl()
         + "?client=web"
         + "&rev=" + (string)effectiveRev();
     if (gNameHint != "") home += "&name=" + llEscapeURL(gNameHint);
+    if (gFamily != "") home += "&family=" + llEscapeURL(gFamily);
     return home;
 }
 
@@ -186,9 +190,9 @@ integer pollMediaHandoff()
         {
             gParked = TRUE;
             string playUrl = standalonePlayUrl();
-            llLoadURL(gWearer, "Play Hand and Foot / Canasta in your web browser. This is a solo game on the web. Multiplayer still uses this table HUD.", playUrl);
+            llLoadURL(gWearer, "Play your table game in your web browser. Solo may continue in the browser; multiplayer still uses this table HUD.", playUrl);
             applyMoap(TRUE);
-            llOwnerSay("Canasta HUD parked. Play in your browser, or Return to HUD from the parked screen.");
+            llOwnerSay("Table HUD parked. Play in your browser, or Return to HUD from the parked screen.");
         }
         return TRUE;
     }
@@ -207,7 +211,7 @@ integer pollMediaHandoff()
 
 integer storeReadyFields(string msg)
 {
-    // CN_READY|tableId|seat|uid|slCap|displayName
+    // CN_READY|tableId|seat|uid|slCap|displayName|family
     list p = llParseStringKeepNulls(msg, ["|"], []);
     if (llList2String(p, 0) != "CN_READY") return FALSE;
     string tableId = llList2String(p, 1);
@@ -215,6 +219,8 @@ integer storeReadyFields(string msg)
     key uid = (key)llList2String(p, 3);
     string cap = llList2String(p, 4);
     string nm = llList2String(p, 5);
+    string fam = "";
+    if (llGetListLength(p) > 6) fam = llToLower(llStringTrim(llList2String(p, 6), STRING_TRIM));
 
     integer dirty = FALSE;
     if (uid != NULL_KEY && uid != gTargetAvatar)
@@ -245,6 +251,11 @@ integer storeReadyFields(string msg)
         dirty = TRUE;
     }
     if (gNameHint == "" && nm != "") gNameHint = nm;
+    if (fam != "" && fam != gFamily)
+    {
+        gFamily = fam;
+        dirty = TRUE;
+    }
     return dirty;
 }
 

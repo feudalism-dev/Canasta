@@ -13,7 +13,7 @@ import { SlTableScreens } from './ui/SlTableScreens'
 import { ParkedHud } from './ui/ParkedHud'
 import { Scoreboard } from './ui/Scoreboard'
 import { SpectatorTable } from './ui/SpectatorTable'
-import { normalizeFamily, type GameFamily } from './core/family'
+import { resolveTableFamily, type GameFamily } from './core/family'
 import type { RummyVariant } from './core/rummy/types'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
@@ -72,9 +72,12 @@ function AppInner() {
   const [variant, setVariant] = useState<Variant>('canasta')
   const [family, setFamily] = useState<GameFamily>(() => {
     try {
-      return normalizeFamily(new URL(window.location.href).searchParams.get('family'))
+      return resolveTableFamily(
+        new URL(window.location.href).searchParams.get('family'),
+        slBoot?.family,
+      )
     } catch {
-      return 'canasta'
+      return resolveTableFamily(slBoot?.family)
     }
   })
   const [rummyVariant, setRummyVariant] = useState<RummyVariant>('standard')

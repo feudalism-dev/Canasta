@@ -23,6 +23,7 @@ export function buildSessionUrl(boot: SlBootstrap, opts: SessionOpts = {}): stri
   if (boot.slCap) params.set('sl_cap', boot.slCap)
   if (boot.name) params.set('name', boot.name)
   if (boot.rev) params.set('rev', boot.rev)
+  if (boot.family) params.set('family', boot.family)
   const room = (opts.room || boot.room || '').trim()
   if (room) params.set('room', room)
   const token = (opts.token || boot.token || '').trim()
