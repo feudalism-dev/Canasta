@@ -13,6 +13,12 @@ describe('family lock', () => {
     expect(resolveTableFamily('', '')).toBe('canasta')
   })
 
+  it('recognizes trick family', () => {
+    expect(normalizeFamily('trick')).toBe('trick')
+    expect(resolveTableFamily('trick')).toBe('trick')
+    expect(familyHintPresent('trick')).toBe(true)
+  })
+
   it('detects whether a real family hint exists', () => {
     expect(familyHintPresent(undefined, '')).toBe(false)
     expect(familyHintPresent('rummy')).toBe(true)

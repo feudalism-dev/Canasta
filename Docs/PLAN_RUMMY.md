@@ -8,9 +8,9 @@ Sister product to the Canasta parlor. **Same HUD object** (table-rezzed on sit),
 |--------|----------|--------|
 | **canasta** (shipped) | Classic Canasta, Hand & Foot, Samba, Bolivia | Meld books / pile / canastas |
 | **rummy** (this work) | Standard, Gin, Oklahoma, Rummy 500, Kalooki (open) | Sets + runs, draw/discard, go out / knock |
-| **trick** (later, not now) | Hearts, Rook, Spades, Euchre | Follow suit, tricks, point bags |
+| **trick** | Hearts, Rooster, Spades, Euchre | Follow suit, tricks, point bags |
 
-Hearts and Rook are **not** Rummy. They need a third family when you want them. Do not force them under `family=rummy`.
+Hearts / Rooster are **not** Rummy — see `Docs/PLAN_TRICK.md`.
 
 ## Creator lock
 

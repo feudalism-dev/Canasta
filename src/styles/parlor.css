@@ -1665,6 +1665,34 @@ ul {
 }
 
 
+.trick-board .trick-center {
+  min-height: 7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.trick-plays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.trick-play {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.rummy-hand-slot.is-illegal {
+  opacity: 0.38;
+  filter: grayscale(0.35);
+}
+
 /* -- Rummy solo board (compact; uses CardView sizing) -- */
 .rummy-board {
   display: flex;
@@ -1768,6 +1796,34 @@ ul {
   outline: 2px solid color-mix(in srgb, var(--accent, #c9a227) 80%, white);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+.trick-board .rummy-hand-slot {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.trick-board .rummy-hand-slot:disabled,
+.trick-board .rummy-hand-slot.is-illegal {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.trick-current {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+
+.trick-play {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
 }
 
 .rummy-melds {

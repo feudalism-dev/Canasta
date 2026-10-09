@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import type { HouseRules, Variant } from '../core/types'
 import { familyHintPresent, resolveTableFamily, type GameFamily } from '../core/family'
 import type { RummyVariant } from '../core/rummy/types'
+import type { TrickVariant } from '../core/trick/types'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
 import { BetaVariantNotice } from './BetaVariantNotice'
 import { VariantSelect } from './VariantSelect'
 import { RummyVariantSelect } from './RummyVariantSelect'
+import { TrickVariantSelect } from './TrickVariantSelect'
 import { SeatMap } from './SeatMap'
 import type { SlBootstrap } from '../sl/bootstrap'
 import { openMatchInBrowser } from '../sl/sessionUrl'
@@ -48,6 +50,8 @@ type Props = {
   /** Total seats for Rummy solo/MP (2–4). Empty chairs become bots. */
   rummyPlayerCount: number
   onRummyPlayerCount: (n: number) => void
+  trickVariant: TrickVariant
+  onTrickVariant: (v: TrickVariant) => void
   onFamily: (family: GameFamily) => void
   partnership: boolean
   onPartnership: (v: boolean) => void
@@ -88,6 +92,8 @@ export function SlTableScreens({
   onRummyVariant,
   rummyPlayerCount,
   onRummyPlayerCount,
+  trickVariant,
+  onTrickVariant,
   onFamily,
   partnership,
   onPartnership,
@@ -140,6 +146,8 @@ export function SlTableScreens({
   const familyKnown = familyHintPresent(table?.family, boot.family)
   const family = resolveTableFamily(table?.family, boot.family)
   const isRummyTable = family === 'rummy'
+  const isTrickTable = family === 'trick'
+  const isCanastaTable = family === 'canasta'
 
   const enterTable = async (name: string) => {
     if (!boot.slCap) throw new Error('Waiting for table HTTP-IN URL')
@@ -227,7 +235,8 @@ export function SlTableScreens({
   const iJoined = !!me?.joined
   const tableBusy = mode !== 'idle'
   const canSolo = !seatedBrowser && entered && !tableBusy && activeCount <= 1
-  const canCreate = !seatedBrowser && entered && !tableBusy && activeCount >= 2
+  const canCreate =
+    !seatedBrowser && entered && !tableBusy && activeCount >= 2 && !isTrickTable
   const canJoin = !seatedBrowser && entered && mode === 'lobby' && !iJoined
   const canMintBrowser =
     !seatedBrowser && entered && iJoined && !iAmHost && (mode === 'lobby' || mode === 'match')
@@ -299,12 +308,20 @@ export function SlTableScreens({
           {seatedBrowser ? ' · browser' : ''}
         </p>
         <h1>
-          {!familyKnown ? 'Table lobby' : isRummyTable ? 'Rummy' : 'Hand & Foot / Canasta'}
+          {!familyKnown
+            ? 'Table lobby'
+            : isRummyTable
+              ? 'Rummy'
+              : isTrickTable
+                ? 'Trick'
+                : 'Hand & Foot / Canasta'}
         </h1>
         {!familyKnown ? (
           <p className="muted">Connecting to this table…</p>
         ) : isRummyTable ? (
           <p className="muted">This table is locked to the Rummy family (creator SKU).</p>
+        ) : isTrickTable ? (
+          <p className="muted">This table is locked to the Trick family (Hearts, Rooster, …).</p>
         ) : null}
         <label>
           Name
@@ -312,6 +329,8 @@ export function SlTableScreens({
         </label>
         {isRummyTable ? (
           <RummyVariantSelect value={rummyVariant} disabled={!canEditRules} onChange={onRummyVariant} />
+        ) : isTrickTable ? (
+          <TrickVariantSelect value={trickVariant} disabled={!canEditRules} onChange={onTrickVariant} />
         ) : (
           <label>
             Game
@@ -336,9 +355,9 @@ export function SlTableScreens({
                   : 'Game choice is locked for this table state.'}
           </p>
         ) : null}
-        {!isRummyTable && isBetaVariant(variant) ? <BetaVariantNotice compact /> : null}
-        {!isRummyTable && isSambaFamily(variant) ? <HouseRulesPreview house={house} variant={variant} /> : null}
-        {!seatedBrowser && !isRummyTable ? (
+        {isCanastaTable && isBetaVariant(variant) ? <BetaVariantNotice compact /> : null}
+        {isCanastaTable && isSambaFamily(variant) ? <HouseRulesPreview house={house} variant={variant} /> : null}
+        {!seatedBrowser && isCanastaTable ? (
           <>
             <label className="check">
               <input type="checkbox" checked={partnership} onChange={(e) => onPartnership(e.target.checked)} />
@@ -385,7 +404,14 @@ export function SlTableScreens({
             </p>
           </>
         ) : null}
-        {!isRummyTable && isHouseRulesHandAndFoot(variant) ? (
+        {!seatedBrowser && isTrickTable ? (
+          <p className="muted">
+            {trickVariant === 'hearts'
+              ? 'Hearts is always 4 players (you + 3 bots in empty seats). Pass left/right/across/hold; avoid hearts and Q♠; first to 100 (lowest) wins. Solo ready — PeerJS multiplayer next.'
+              : 'Rooster and other trick games are coming soon. Pick Hearts to play now.'}
+          </p>
+        ) : null}
+        {isCanastaTable && isHouseRulesHandAndFoot(variant) ? (
           <>
             {showMpLobby && !rulesLocked ? (
               <p className="muted">
@@ -506,7 +532,7 @@ export function SlTableScreens({
         ) : (
           <p className="muted">You joined from a minted link. Stay seated in Second Life. Host plays on the HUD.</p>
         )}
-        {canCreate ? (
+        {canCreate && !isTrickTable ? (
           <button
             type="button"
             className="btn secondary"
@@ -527,6 +553,9 @@ export function SlTableScreens({
           >
             Create Multiplayer
           </button>
+        ) : null}
+        {isTrickTable && canCreate ? (
+          <p className="muted">Trick multiplayer (PeerJS) is next — use Play Solo for Hearts now.</p>
         ) : null}
         {canJoin && table?.roomCode ? (
           <button
@@ -726,13 +755,16 @@ export function SlTableScreens({
             </button>
           </>
         ) : null}
-        {!isRummyTable && onHowToPlay ? (
+        {isCanastaTable && onHowToPlay ? (
           <button type="button" className="btn ghost" onClick={onHowToPlay}>
             How to Play
           </button>
         ) : null}
         {isRummyTable ? (
           <p className="muted">Rummy how-to comes with the full board polish.</p>
+        ) : null}
+        {isTrickTable ? (
+          <p className="muted">See Docs/RULES_HEARTS.md — table-top spectator board comes with polish.</p>
         ) : null}
         {status ? <p className="muted">{status}</p> : null}
         {err ? <p className="error">{err}</p> : null}

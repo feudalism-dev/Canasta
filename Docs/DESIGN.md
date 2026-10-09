@@ -10,7 +10,7 @@ Art Deco card parlor. Emerald felt, brass rails, warm lamp light. Custom basket-
 
 ## Product
 
-Canasta-family parlor (Classic, Hand & Foot, Samba, Bolivia) plus a sister **Rummy** product SKU. Same HUD, same Pages app; table LSL sets `family` (`canasta` | `rummy`) as a creator lock. Hearts/Rook are a future **trick** family — not Rummy.
+Canasta-family parlor (Classic, Hand & Foot, Samba, Bolivia) plus sister **Rummy** and **Trick** SKUs. Same HUD, same Pages app; table LSL sets `family` (`canasta` | `rummy` | `trick`) as a creator lock. Trick starts with Hearts; **Rooster** is the Rook-style game (not trademarked Rook).
 
 Canasta: menu pick Classic / Hand & Foot / …. Partnership is first-class (seats 0+2 vs 1+3). Solo default is you + AI partner vs two AI. Table multiplayer always deals four hands; seating is how you pick versus vs co-op.
 
