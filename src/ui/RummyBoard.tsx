@@ -103,6 +103,14 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
       ? layoffTargets(state.players, selectedCards)
       : []
 
+  const actingName = state?.players[state.current]?.name ?? 'Someone'
+  const turnBanner = useMemo(() => {
+    if (!state || !you || roundOver || matchOver) return null
+    if (thinking) return { kind: 'wait' as const, text: 'Computers are thinking…' }
+    if (yourTurn) return { kind: 'you' as const, text: 'Your turn' }
+    return { kind: 'other' as const, text: `${actingName}'s turn` }
+  }, [state, you, roundOver, matchOver, thinking, yourTurn, actingName])
+
   const status = useMemo(() => {
     if (!state || !you) return 'Dealing…'
     if (matchOver) {
@@ -115,16 +123,16 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
         ? `${state.lastHandNote} Deal next hand when ready.`
         : 'Hand over — Deal next hand when ready.'
     }
-    if (thinking) return 'Computers are thinking…'
-    if (!yourTurn) return `${state.players[state.current]!.name}'s turn`
+    if (thinking) return 'Waiting for computers…'
+    if (!yourTurn) return `Wait — ${actingName} is playing`
     if (state.phase === 'draw') {
       if (isGin && state.stock.length <= 2) {
-        return '1) Stock closed — take discard, or tap Stock to end the hand'
+        return 'Stock closed — take discard, or tap Stock to end the hand'
       }
-      return '1) Draw: tap Stock or the discard pile'
+      return 'Draw: tap Stock or the discard pile'
     }
     if (isGin) {
-      return '2) Discard one card — or Knock if deadwood ≤ 10 (Gin = 0)'
+      return 'Discard one card — or Knock if deadwood ≤ 10 (Gin = 0)'
     }
     if (selected.length && layTargets.length) {
       return 'Tap a highlighted meld to lay off, or use Lay off'
@@ -132,8 +140,8 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
     if (you.hand.length <= 1 && state.drew) {
       return 'Lay off onto a meld or discard your last card to go out'
     }
-    return '2) Meld (3+) or lay off onto a table meld · 3) Discard one to end turn'
-  }, [state, you, yourTurn, roundOver, matchOver, thinking, isGin, selected.length, layTargets.length])
+    return 'Meld (3+) or lay off · then discard one to end your turn'
+  }, [state, you, yourTurn, roundOver, matchOver, thinking, isGin, selected.length, layTargets.length, actingName])
 
   const play = (move: RummyMove) => {
     if (controller) {
@@ -189,8 +197,10 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
   const leaderId = ranked[0]?.id
   const handScoreById = new Map((state.lastHandScores ?? []).map((l) => [l.playerId, l]))
 
+  const currentId = state.players[state.current]?.id
+
   return (
-    <div className="shell-game rummy-board">
+    <div className={`shell-game rummy-board${yourTurn ? ' is-your-turn' : ''}`}>
       <header className="rummy-head">
         <button type="button" className="btn ghost" onClick={onExit}>
           Quit to Menu
@@ -199,7 +209,6 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
           <h2>
             {title} · {state.players.length} players
           </h2>
-          <p className="muted">{status}</p>
           <p className="muted">
             Hand {state.round} · Stock {state.stock.length}
             {isGin ? ` · knock ≤ ${state.config.knockMax ?? 10}` : ''}
@@ -212,21 +221,36 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
           </p>
         </div>
       </header>
+
+      {turnBanner ? (
+        <div
+          className={`rummy-turn-banner is-${turnBanner.kind}`}
+          role="status"
+          aria-live="polite"
+        >
+          <strong>{turnBanner.text}</strong>
+          <span>{status}</span>
+        </div>
+      ) : (
+        <p className="muted">{status}</p>
+      )}
+
       {err ? <p className="error">{err}</p> : null}
 
       <div className="rummy-scoreboard" aria-label="Match scores">
-        {state.players.map((p) => {
+        {state.players.map((p, pi) => {
           const line = handScoreById.get(p.id)
           const isLeader = p.id === leaderId
           const isWinner = matchOver && p.id === state.winnerId
+          const isTheirTurn = !roundOver && !matchOver && p.id === currentId
           return (
             <div
               key={p.id}
-              className={`rummy-score-card${isLeader ? ' is-leader' : ''}${isWinner ? ' is-winner' : ''}`}
+              className={`rummy-score-card${isLeader ? ' is-leader' : ''}${isWinner ? ' is-winner' : ''}${isTheirTurn ? ' is-turn' : ''}`}
             >
               <span className="rummy-score-name">
                 {p.name}
-                {p.seat === you.seat ? ' (you)' : ''}
+                {pi === localIndex ? ' (you)' : ''}
                 {isWinner ? ' — wins' : isLeader && !matchOver ? ' · lead' : ''}
               </span>
               <span className="rummy-score-total">{p.score}</span>
@@ -235,8 +259,12 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
                   {line ? (line.delta > 0 ? `+${line.delta} this hand` : '0 this hand') : '—'}
                 </span>
               ) : (
-                <span className="rummy-score-delta muted">
-                  {state.current === p.seat ? 'turn' : `${p.hand.length} cards`}
+                <span className={`rummy-score-delta${isTheirTurn ? ' is-turn-label' : ' muted'}`}>
+                  {isTheirTurn
+                    ? pi === localIndex
+                      ? 'YOUR TURN'
+                      : 'THEIR TURN'
+                    : `${p.hand.length} cards`}
                 </span>
               )}
             </div>
@@ -353,7 +381,11 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
         )}
       </div>
 
-      <div className="rummy-hand" role="list" aria-label="Your hand">
+      <div
+        className={`rummy-hand${yourTurn ? ' is-active' : ''}`}
+        role="list"
+        aria-label={yourTurn ? 'Your hand — your turn' : 'Your hand'}
+      >
         {you.hand.map((c) => (
           <CardView
             key={c.id}
