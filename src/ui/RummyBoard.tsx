@@ -3,7 +3,7 @@ import type { RummyMove, RummyState, RummyVariant } from '../core/rummy/types'
 import { createRummyMatch, dealNextRummyRound } from '../core/rummy/state'
 import { applyRummyMove } from '../core/rummy/rules'
 import { canKnockWithDiscard } from '../core/rummy/partition'
-import { layoffTargets } from '../core/rummy/melds'
+import { layoffTargets, orderMeldCards } from '../core/rummy/melds'
 import { isGinStyle } from '../core/rummy/variants'
 import { pumpRummyBots } from '../ai/rummyBot'
 import { CardView } from './CardView'
@@ -495,7 +495,7 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
                   {canLay ? ' · tap to lay off' : ''}
                 </span>
                 <div className="rummy-card-row">
-                  {m.cards.map((c) => (
+                  {orderMeldCards(m.kind, m.cards).map((c) => (
                     <CardView key={c.id} card={c} size="sm" />
                   ))}
                 </div>

@@ -91,6 +91,55 @@ export function classifyMeld(cards: Card[], config?: RummyConfig): 'set' | 'run'
   return null
 }
 
+/**
+ * Order a run low→high for display / storage.
+ * Ace-high runs (…QKA) sort Ace at the end; Ace-low (A23…) keep Ace first.
+ * Jokers fill internal gaps, then extend the high end.
+ */
+export function sortRunCards(cards: Card[]): Card[] {
+  if (cards.length <= 1) return [...cards]
+  const jokers = cards.filter((c) => c.rank === 'JOKER')
+  const nat = cards.filter((c) => c.rank !== 'JOKER')
+  if (nat.length === 0) return [...jokers]
+
+  const tryBuild = (valueOf: (rank: Rank) => number): Card[] | null => {
+    const vals = nat.map((c) => valueOf(c.rank))
+    if (new Set(vals).size !== vals.length) return null
+    const sorted = [...nat].sort((a, b) => valueOf(a.rank) - valueOf(b.rank) || a.id.localeCompare(b.id))
+    const sortedVals = sorted.map((c) => valueOf(c.rank))
+    const min = sortedVals[0]!
+    const max = sortedVals[sortedVals.length - 1]!
+    const span = max - min + 1
+    const gaps = span - sorted.length
+    if (gaps < 0 || gaps > jokers.length) return null
+    if (sorted.length + jokers.length !== cards.length) return null
+
+    const out: Card[] = []
+    let ji = 0
+    let ni = 0
+    for (let v = min; v <= max; v++) {
+      if (ni < sorted.length && sortedVals[ni] === v) {
+        out.push(sorted[ni++]!)
+      } else {
+        out.push(jokers[ji++]!)
+      }
+    }
+    while (ji < jokers.length) out.push(jokers[ji++]!)
+    return out
+  }
+
+  return (
+    tryBuild(rankRunValueLow) ??
+    (nat.some((c) => c.rank === 'A') ? tryBuild(rankRunValueHighAce) : null) ??
+    [...nat, ...jokers]
+  )
+}
+
+/** Normalize meld card order (runs sorted; sets unchanged). */
+export function orderMeldCards(kind: 'set' | 'run', cards: Card[]): Card[] {
+  return kind === 'run' ? sortRunCards(cards) : [...cards]
+}
+
 export function canLayOff(
   meldCards: Card[],
   kind: 'set' | 'run',

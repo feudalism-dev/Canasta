@@ -1,5 +1,5 @@
 import { findCard, takeCards } from '../cards'
-import { classifyMeld, canLayOff } from './melds'
+import { classifyMeld, canLayOff, orderMeldCards } from './melds'
 import { autoLayoffs, bestPartition, canKnockWithDiscard } from './partition'
 import { cardsPoints, handDeadwood } from './score'
 import { cloneRummy, currentPlayer, removeFromHand } from './state'
@@ -119,7 +119,7 @@ function assignPartitionMelds(player: RummyPlayer, part: ReturnType<typeof bestP
   player.melds = part.melds.map((m, i) => ({
     id: `m${player.seat}-${i}`,
     kind: m.kind,
-    cards: m.cards,
+    cards: orderMeldCards(m.kind, m.cards),
   }))
   player.hand = part.deadwood
 }
@@ -284,7 +284,7 @@ export function applyRummyMove(state: RummyState, move: RummyMove): RummyApplyRe
     me.melds.push({
       id: `m${me.seat}-${me.melds.length}`,
       kind,
-      cards: taken,
+      cards: orderMeldCards(kind, taken),
     })
     clearMustUse(next, move.cardIds)
     next.phase = 'meld'
@@ -310,7 +310,7 @@ export function applyRummyMove(state: RummyState, move: RummyMove): RummyApplyRe
     const err = canLayOff(meld.cards, meld.kind, taken, next.config)
     if (err) return { ok: false, error: err }
     me.hand = rest
-    meld.cards = [...meld.cards, ...taken]
+    meld.cards = orderMeldCards(meld.kind, [...meld.cards, ...taken])
     if (next.config.meldScoring && owner.id !== me.id) {
       me.scoredLayoffs.push(...taken)
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeCard } from '../cards'
-import { classifyMeld, isRun, isSet } from './melds'
+import { classifyMeld, isRun, isSet, sortRunCards } from './melds'
 
 describe('rummy melds', () => {
   it('accepts a three of a kind', () => {
@@ -35,5 +35,28 @@ describe('rummy melds', () => {
     expect(classifyMeld(set, cfg)).toBe('set')
     expect(classifyMeld(run, cfg)).toBe('run')
     expect(classifyMeld(set)).toBe(null)
+  })
+
+  it('sorts run cards into sequential order', () => {
+    const scrambled = [
+      makeCard(0, 'H', '7', 0),
+      makeCard(0, 'H', '5', 0),
+      makeCard(0, 'H', '6', 0),
+    ]
+    expect(sortRunCards(scrambled).map((c) => c.rank)).toEqual(['5', '6', '7'])
+
+    const aceHigh = [
+      makeCard(0, 'S', 'A', 0),
+      makeCard(0, 'S', 'Q', 0),
+      makeCard(0, 'S', 'K', 0),
+    ]
+    expect(sortRunCards(aceHigh).map((c) => c.rank)).toEqual(['Q', 'K', 'A'])
+
+    const withJoker = [
+      makeCard(0, 'D', '9', 0),
+      makeCard(0, 'J', 'JOKER', 0),
+      makeCard(0, 'D', '7', 0),
+    ]
+    expect(sortRunCards(withJoker).map((c) => c.rank)).toEqual(['7', 'JOKER', '9'])
   })
 })
