@@ -46,6 +46,7 @@ export function createTrickMatch(
       log: [],
       lastHandNote: null,
       lastHandScores: null,
+      lastTrickNote: null,
     },
     seed,
   )
@@ -65,6 +66,7 @@ function dealHand(state: TrickState, seed: number): TrickState {
   next.passQueue = [null, null, null, null]
   next.lastHandNote = null
   next.lastHandScores = null
+  next.lastTrickNote = null
   next.winnerId = null
 
   let stock = deck

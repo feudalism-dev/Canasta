@@ -63,6 +63,8 @@ export type TrickState = {
   log: string[]
   lastHandNote: string | null
   lastHandScores: TrickHandScoreLine[] | null
+  /** Short note after a trick is won (cleared when the next card is led). */
+  lastTrickNote: string | null
 }
 
 export type TrickMove =

@@ -1826,6 +1826,19 @@ ul {
   gap: 0.15rem;
 }
 
+.trick-taken-banner {
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--accent, #c9a227) 90%, white);
+  background: color-mix(in srgb, #0a1812 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #c9a227) 45%, transparent);
+  border-radius: 6px;
+  max-width: 28rem;
+}
+
 .rummy-melds {
   display: flex;
   flex-wrap: wrap;

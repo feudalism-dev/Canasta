@@ -98,10 +98,16 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
         : 'Hand over — Deal next hand when ready.'
     }
     if (thinking) return 'Waiting for computers…'
-    if (!yourTurn) return `Wait — ${actingName} is playing`
     if (state.phase === 'pass') {
       return `Select 3 cards to pass ${passDirectionLabel(state.passDirection)}`
     }
+    if (state.lastTrickNote && state.trick.length === 0) {
+      if (yourTurn) {
+        return `${state.lastTrickNote}. Your lead.`
+      }
+      return `${state.lastTrickNote}. ${actingName} leads.`
+    }
+    if (!yourTurn) return `Wait — ${actingName} is playing`
     if (state.trick.length === 0) {
       return state.heartsBroken
         ? 'Your lead — play any card'
@@ -214,6 +220,8 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
           const isLeader = p.id === leaderId
           const isWinner = matchOver && p.id === state.winnerId
           const isTheirTurn = !roundOver && !matchOver && state.current === pi
+          const tricks = state.tricksTaken[pi] ?? 0
+          const handPts = p.takenThisHand
           return (
             <div
               key={p.id}
@@ -225,17 +233,18 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
                 {isWinner ? ' — wins' : isLeader && !matchOver ? ' · lead' : ''}
               </span>
               <span className="rummy-score-total">{p.score}</span>
-              <span className="rummy-score-delta">
-                {roundOver || matchOver
-                  ? line
-                    ? `+${line.delta} this hand`
-                    : '—'
-                  : isTheirTurn
-                    ? pi === localIndex
-                      ? 'YOUR TURN'
-                      : 'THEIR TURN'
-                    : `${p.hand.length} cards · took ${p.takenThisHand}`}
-              </span>
+              {roundOver || matchOver ? (
+                <span className="rummy-score-delta">
+                  {line ? `+${line.delta} this hand` : '—'}
+                </span>
+              ) : (
+                <>
+                  <span className="rummy-score-delta">
+                    {tricks} trick{tricks === 1 ? '' : 's'} · {handPts} pts
+                    {isTheirTurn ? (pi === localIndex ? ' · YOUR TURN' : ' · THEIR TURN') : ''}
+                  </span>
+                </>
+              )}
             </div>
           )
         })}
@@ -287,10 +296,22 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
       ) : null}
 
       <div className="trick-current" aria-label="Current trick">
-        <span className="pile-label">Trick · {state.trick.length}/4</span>
+        <span className="pile-label">
+          Trick · {state.trick.length}/4
+          {state.phase === 'play'
+            ? ` · you have ${state.tricksTaken[localIndex] ?? 0} this hand`
+            : ''}
+        </span>
+        {state.lastTrickNote && state.trick.length === 0 && !roundOver && !matchOver ? (
+          <p className="trick-taken-banner" role="status">
+            {state.lastTrickNote}
+          </p>
+        ) : null}
         <div className="rummy-card-row">
           {state.trick.length === 0 ? (
-            <div className="pile-empty">Waiting for lead</div>
+            <div className="pile-empty">
+              {state.lastTrickNote ? 'Next lead…' : 'Waiting for lead'}
+            </div>
           ) : (
             state.trick.map((t) => (
               <div key={t.card.id} className="trick-play">

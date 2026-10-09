@@ -125,9 +125,13 @@ function finishTrick(state: TrickState): void {
   }
   winner.takenThisHand += pts
   state.tricksTaken[winnerIdx] = (state.tricksTaken[winnerIdx] ?? 0) + 1
-  state.log.push(
-    pts > 0 ? `${winner.name} took the trick (+${pts}).` : `${winner.name} took the trick.`,
-  )
+  const tricks = state.tricksTaken[winnerIdx] ?? 0
+  const note =
+    pts > 0
+      ? `${winner.name} took the trick (+${pts} pts) · ${tricks} trick${tricks === 1 ? '' : 's'} this hand`
+      : `${winner.name} took the trick · ${tricks} trick${tricks === 1 ? '' : 's'} this hand`
+  state.lastTrickNote = note
+  state.log.push(note)
   state.trick = []
   state.trickLeader = winnerIdx
   state.current = winnerIdx
@@ -190,6 +194,7 @@ export function applyTrickMove(state: TrickState, move: TrickMove): TrickApplyRe
     if (rem) return { ok: false, error: rem }
     next.trick.push({ seat: me.seat, card })
     if (isHeart(card)) next.heartsBroken = true
+    if (next.trick.length === 1) next.lastTrickNote = null
     next.log.push(`${me.name} played ${card.rank}${card.suit}.`)
 
     if (next.trick.length >= 4) {
