@@ -1733,6 +1733,30 @@ button.rummy-meld.layoff-target:hover {
   padding: 0.5rem 0;
 }
 
+.rummy-hand-slot {
+  display: inline-flex;
+  cursor: grab;
+  touch-action: none;
+  border-radius: 2px;
+}
+
+.rummy-hand-slot:active {
+  cursor: grabbing;
+}
+
+.rummy-hand-slot.is-drop-target {
+  outline: 2px solid rgba(201, 162, 39, 0.85);
+  outline-offset: 2px;
+}
+
+.rummy-hand-slot .cn-card {
+  pointer-events: auto;
+}
+
+.rummy-hand-hint {
+  margin: 0;
+}
+
 .rummy-actions {
   display: flex;
   flex-wrap: wrap;

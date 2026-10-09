@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import type { RummyMove, RummyState, RummyVariant } from '../core/rummy/types'
 import { createRummyMatch, dealNextRummyRound } from '../core/rummy/state'
 import { applyRummyMove } from '../core/rummy/rules'
@@ -6,6 +6,15 @@ import { canKnockWithDiscard } from '../core/rummy/partition'
 import { layoffTargets } from '../core/rummy/melds'
 import { pumpRummyBots } from '../ai/rummyBot'
 import { CardView } from './CardView'
+
+/** Keep prior display order; append newly drawn cards at the end. */
+function mergeHandOrder(prev: string[], handIds: string[]): string[] {
+  const live = new Set(handIds)
+  const kept = prev.filter((id) => live.has(id))
+  const keptSet = new Set(kept)
+  const added = handIds.filter((id) => !keptSet.has(id))
+  return [...kept, ...added]
+}
 
 export type RummyBoardController = {
   state: RummyState
@@ -33,6 +42,10 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
   const [selected, setSelected] = useState<string[]>([])
   const [err, setErr] = useState('')
   const [aiThinking, setAiThinking] = useState(false)
+  const [handOrder, setHandOrder] = useState<string[]>([])
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const dragFromId = useRef<string | null>(null)
+  const dragged = useRef(false)
 
   useEffect(() => {
     if (!controller?.onChange) return
@@ -179,7 +192,24 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
   }
 
   const toggle = (id: string) => {
+    if (dragged.current) {
+      dragged.current = false
+      return
+    }
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  const moveCardInHand = (fromId: string, toId: string) => {
+    if (fromId === toId) return
+    setHandOrder((prev) => {
+      const from = prev.indexOf(fromId)
+      const to = prev.indexOf(toId)
+      if (from < 0 || to < 0) return prev
+      const next = [...prev]
+      const [card] = next.splice(from, 1)
+      next.splice(to, 0, card!)
+      return next
+    })
   }
 
   if (!state || !you) {
@@ -201,6 +231,16 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
   const handScoreById = new Map((state.lastHandScores ?? []).map((l) => [l.playerId, l]))
 
   const currentId = state.players[state.current]?.id
+  const handIdsKey = you.hand.map((c) => c.id).join('|')
+  useEffect(() => {
+    setHandOrder((prev) => mergeHandOrder(prev, handIdsKey ? handIdsKey.split('|') : []))
+  }, [handIdsKey])
+
+  const handById = useMemo(() => new Map(you.hand.map((c) => [c.id, c])), [handIdsKey, you.hand])
+  const orderedHand = useMemo(
+    () => handOrder.map((id) => handById.get(id)).filter((c): c is NonNullable<typeof c> => Boolean(c)),
+    [handOrder, handById],
+  )
 
   return (
     <div className={`shell-game rummy-board${yourTurn ? ' is-your-turn' : ''}`}>
@@ -389,16 +429,50 @@ export function RummyBoard({ yourName, variant, onExit, controller, playerCount 
         role="list"
         aria-label={yourTurn ? 'Your hand — your turn' : 'Your hand'}
       >
-        {you.hand.map((c) => (
-          <CardView
+        {orderedHand.map((c) => (
+          <div
             key={c.id}
-            card={c}
-            size="md"
-            selected={selected.includes(c.id)}
-            onClick={() => (yourTurn ? toggle(c.id) : undefined)}
-          />
+            className={`rummy-hand-slot${dragOverId === c.id ? ' is-drop-target' : ''}`}
+            draggable
+            onDragStart={(e: DragEvent) => {
+              dragFromId.current = c.id
+              dragged.current = false
+              e.dataTransfer.effectAllowed = 'move'
+              e.dataTransfer.setData('text/plain', c.id)
+            }}
+            onDrag={() => {
+              dragged.current = true
+            }}
+            onDragOver={(e: DragEvent) => {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+              if (dragOverId !== c.id) setDragOverId(c.id)
+            }}
+            onDragLeave={() => {
+              if (dragOverId === c.id) setDragOverId(null)
+            }}
+            onDrop={(e: DragEvent) => {
+              e.preventDefault()
+              const from = dragFromId.current || e.dataTransfer.getData('text/plain')
+              if (from) moveCardInHand(from, c.id)
+              dragFromId.current = null
+              setDragOverId(null)
+            }}
+            onDragEnd={() => {
+              dragFromId.current = null
+              setDragOverId(null)
+            }}
+          >
+            <CardView
+              card={c}
+              size="md"
+              selected={selected.includes(c.id)}
+              onClick={yourTurn ? () => toggle(c.id) : undefined}
+            />
+          </div>
         ))}
       </div>
+      <p className="muted tiny rummy-hand-hint">Drag cards to rearrange · tap to select</p>
 
       {!roundOver && !matchOver ? (
         <div className="rummy-actions">
