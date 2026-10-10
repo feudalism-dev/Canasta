@@ -3,11 +3,24 @@ import { mulberry32 } from '../rng'
 
 const RANKS: Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
 
-/** Standard 52-card deck for Hearts / Spades. */
+/** Standard 52-card deck for Hearts / Spades / Oh Hell. */
 export function buildTrickDeck(): Card[] {
   const cards: Card[] = []
   for (const suit of SUITS) {
     for (const rank of RANKS) {
+      cards.push(makeCard(0, suit, rank, 0))
+    }
+  }
+  return cards
+}
+
+const EUCHRE_RANKS: Rank[] = ['9', '10', 'J', 'Q', 'K', 'A']
+
+/** 24-card Euchre deck (9–A). */
+export function buildEuchreDeck(): Card[] {
+  const cards: Card[] = []
+  for (const suit of SUITS) {
+    for (const rank of EUCHRE_RANKS) {
       cards.push(makeCard(0, suit, rank, 0))
     }
   }

@@ -12,7 +12,9 @@ import {
   sortRoosterHand,
 } from '../core/trick/roosterDeck'
 import { suggestedBids, teamOfIndex } from '../core/trick/roosterRules'
+import { legalOhHellBids } from '../core/trick/ohHellRules'
 import { sortTrickHand } from '../core/trick/deck'
+import { trickVariantLabel } from '../core/trick/variants'
 import { pumpTrickBots } from '../ai/trickBot'
 import { CardView } from './CardView'
 
@@ -62,7 +64,8 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
       setFallback(null)
       return
     }
-    if (variant !== 'hearts' && variant !== 'rooster') return
+    const playable = ['hearts', 'rooster', 'spades', 'euchre', 'ohhell']
+    if (!playable.includes(variant)) return
     const names = [yourName || 'You', 'Computer 1', 'Computer 2', 'Computer 3']
     const computers = [false, true, true, true]
     let cancelled = false
@@ -93,7 +96,12 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
   const localIndex = controller?.localIndex ?? 0
   const thinking = controller?.aiThinking ?? aiThinking
   const you = state?.players[localIndex]
-  const isRooster = state?.config.variant === 'rooster'
+  const game = state?.config.variant ?? variant
+  const isRooster = game === 'rooster'
+  const isSpades = game === 'spades'
+  const isEuchre = game === 'euchre'
+  const isOhHell = game === 'ohhell'
+  const isPartners = Boolean(state?.config.partnership)
   const palette = isRooster ? 'rooster' : 'french'
   const yourTurn = Boolean(
     state &&
@@ -134,6 +142,22 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
     }
     if (thinking) return 'Waiting for computers…'
     if (state.phase === 'bid') {
+      if (isSpades) {
+        return yourTurn ? 'Bid 0–13 tricks (0 = Nil)' : `${actingName} is bidding`
+      }
+      if (isOhHell) {
+        return yourTurn
+          ? `Bid exact tricks (0–${state.handSize})`
+          : `${actingName} is bidding`
+      }
+      if (isEuchre) {
+        const up = state.nest[0]
+        return yourTurn
+          ? state.euchreRound === 1
+            ? `Order up ${up ? `${up.rank}${up.suit}` : 'trump'} or pass`
+            : 'Name a trump suit (not the turned suit) or pass'
+          : `${actingName} is bidding`
+      }
       return yourTurn
         ? `Bid (min ${ROOSTER_MIN_BID}) or pass${state.bidAmount ? ` · high ${state.bidAmount}` : ''}`
         : `${actingName} is bidding${state.bidAmount ? ` · high ${state.bidAmount}` : ''}`
@@ -161,7 +185,7 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
         : 'Your lead — hearts locked until broken (unless only hearts)'
     }
     return 'Follow suit if you can'
-  }, [state, you, yourTurn, roundOver, matchOver, thinking, actingName, isRooster])
+  }, [state, you, yourTurn, roundOver, matchOver, thinking, actingName, isRooster, isSpades, isEuchre, isOhHell])
 
   const play = (move: TrickMove) => {
     if (controller) {
@@ -202,7 +226,8 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
     }
     if (!state || !yourTurn) return
     if (state.phase === 'pass' || state.phase === 'nest') {
-      const max = state.phase === 'nest' ? ROOSTER_NEST_SIZE : 3
+      const max =
+        state.phase === 'nest' ? (state.config.variant === 'euchre' ? 1 : ROOSTER_NEST_SIZE) : 3
       setSelected((prev) => {
         if (prev.includes(id)) return prev.filter((x) => x !== id)
         if (prev.length >= max) return prev
@@ -243,11 +268,7 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
   if (!state || !you) {
     return (
       <div className="shell-game trick-board">
-        <p className="muted">
-          {variant === 'hearts' || variant === 'rooster'
-            ? 'Dealing…'
-            : 'This game is coming soon — pick Hearts or Rooster for now.'}
-        </p>
+        <p className="muted">Dealing…</p>
         <button type="button" className="btn ghost" onClick={onExit}>
           Quit to Menu
         </button>
@@ -255,15 +276,19 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
     )
   }
 
-  const ascending = state.config.scoreAscending !== false && !isRooster
+  const ascending = state.config.scoreAscending === true
   const ranked = [...state.players].sort((a, b) => (ascending ? a.score - b.score : b.score - a.score))
   const leaderId = ranked[0]?.id
   const handScoreById = new Map((state.lastHandScores ?? []).map((l) => [l.playerId, l]))
-  const bidOptions = isRooster && state.phase === 'bid' ? suggestedBids(state) : []
+  const roosterBids = isRooster && state.phase === 'bid' ? suggestedBids(state) : []
+  const ohHellBids = isOhHell && state.phase === 'bid' ? legalOhHellBids(state) : []
   const trumpLabel =
-    state.trump && state.trump !== 'J'
+    isRooster && state.trump && state.trump !== 'J'
       ? ROOSTER_COLOR[state.trump as Exclude<Suit, 'J'>]
-      : null
+      : state.trump && state.trump !== 'J'
+        ? state.trump
+        : null
+  const playTo = state.config.playTo
 
   return (
     <div className={`shell-game trick-board${yourTurn ? ' is-your-turn' : ''}`}>
@@ -273,32 +298,32 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
         </button>
         <div>
           <h2>
-            {isRooster ? 'Rooster' : 'Hearts'} · {state.players.length} players
-            {isRooster ? ' · partners across' : ''}
+            {trickVariantLabel(game)} · {state.players.length} players
+            {isPartners ? ' · partners across' : ''}
           </h2>
           <p className="muted">
-            {isRooster ? (
-              <>
-                Hand {state.round}
-                {state.bidAmount ? ` · bid ${state.bidAmount}` : ''}
-                {trumpLabel ? ` · trump ${trumpLabel}` : ''}
-                {state.phase === 'bid' || state.phase === 'nest' || state.phase === 'trump'
-                  ? ` · nest ${state.nest.length || ROOSTER_NEST_SIZE}`
-                  : ''}
-                {' · first partnership to 300'}
-              </>
-            ) : (
-              <>
-                Hand {state.round} · pass {passDirectionLabel(state.passDirection)}
-                {state.heartsBroken ? ' · hearts broken' : ' · hearts locked'} · first to 100 (lowest
-                wins)
-              </>
-            )}
+            Hand {state.round}
+            {isRooster && state.bidAmount ? ` · bid ${state.bidAmount}` : ''}
+            {trumpLabel ? ` · trump ${trumpLabel}` : ''}
+            {isSpades ? (state.heartsBroken ? ' · spades broken' : ' · spades locked') : ''}
+            {isOhHell ? ` · ${state.handSize} cards` : ''}
+            {isEuchre && state.nest[0] && state.phase === 'bid'
+              ? ` · up ${state.nest[0].rank}${state.nest[0].suit}`
+              : ''}
+            {playTo != null
+              ? ` · to ${playTo}${ascending ? ' (lowest)' : ''}`
+              : ''}
           </p>
           <p className="rummy-tip">
             {isRooster
-              ? 'Bid for the nest, bury five, name trump. Counters: 5=5, 10/14=10, bird=20. Last trick takes the nest.'
-              : 'Pass three, then follow suit. Hearts = 1, Q♠ = 13. Take all 26 to shoot the moon.'}
+              ? 'Bid for the nest, bury five, name trump. Counters: 5=5, 10/14=10, bird=20.'
+              : isSpades
+                ? 'Bid tricks (0 = Nil). ♠ trump. Bags every 10 cost 100. First team to 500.'
+                : isEuchre
+                  ? 'Order up or name trump. Right/left bowers. Makers need 3 tricks. First to 10.'
+                  : isOhHell
+                    ? 'Bid exact tricks. Dealer cannot make the total equal hand size. Exact = 10 + tricks.'
+                    : 'Pass three, then follow suit. Hearts = 1, Q♠ = 13. Shoot the moon for 26.'}
           </p>
         </div>
       </header>
@@ -323,7 +348,8 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
           const isTheirTurn = !roundOver && !matchOver && state.current === pi
           const tricks = state.tricksTaken[pi] ?? 0
           const handPts = p.takenThisHand
-          const partner = isRooster ? (pi % 2 === 0 ? '1+3' : '2+4') : null
+          const partner = isPartners ? (pi % 2 === 0 ? '1+3' : '2+4') : null
+          const bid = state.playerBids[pi]
           return (
             <div
               key={p.id}
@@ -344,7 +370,10 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
                 </span>
               ) : (
                 <span className="rummy-score-delta">
-                  {tricks} trick{tricks === 1 ? '' : 's'} · {handPts} pts
+                  {bid != null ? `bid ${bid === 0 && isSpades ? 'Nil' : bid} · ` : ''}
+                  {tricks} trick{tricks === 1 ? '' : 's'}
+                  {isRooster ? ` · ${handPts} pts` : ''}
+                  {isSpades ? ` · bags ${state.bags[teamOfIndex(pi)]}` : ''}
                   {isRooster && state.phase === 'play'
                     ? ` · team ${state.teamTaken[teamOfIndex(pi)]}`
                     : ''}
@@ -511,12 +540,12 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
           </button>
         ) : null}
 
-        {!roundOver && !matchOver && state.phase === 'bid' && yourTurn ? (
+        {!roundOver && !matchOver && state.phase === 'bid' && yourTurn && isRooster ? (
           <>
             <button type="button" className="btn secondary" onClick={() => play({ t: 'passBid' })}>
               Pass
             </button>
-            {bidOptions.slice(0, 8).map((amount) => (
+            {roosterBids.slice(0, 8).map((amount) => (
               <button
                 key={amount}
                 type="button"
@@ -526,28 +555,65 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
                 Bid {amount}
               </button>
             ))}
-            {bidOptions.length > 8 ? (
-              <label className="trick-bid-more">
-                More
-                <select
-                  defaultValue=""
-                  onChange={(e) => {
-                    const amount = Number(e.target.value)
-                    if (amount) play({ t: 'bid', amount })
-                    e.target.value = ''
-                  }}
+          </>
+        ) : null}
+
+        {!roundOver && !matchOver && state.phase === 'bid' && yourTurn && isSpades ? (
+          <>
+            {Array.from({ length: 14 }, (_, i) => i).map((amount) => (
+              <button
+                key={amount}
+                type="button"
+                className="btn primary"
+                onClick={() => play({ t: 'bid', amount })}
+              >
+                {amount === 0 ? 'Nil' : amount}
+              </button>
+            ))}
+          </>
+        ) : null}
+
+        {!roundOver && !matchOver && state.phase === 'bid' && yourTurn && isOhHell ? (
+          <>
+            {ohHellBids.map((amount) => (
+              <button
+                key={amount}
+                type="button"
+                className="btn primary"
+                onClick={() => play({ t: 'bid', amount })}
+              >
+                Bid {amount}
+              </button>
+            ))}
+          </>
+        ) : null}
+
+        {!roundOver && !matchOver && state.phase === 'bid' && yourTurn && isEuchre ? (
+          <>
+            <button type="button" className="btn secondary" onClick={() => play({ t: 'passBid' })}>
+              Pass
+            </button>
+            {state.euchreRound === 1 ? (
+              <>
+                <button type="button" className="btn primary" onClick={() => play({ t: 'bid', amount: 1 })}>
+                  Order up
+                </button>
+                <button type="button" className="btn primary" onClick={() => play({ t: 'bid', amount: 2 })}>
+                  Alone
+                </button>
+              </>
+            ) : (
+              SUITS.filter((s) => s !== state.nest[0]?.suit).map((suit) => (
+                <button
+                  key={suit}
+                  type="button"
+                  className="btn primary"
+                  onClick={() => play({ t: 'nameTrump', suit })}
                 >
-                  <option value="" disabled>
-                    …
-                  </option>
-                  {bidOptions.slice(8).map((amount) => (
-                    <option key={amount} value={amount}>
-                      {amount}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
+                  Trump {suit}
+                </button>
+              ))
+            )}
           </>
         ) : null}
 
@@ -555,10 +621,15 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
           <button
             type="button"
             className="btn primary"
-            disabled={!yourTurn || selected.length !== ROOSTER_NEST_SIZE}
+            disabled={
+              !yourTurn ||
+              selected.length !== (isEuchre ? 1 : ROOSTER_NEST_SIZE)
+            }
             onClick={() => play({ t: 'nestDiscard', cardIds: selected })}
           >
-            Bury {selected.length}/{ROOSTER_NEST_SIZE}
+            {isEuchre
+              ? `Discard ${selected.length}/1`
+              : `Bury ${selected.length}/${ROOSTER_NEST_SIZE}`}
           </button>
         ) : null}
 
@@ -571,7 +642,7 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
                 className="btn primary"
                 onClick={() => play({ t: 'nameTrump', suit })}
               >
-                Trump {ROOSTER_COLOR[suit as Exclude<Suit, 'J'>]}
+                Trump {isRooster ? ROOSTER_COLOR[suit as Exclude<Suit, 'J'>] : suit}
               </button>
             ))}
           </>

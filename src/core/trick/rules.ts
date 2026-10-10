@@ -7,7 +7,10 @@ import {
   sortTrickHand,
   trickRankValue,
 } from './deck'
+import { applyEuchreMove, legalEuchrePlays } from './euchreRules'
+import { applyOhHellMove, legalOhHellPlays } from './ohHellRules'
 import { applyRoosterMove, legalRoosterPlays } from './roosterRules'
+import { applySpadesMove, legalSpadesPlays } from './spadesRules'
 import {
   cloneTrick,
   currentPlayer,
@@ -31,6 +34,9 @@ function passTargetIndex(from: number, dir: TrickState['passDirection'], n: numb
 
 export function legalPlays(state: TrickState, playerIndex: number): Card[] {
   if (state.config.variant === 'rooster') return legalRoosterPlays(state, playerIndex)
+  if (state.config.variant === 'spades') return legalSpadesPlays(state, playerIndex)
+  if (state.config.variant === 'euchre') return legalEuchrePlays(state, playerIndex)
+  if (state.config.variant === 'ohhell') return legalOhHellPlays(state, playerIndex)
   const pl = state.players[playerIndex]
   if (!pl) return []
   const hand = pl.hand
@@ -161,6 +167,9 @@ function finishTrick(state: TrickState): void {
 
 export function applyTrickMove(state: TrickState, move: TrickMove): TrickApplyResult {
   if (state.config.variant === 'rooster') return applyRoosterMove(state, move)
+  if (state.config.variant === 'spades') return applySpadesMove(state, move)
+  if (state.config.variant === 'euchre') return applyEuchreMove(state, move)
+  if (state.config.variant === 'ohhell') return applyOhHellMove(state, move)
   if (state.phase === 'roundEnd' || state.phase === 'matchEnd') {
     return { ok: false, error: 'Round is over' }
   }

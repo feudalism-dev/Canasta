@@ -27,7 +27,7 @@ Sister product to Canasta / Rummy. **Same HUD object**, **same GitHub Pages app*
 4. Spectator BOARD for trick (`T1~` payload + Furware) — done with Hearts.
 5. PeerJS multiplayer for trick (mirror Rummy) — done.
 6. **Rooster** — partnership nest/bid/trump (v1 done); call-partner & cutthroat later.
-7. Spades / Euchre as later selector options.
+7. **Spades / Euchre / Oh Hell** — v1 ready.
 
 ## Variants (selector)
 
@@ -35,8 +35,9 @@ Sister product to Canasta / Rummy. **Same HUD object**, **same GitHub Pages app*
 |----|--------|--------|
 | `hearts` | ready | Avoidance; Q♠ + hearts; to 100 |
 | `rooster` | ready | Partnership; nest + bird trump; to 300 |
-| `spades` | later | Fixed trump ♠; bid tricks |
-| `euchre` | later | Short deck; partnerships |
+| `spades` | ready | Fixed ♠; bid tricks / nil / bags; to 500 |
+| `euchre` | ready | 24-card; bowers; to 10 |
+| `ohhell` | ready | Exact bid; hand size 7…1…7; to 50 |
 
 ## Multiplayer notes
 

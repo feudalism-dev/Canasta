@@ -402,11 +402,13 @@ function AppInner() {
       return
     }
     if (family === 'trick') {
-      if (trickVariant !== 'hearts' && trickVariant !== 'rooster') {
-        push('That trick game is coming soon — pick Hearts or Rooster.')
+      const ready = ['hearts', 'rooster', 'spades', 'euchre', 'ohhell']
+      if (!ready.includes(trickVariant)) {
+        push('That trick game is coming soon.')
         return
       }
-      const seats = trickVariant === 'rooster' ? 4 : trickPlayerCount
+      const seats =
+        trickVariant === 'hearts' || trickVariant === 'ohhell' ? trickPlayerCount : 4
       if (tableHud && slBoot?.slCap) {
         try {
           await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, seats)
@@ -427,11 +429,14 @@ function AppInner() {
       setTrickPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
-      push(
-        trickVariant === 'rooster'
-          ? 'Rooster solo — you + 3 bots, partners across (1+3 vs 2+4).'
-          : `Hearts solo — ${seats} players (you + ${seats - 1} bot${seats > 2 ? 's' : ''}).`,
-      )
+      const labels: Record<string, string> = {
+        hearts: `Hearts solo — ${seats} players (you + ${seats - 1} bot${seats > 2 ? 's' : ''}).`,
+        rooster: 'Rooster solo — you + 3 bots, partners across (1+3 vs 2+4).',
+        spades: 'Spades solo — you + 3 bots, partners across (1+3 vs 2+4).',
+        euchre: 'Euchre solo — you + 3 bots, partners across (1+3 vs 2+4).',
+        ohhell: `Oh Hell solo — ${seats} players (you + ${seats - 1} bot${seats > 2 ? 's' : ''}).`,
+      }
+      push(labels[trickVariant] ?? 'Trick solo started.')
       return
     }
     const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
@@ -610,15 +615,17 @@ function AppInner() {
         trickVariant={trickVariant}
         onTrickVariant={(v) => {
           setTrickVariant(v)
-          if (v === 'rooster') {
+          if (v !== 'hearts' && v !== 'ohhell') {
             setTrickPlayerCount(4)
             trickPeer?.setPlayerCount(4)
           }
           trickPeer?.setVariant(v)
         }}
-        trickPlayerCount={trickVariant === 'rooster' ? 4 : trickPlayerCount}
+        trickPlayerCount={
+          trickVariant === 'hearts' || trickVariant === 'ohhell' ? trickPlayerCount : 4
+        }
         onTrickPlayerCount={(n) => {
-          const next = trickVariant === 'rooster' ? 4 : n
+          const next = trickVariant === 'hearts' || trickVariant === 'ohhell' ? n : 4
           setTrickPlayerCount(next)
           trickPeer?.setPlayerCount(next)
         }}
@@ -639,8 +646,9 @@ function AppInner() {
           rummyPeer?.destroy()
           trickPeer?.destroy()
           if (family === 'trick') {
-            if (trickVariant !== 'hearts' && trickVariant !== 'rooster') {
-              push('That trick game is coming soon — pick Hearts or Rooster.')
+            const readyMp = ['hearts', 'rooster', 'spades', 'euchre', 'ohhell']
+            if (!readyMp.includes(trickVariant)) {
+              push('That trick game is coming soon.')
               return
             }
             const session = await createTrickPeerHost(name, {
@@ -648,7 +656,8 @@ function AppInner() {
               avatarUid: slBoot.uid,
               seat: slBoot.seat,
               variant: trickVariant,
-              playerCount: trickVariant === 'rooster' ? 4 : trickPlayerCount,
+              playerCount:
+                trickVariant === 'hearts' || trickVariant === 'ohhell' ? trickPlayerCount : 4,
             })
             resetTrickDisplaySync()
             setTrickPeer(session)

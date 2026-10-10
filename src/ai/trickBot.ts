@@ -6,12 +6,14 @@ import {
   roosterRankValue,
   ROOSTER_MIN_BID,
 } from '../core/trick/roosterDeck'
-import { suggestedBids, teamOfIndex } from '../core/trick/roosterRules'
+import { suggestedBids } from '../core/trick/roosterRules'
+import { suggestEuchreBid } from '../core/trick/euchreRules'
+import { suggestOhHellBid } from '../core/trick/ohHellRules'
+import { suggestSpadesBid } from '../core/trick/spadesRules'
 import { applyTrickMove, legalPlays } from '../core/trick/rules'
 import { currentPlayer } from '../core/trick/state'
 import type { TrickMove, TrickState } from '../core/trick/types'
 
-/** Dump high penalties when passing; keep low clubs otherwise. */
 function passPick(state: TrickState): string[] {
   const me = currentPlayer(state)
   const ranked = [...me.hand].sort((a, b) => {
@@ -22,7 +24,6 @@ function passPick(state: TrickState): string[] {
   return ranked.slice(0, 3).map((c) => c.id)
 }
 
-/** Prefer low safe cards; avoid taking the Q♠ / hearts when possible. */
 function playPickHearts(state: TrickState): string | null {
   const legal = legalPlays(state, state.current)
   if (!legal.length) return null
@@ -55,14 +56,10 @@ function countTrumpStrength(hand: TrickState['players'][0]['hand']): { best: Sui
 function roosterBidPick(state: TrickState): TrickMove {
   const me = currentPlayer(state)
   const { score } = countTrumpStrength(me.hand)
-  const want =
-    score >= 18 ? 100 : score >= 14 ? 85 : score >= 10 ? ROOSTER_MIN_BID : 0
+  const want = score >= 18 ? 100 : score >= 14 ? 85 : score >= 10 ? ROOSTER_MIN_BID : 0
   if (want === 0 || want <= state.bidAmount) {
-    // Forced dealer min bid
     const othersPassed = state.bidPassed.filter((p, i) => i !== state.current && p).length >= 3
-    if (othersPassed && state.bidAmount === 0) {
-      return { t: 'bid', amount: ROOSTER_MIN_BID }
-    }
+    if (othersPassed && state.bidAmount === 0) return { t: 'bid', amount: ROOSTER_MIN_BID }
     return { t: 'passBid' }
   }
   const opts = suggestedBids(state)
@@ -73,7 +70,6 @@ function roosterBidPick(state: TrickState): TrickMove {
 
 function roosterNestPick(state: TrickState): string[] {
   const me = currentPlayer(state)
-  // Bury lowest non-counters first; keep trump candidates and high counters.
   const ranked = [...me.hand].sort((a, b) => {
     const ca = roosterCounterPoints(a)
     const cb = roosterCounterPoints(b)
@@ -85,59 +81,85 @@ function roosterNestPick(state: TrickState): string[] {
   return ranked.slice(0, 5).map((c) => c.id)
 }
 
-function roosterTrumpPick(state: TrickState): Suit {
-  return countTrumpStrength(currentPlayer(state).hand).best
+function playPickGeneric(state: TrickState, preferWin: boolean): string | null {
+  const legal = legalPlays(state, state.current)
+  if (!legal.length) return null
+  const trump = state.trump
+  const ranked = [...legal].sort((a, b) => {
+    const ta = trump && a.suit === trump ? 1 : 0
+    const tb = trump && b.suit === trump ? 1 : 0
+    const ra = trickRankValue(a.rank) + ta * 20
+    const rb = trickRankValue(b.rank) + tb * 20
+    return preferWin ? rb - ra : ra - rb
+  })
+  return ranked[0]!.id
 }
 
 function playPickRooster(state: TrickState): string | null {
-  const legal = legalPlays(state, state.current)
-  if (!legal.length) return null
-  const me = state.current
-  const myTeam = teamOfIndex(me)
-  const trump = state.trump
-
-  if (state.trick.length === 0) {
-    // Lead low non-counter off-suit when possible
-    const ranked = [...legal].sort((a, b) => {
-      const ca = roosterCounterPoints(a) * 10 + (isRoosterBird(a) ? 50 : 0)
-      const cb = roosterCounterPoints(b) * 10 + (isRoosterBird(b) ? 50 : 0)
-      if (ca !== cb) return ca - cb
-      return roosterRankValue(a) - roosterRankValue(b)
-    })
-    return ranked[0]!.id
-  }
-
-  // Try to win if counters in trick and we can beat; else dump low
   let trickPts = 0
   for (const p of state.trick) trickPts += roosterCounterPoints(p.card)
-  const winning = (() => {
-    // simplistic: play highest trump/legal if points on table
-    if (trickPts < 5) return false
-    return true
-  })()
+  return playPickGeneric(state, trickPts >= 5)
+}
 
-  const ranked = [...legal].sort((a, b) => {
-    const ra = roosterRankValue(a) + (trump && (a.suit === trump || isRoosterBird(a)) ? 20 : 0)
-    const rb = roosterRankValue(b) + (trump && (b.suit === trump || isRoosterBird(b)) ? 20 : 0)
-    return winning ? rb - ra : ra - rb
-  })
-  void myTeam
-  return ranked[0]!.id
+function playPickSpades(state: TrickState): string | null {
+  const me = state.current
+  const bid = state.playerBids[me] ?? 1
+  const took = state.tricksTaken[me] ?? 0
+  const need = bid === 0 ? false : took < bid
+  return playPickGeneric(state, need)
+}
+
+function playPickOhHell(state: TrickState): string | null {
+  const me = state.current
+  const bid = state.playerBids[me] ?? 0
+  const took = state.tricksTaken[me] ?? 0
+  return playPickGeneric(state, took < bid)
 }
 
 export function pickTrickBotMove(state: TrickState): TrickMove | null {
   const me = currentPlayer(state)
   if (!me.isComputer) return null
   if (state.phase === 'roundEnd' || state.phase === 'matchEnd') return null
+  const v = state.config.variant
 
-  if (state.config.variant === 'rooster') {
+  if (v === 'rooster') {
     if (state.phase === 'bid') return roosterBidPick(state)
     if (state.phase === 'nest') return { t: 'nestDiscard', cardIds: roosterNestPick(state) }
-    if (state.phase === 'trump') return { t: 'nameTrump', suit: roosterTrumpPick(state) }
+    if (state.phase === 'trump') return { t: 'nameTrump', suit: countTrumpStrength(me.hand).best }
     if (state.phase === 'play') {
       const id = playPickRooster(state)
-      if (!id) return null
-      return { t: 'play', cardId: id }
+      return id ? { t: 'play', cardId: id } : null
+    }
+    return null
+  }
+
+  if (v === 'spades') {
+    if (state.phase === 'bid') return { t: 'bid', amount: suggestSpadesBid(state) }
+    if (state.phase === 'play') {
+      const id = playPickSpades(state)
+      return id ? { t: 'play', cardId: id } : null
+    }
+    return null
+  }
+
+  if (v === 'euchre') {
+    if (state.phase === 'bid') return suggestEuchreBid(state)
+    if (state.phase === 'nest') {
+      const worst = [...me.hand].sort((a, b) => trickRankValue(a.rank) - trickRankValue(b.rank))[0]
+      return worst ? { t: 'nestDiscard', cardIds: [worst.id] } : null
+    }
+    if (state.phase === 'play') {
+      const id = playPickGeneric(state, true)
+      return id ? { t: 'play', cardId: id } : null
+    }
+    return null
+  }
+
+  if (v === 'ohhell') {
+    if (state.phase === 'bid') return { t: 'bid', amount: suggestOhHellBid(state) }
+    if (state.phase === 'play') {
+      const id = playPickOhHell(state)
+      return id ? { t: 'play', cardId: id } : null
     }
     return null
   }
@@ -148,8 +170,7 @@ export function pickTrickBotMove(state: TrickState): TrickMove | null {
   }
   if (state.phase === 'play') {
     const id = playPickHearts(state)
-    if (!id) return null
-    return { t: 'play', cardId: id }
+    return id ? { t: 'play', cardId: id } : null
   }
   return null
 }
@@ -178,6 +199,15 @@ export async function pumpTrickBots(
       const me = currentPlayer(cur)
       if (!me.isComputer) break
       if (cur.phase === 'roundEnd' || cur.phase === 'matchEnd') break
+      // Alone partner sits out — never stall the pump on them
+      if (cur.alone && cur.bidderIndex != null && cur.current === (cur.bidderIndex + 2) % 4) {
+        cur = {
+          ...cur,
+          current: (cur.current + 1) % cur.players.length,
+        }
+        opts.onStep(cur)
+        continue
+      }
       await new Promise((r) => window.setTimeout(r, THINK_MS))
       if (opts.isCancelled()) break
       const next = stepTrickBot(cur)

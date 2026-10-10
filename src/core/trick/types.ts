@@ -1,7 +1,7 @@
 import type { Card, Suit } from '../cards'
 
 /** Trick-taking family variants. */
-export type TrickVariant = 'hearts' | 'rooster' | 'spades' | 'euchre'
+export type TrickVariant = 'hearts' | 'rooster' | 'spades' | 'euchre' | 'ohhell'
 
 export type TrickPhase =
   | 'pass'
@@ -20,7 +20,7 @@ export type TrickPlayer = {
   seat: number
   isComputer: boolean
   hand: Card[]
-  /** Points taken this hand (Hearts penalties / Rooster counters). */
+  /** Points / tricks taken this hand (variant-specific). */
   takenThisHand: number
   score: number
 }
@@ -33,7 +33,7 @@ export type TrickConfig = {
   shootTheMoon?: boolean
   /** Partnership (Rooster / Spades / Euchre). */
   partnership?: boolean
-  /** Highest score wins (Rooster); Hearts uses lowest. */
+  /** Highest score wins (default true for most); Hearts uses lowest. */
   scoreAscending?: boolean
 }
 
@@ -61,6 +61,7 @@ export type TrickState = {
   passed: boolean[]
   /** Hearts: pending pass selections by engine index. */
   passQueue: (Card[] | null)[]
+  /** Hearts broken / Spades broken (trump lead unlocked). */
   heartsBroken: boolean
   /** Cards in the current trick, in play order. */
   trick: PlayedCard[]
@@ -75,21 +76,31 @@ export type TrickState = {
   /** Short note after a trick is won (cleared when the next card is led). */
   lastTrickNote: string | null
 
-  // --- Rooster (partnership) ---
+  // --- Shared auction / trump fields ---
   /** Dealer engine index (rotates each hand). */
   dealer: number
-  /** Current high bid (0 = none yet). */
+  /** Rooster/Euchre: current high bid amount. */
   bidAmount: number
-  /** High bidder engine index, or null until set. */
+  /** Rooster/Euchre: high bidder / maker index. */
   bidderIndex: number | null
-  /** Who has passed this auction (cannot re-enter). */
+  /** Rooster/Euchre: who has passed this auction. */
   bidPassed: boolean[]
-  /** Face-down nest (5), or buried nest after discard. */
+  /** Rooster nest / Euchre kitty / Oh Hell leftover. */
   nest: Card[]
-  /** Named trump color (null until named). Bird is always top trump. */
+  /** Named trump (Spades fixed ♠; Rooster/Euchre/Oh Hell set). */
   trump: Suit | null
-  /** Team counters this hand [seats 0+2, seats 1+3] before contract resolve. */
+  /** Team points taken this hand [0+2, 1+3] where used. */
   teamTaken: [number, number]
+  /** Per-player bid this hand (Spades / Oh Hell); null = not yet. */
+  playerBids: (number | null)[]
+  /** Spades sandbags accumulated [team0, team1]. */
+  bags: [number, number]
+  /** Cards dealt per player this hand (Oh Hell varies; Euchre 5). */
+  handSize: number
+  /** Euchre: maker going alone. */
+  alone: boolean
+  /** Euchre bid round (1 = order-up suit, 2 = name other). */
+  euchreRound: number
 }
 
 export type TrickMove =

@@ -47,6 +47,7 @@ function variantCode(v: TrickVariant): string {
   if (v === 'rooster') return 'r'
   if (v === 'spades') return 's'
   if (v === 'euchre') return 'u'
+  if (v === 'ohhell') return 'o'
   return 'h'
 }
 
@@ -54,6 +55,7 @@ function parseVariant(ch: string): TrickVariant {
   if (ch === 'r') return 'rooster'
   if (ch === 's') return 'spades'
   if (ch === 'u') return 'euchre'
+  if (ch === 'o') return 'ohhell'
   return 'hearts'
 }
 
@@ -274,6 +276,7 @@ export function trickVariantLabel(v: TrickVariant): string {
   if (v === 'rooster') return 'Rooster'
   if (v === 'spades') return 'Spades'
   if (v === 'euchre') return 'Euchre'
+  if (v === 'ohhell') return 'Oh Hell'
   return 'Hearts'
 }
 

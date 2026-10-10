@@ -383,7 +383,13 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                       ? trickBoard.heartsBroken
                         ? ' · hearts broken'
                         : ' · hearts locked'
-                      : ' · partners'}
+                      : trickBoard.variant === 'spades'
+                        ? trickBoard.heartsBroken
+                          ? ' · spades broken'
+                          : ' · spades locked'
+                        : trickBoard.variant === 'ohhell'
+                          ? ' · exact bids'
+                          : ' · partners'}
                   </div>
                   {trickBoard.phase === 'pass' ? (
                     <div>

@@ -1,26 +1,48 @@
 import { findCard, takeCards, type Card } from '../cards'
-import { buildTrickDeck, shuffleSeeded, sortTrickHand, trickRankValue } from './deck'
+import { buildEuchreDeck, buildTrickDeck, shuffleSeeded, sortTrickHand, trickRankValue } from './deck'
 import {
   ROOSTER_HAND_SIZE,
   ROOSTER_NEST_SIZE,
   shuffleRoosterDeck,
   sortRoosterHand,
 } from './roosterDeck'
-import { clampTrickPlayerCount, heartsHandSize, nextPassDirection, trickConfig } from './variants'
+import {
+  clampTrickPlayerCount,
+  heartsHandSize,
+  nextPassDirection,
+  ohHellHandSizeForRound,
+  trickConfig,
+} from './variants'
 import type { PassDirection, TrickPlayer, TrickState, TrickVariant } from './types'
 
-function emptyRoosterFields(dealer = 0): Pick<
+function emptyExtra(dealer = 0, n = 4): Pick<
   TrickState,
-  'dealer' | 'bidAmount' | 'bidderIndex' | 'bidPassed' | 'nest' | 'trump' | 'teamTaken'
+  | 'dealer'
+  | 'bidAmount'
+  | 'bidderIndex'
+  | 'bidPassed'
+  | 'nest'
+  | 'trump'
+  | 'teamTaken'
+  | 'playerBids'
+  | 'bags'
+  | 'handSize'
+  | 'alone'
+  | 'euchreRound'
 > {
   return {
     dealer,
     bidAmount: 0,
     bidderIndex: null,
-    bidPassed: [false, false, false, false],
+    bidPassed: Array.from({ length: n }, () => false),
     nest: [],
     trump: null,
     teamTaken: [0, 0],
+    playerBids: Array.from({ length: n }, () => null),
+    bags: [0, 0],
+    handSize: 13,
+    alone: false,
+    euchreRound: 1,
   }
 }
 
@@ -30,8 +52,9 @@ export function createTrickMatch(
   variant: TrickVariant = 'hearts',
   seed = Date.now(),
 ): TrickState {
-  if (variant !== 'hearts' && variant !== 'rooster') {
-    throw new Error(`${variant} is not playable yet — choose Hearts or Rooster`)
+  const playable: TrickVariant[] = ['hearts', 'rooster', 'spades', 'euchre', 'ohhell']
+  if (!playable.includes(variant)) {
+    throw new Error(`${variant} is not playable yet`)
   }
   const n = clampTrickPlayerCount(variant, names.length)
   const config = trickConfig(variant, n)
@@ -57,7 +80,7 @@ export function createTrickMatch(
     {
       config,
       players,
-      phase: variant === 'rooster' ? 'bid' : 'pass',
+      phase: 'pass',
       current: 0,
       round: 1,
       passDirection: 'left',
@@ -72,10 +95,33 @@ export function createTrickMatch(
       lastHandNote: null,
       lastHandScores: null,
       lastTrickNote: null,
-      ...emptyRoosterFields(0),
+      ...emptyExtra(0, n),
     },
     seed,
   )
+}
+
+function resetHandCommon(state: TrickState): TrickState {
+  const next = cloneTrick(state)
+  const n = next.players.length
+  for (const pl of next.players) {
+    pl.hand = []
+    pl.takenThisHand = 0
+  }
+  next.tricksTaken = Array.from({ length: n }, () => 0)
+  next.heartsBroken = false
+  next.trick = []
+  next.passed = Array.from({ length: n }, () => false)
+  next.passQueue = Array.from({ length: n }, () => null)
+  next.lastHandNote = null
+  next.lastHandScores = null
+  next.lastTrickNote = null
+  next.winnerId = null
+  const bags = next.bags
+  Object.assign(next, emptyExtra(next.dealer, n))
+  // Spades bags persist across hands
+  if (next.config.variant === 'spades') next.bags = bags
+  return next
 }
 
 function prepareHeartsDeck(playerCount: number, seed: number): Card[] {
@@ -90,21 +136,8 @@ function dealHeartsHand(state: TrickState, seed: number): TrickState {
   const n = state.players.length
   const handSize = heartsHandSize(n)
   const deck = prepareHeartsDeck(n, seed)
-  const next = cloneTrick(state)
-  for (const pl of next.players) {
-    pl.hand = []
-    pl.takenThisHand = 0
-  }
-  next.tricksTaken = Array.from({ length: n }, () => 0)
-  next.heartsBroken = false
-  next.trick = []
-  next.passed = Array.from({ length: n }, () => false)
-  next.passQueue = Array.from({ length: n }, () => null)
-  next.lastHandNote = null
-  next.lastHandScores = null
-  next.lastTrickNote = null
-  next.winnerId = null
-  Object.assign(next, emptyRoosterFields(next.dealer))
+  const next = resetHandCommon(state)
+  next.handSize = handSize
 
   let stock = deck
   for (let c = 0; c < handSize; c++) {
@@ -131,24 +164,8 @@ function dealHeartsHand(state: TrickState, seed: number): TrickState {
 }
 
 function dealRoosterHand(state: TrickState, seed: number): TrickState {
-  const next = cloneTrick(state)
-  for (const pl of next.players) {
-    pl.hand = []
-    pl.takenThisHand = 0
-  }
-  next.tricksTaken = [0, 0, 0, 0]
-  next.trick = []
-  next.heartsBroken = false
-  next.passed = [false, false, false, false]
-  next.passQueue = [null, null, null, null]
-  next.lastHandNote = null
-  next.lastHandScores = null
-  next.lastTrickNote = null
-  next.winnerId = null
-
-  const dealer = next.dealer
-  Object.assign(next, emptyRoosterFields(dealer))
-
+  const next = resetHandCommon(state)
+  next.handSize = ROOSTER_HAND_SIZE
   let stock = shuffleRoosterDeck(seed)
   for (let c = 0; c < ROOSTER_HAND_SIZE; c++) {
     for (let p = 0; p < 4; p++) {
@@ -160,18 +177,91 @@ function dealRoosterHand(state: TrickState, seed: number): TrickState {
   }
   next.nest = stock.slice(0, ROOSTER_NEST_SIZE)
   for (const pl of next.players) pl.hand = sortRoosterHand(pl.hand, null)
-
   next.phase = 'bid'
-  next.current = (dealer + 1) % 4
+  next.current = (next.dealer + 1) % 4
   next.trickLeader = next.current
   next.log = [
-    `Hand ${next.round} — Rooster deal. Nest ${ROOSTER_NEST_SIZE}. Bidding starts left of dealer (${next.players[dealer]!.name}).`,
+    `Hand ${next.round} — Rooster deal. Nest ${ROOSTER_NEST_SIZE}. Bidding starts left of dealer.`,
+  ]
+  return next
+}
+
+function dealSpadesHand(state: TrickState, seed: number): TrickState {
+  const next = resetHandCommon(state)
+  next.handSize = 13
+  next.trump = 'S'
+  let stock = shuffleSeeded(buildTrickDeck(), seed)
+  for (let c = 0; c < 13; c++) {
+    for (let p = 0; p < 4; p++) {
+      const card = stock[0]
+      if (!card) break
+      stock = stock.slice(1)
+      next.players[p]!.hand.push(card)
+    }
+  }
+  for (const pl of next.players) pl.hand = sortTrickHand(pl.hand)
+  next.phase = 'bid'
+  next.current = (next.dealer + 1) % 4
+  next.log = [`Hand ${next.round} — Spades. Bid 0–13 (0 = Nil). Left of dealer starts.`]
+  return next
+}
+
+function dealEuchreHand(state: TrickState, seed: number): TrickState {
+  const next = resetHandCommon(state)
+  next.handSize = 5
+  next.euchreRound = 1
+  let stock = shuffleSeeded(buildEuchreDeck(), seed)
+  for (let c = 0; c < 5; c++) {
+    for (let p = 0; p < 4; p++) {
+      const card = stock[0]
+      if (!card) break
+      stock = stock.slice(1)
+      next.players[p]!.hand.push(card)
+    }
+  }
+  next.nest = stock.slice(0, 4) // top is turned
+  for (const pl of next.players) pl.hand = sortTrickHand(pl.hand)
+  next.phase = 'bid'
+  next.current = (next.dealer + 1) % 4
+  const up = next.nest[0]
+  next.log = [
+    `Hand ${next.round} — Euchre. Turned ${up ? `${up.rank}${up.suit}` : '?'}. Order up or pass.`,
+  ]
+  return next
+}
+
+function dealOhHellHand(state: TrickState, seed: number): TrickState {
+  const n = state.players.length
+  const next = resetHandCommon(state)
+  const hs = ohHellHandSizeForRound(next.round)
+  next.handSize = hs
+  let stock = shuffleSeeded(buildTrickDeck(), seed)
+  for (let c = 0; c < hs; c++) {
+    for (let p = 0; p < n; p++) {
+      const card = stock[0]
+      if (!card) break
+      stock = stock.slice(1)
+      next.players[p]!.hand.push(card)
+    }
+  }
+  const trumpCard = stock[0]
+  next.trump = trumpCard?.suit ?? 'S'
+  next.nest = trumpCard ? [trumpCard] : []
+  for (const pl of next.players) pl.hand = sortTrickHand(pl.hand)
+  next.phase = 'bid'
+  next.current = (next.dealer + 1) % n
+  next.log = [
+    `Hand ${next.round} — Oh Hell · ${hs} cards · trump ${next.trump}. Bid exact tricks.`,
   ]
   return next
 }
 
 function dealHand(state: TrickState, seed: number): TrickState {
-  if (state.config.variant === 'rooster') return dealRoosterHand(state, seed)
+  const v = state.config.variant
+  if (v === 'rooster') return dealRoosterHand(state, seed)
+  if (v === 'spades') return dealSpadesHand(state, seed)
+  if (v === 'euchre') return dealEuchreHand(state, seed)
+  if (v === 'ohhell') return dealOhHellHand(state, seed)
   return dealHeartsHand(state, seed)
 }
 
@@ -225,13 +315,14 @@ export function dealNextTrickRound(prev: TrickState, seed = Date.now()): TrickSt
   const n = prev.players.length
   const base = cloneTrick(prev)
   base.round = prev.round + 1
-  if (prev.config.variant === 'rooster') {
-    base.dealer = (prev.dealer + 1) % 4
-    base.phase = 'bid'
-  } else {
+  const v = prev.config.variant
+  if (v === 'hearts') {
     base.passDirection = nextPassDirection(prev.passDirection, n) as PassDirection
-    base.phase = 'pass'
+  } else {
+    base.dealer = (prev.dealer + 1) % n
   }
+  // Euchre all-pass redeal: same dealer, same round number was already advanced —
+  // if last note says redeal, caller uses dealNext; bags etc. fine.
   for (const pl of base.players) {
     pl.hand = []
     pl.takenThisHand = 0

@@ -410,7 +410,7 @@ export function SlTableScreens({
         ) : null}
         {!seatedBrowser && isTrickTable ? (
           <>
-            {trickVariant === 'hearts' ? (
+            {trickVariant === 'hearts' || trickVariant === 'ohhell' ? (
               <label>
                 Players at the table (humans + bots in empty seats)
                 <select
@@ -426,10 +426,16 @@ export function SlTableScreens({
             ) : null}
             <p className="muted">
               {trickVariant === 'hearts'
-                ? `Hearts (${trickPlayerCount} seats): empty chairs become bots. Solo = you + ${trickPlayerCount - 1} bot${trickPlayerCount > 2 ? 's' : ''}. Multiplayer Create/Join, then Start fills the rest.`
-                : trickVariant === 'rooster'
-                  ? 'Rooster is always 4 — partners sit across (1+3 vs 2+4). Empty chairs are bots. Bid, take the nest, name trump, play to 300.'
-                  : 'Spades and Euchre are coming soon. Pick Hearts or Rooster to play now.'}
+                ? `Hearts (${trickPlayerCount} seats): empty chairs become bots.`
+                : trickVariant === 'ohhell'
+                  ? `Oh Hell (${trickPlayerCount} seats): bid exact tricks; empty chairs are bots.`
+                  : trickVariant === 'rooster'
+                    ? 'Rooster is always 4 — partners across. Nest, trump, to 300.'
+                    : trickVariant === 'spades'
+                      ? 'Spades is always 4 — partners across. Bid tricks / Nil / bags, to 500.'
+                      : trickVariant === 'euchre'
+                        ? 'Euchre is always 4 — partners across. Short deck, to 10.'
+                        : 'Pick a ready trick game to play.'}
             </p>
           </>
         ) : null}
@@ -562,7 +568,11 @@ export function SlTableScreens({
           <button
             type="button"
             className="btn secondary"
-            disabled={busy || (isTrickTable && trickVariant !== 'hearts' && trickVariant !== 'rooster')}
+            disabled={
+              busy ||
+              (isTrickTable &&
+                !['hearts', 'rooster', 'spades', 'euchre', 'ohhell'].includes(trickVariant))
+            }
             onClick={async () => {
               setBusy(true)
               try {
