@@ -68,6 +68,7 @@ export function startIchiSolo(
           state = next
           notify()
         },
+        getState: () => state,
       })
     } finally {
       running = false
@@ -89,6 +90,7 @@ export function startIchiSolo(
       return aiThinking
     },
     submit: (move) => {
+      // Call Ichi is legal off-turn while pending; other moves still go through rules.
       const res = applyIchiMove(state, move)
       if (!res.ok) return res
       state = res.state

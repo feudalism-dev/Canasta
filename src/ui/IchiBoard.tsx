@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { pumpIchiBots } from '../ai/ichiBot'
 import {
   colorLabel,
@@ -100,6 +100,9 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
   const [fallback, setFallback] = useState<IchiState | null>(null)
   const [err, setErr] = useState('')
   const [aiThinking, setAiThinking] = useState(false)
+  const fallbackRef = useRef(fallback)
+  fallbackRef.current = fallback
+  const pumpGen = useRef(0)
 
   useEffect(() => {
     if (!controller?.onChange) return
@@ -114,19 +117,23 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
     const names = [yourName || 'You', 'Computer 1', 'Computer 2', 'Computer 3'].slice(0, playerCount)
     const computers = names.map((_, i) => i > 0)
     let cancelled = false
+    const gen = ++pumpGen.current
     let cur = createIchiMatch(names, computers, variant)
     setFallback(cur)
+    fallbackRef.current = cur
     void (async () => {
       setAiThinking(true)
       cur = await pumpIchiBots(cur, {
-        isCancelled: () => cancelled,
+        isCancelled: () => cancelled || gen !== pumpGen.current,
         onThinking: setAiThinking,
         onStep: (next) => {
           cur = next
-          if (!cancelled) setFallback(next)
+          fallbackRef.current = next
+          if (!cancelled && gen === pumpGen.current) setFallback(next)
         },
+        getState: () => fallbackRef.current ?? cur,
       })
-      if (!cancelled) {
+      if (!cancelled && gen === pumpGen.current) {
         setFallback(cur)
         setAiThinking(false)
       }
@@ -166,18 +173,27 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
       if (!res.ok) setErr(res.error)
       return
     }
-    if (!fallback) return
-    const res = applyIchiMove(fallback, move)
+    const cur = fallbackRef.current
+    if (!cur) return
+    const res = applyIchiMove(cur, move)
     if (!res.ok) {
       setErr(res.error)
       return
     }
     setFallback(res.state)
+    fallbackRef.current = res.state
+    const gen = ++pumpGen.current
     void pumpIchiBots(res.state, {
-      isCancelled: () => false,
+      isCancelled: () => gen !== pumpGen.current,
       onThinking: setAiThinking,
-      onStep: (next) => setFallback(next),
-    }).then((next) => setFallback(next))
+      onStep: (next) => {
+        fallbackRef.current = next
+        if (gen === pumpGen.current) setFallback(next)
+      },
+      getState: () => fallbackRef.current ?? res.state,
+    }).then((next) => {
+      if (gen === pumpGen.current) setFallback(next)
+    })
   }
 
   if (!state || !you) {
@@ -457,6 +473,16 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
       </p>
 
       <div className="rummy-actions">
+        {!roundOver &&
+        !matchOver &&
+        (game === 'classic' || game === 'flip') &&
+        you.hand.length === 1 &&
+        !state.ichiCalled[localIndex] &&
+        (state.ichiPending === localIndex || yourTurn) ? (
+          <button type="button" className="btn primary" onClick={() => play({ t: 'callIchi' })}>
+            Call Ichi!
+          </button>
+        ) : null}
         {!roundOver && !matchOver && state.phase === 'play' && yourTurn ? (
           <>
             {game === 'palace' ? (
@@ -489,13 +515,6 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
                 onClick={() => play({ t: 'playTwo', cardIds: dosDouble })}
               >
                 Play matching pair
-              </button>
-            ) : null}
-            {(game === 'classic' || game === 'flip') &&
-            (you.hand.length === 1 || state.ichiPending === localIndex) &&
-            !state.ichiCalled[localIndex] ? (
-              <button type="button" className="btn primary" onClick={() => play({ t: 'callIchi' })}>
-                Call Ichi!
               </button>
             ) : null}
           </>

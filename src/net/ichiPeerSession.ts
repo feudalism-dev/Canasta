@@ -226,7 +226,7 @@ function buildIchiSession(
     if (!isHost || !state || running || cancelled) return
     running = true
     try {
-      state = await pumpIchiBots(state, {
+      state = await pumpIchiBots(state!, {
         isCancelled: () => cancelled || !state,
         onThinking: (on) => {
           aiThinking = on
@@ -237,6 +237,7 @@ function buildIchiSession(
           broadcast({ t: 'state', state: next })
           notify()
         },
+        getState: () => state!,
       })
     } finally {
       running = false

@@ -102,7 +102,13 @@ export function stepIchiBot(state: IchiState): IchiState | null {
   return res.ok ? res.state : null
 }
 
-const THINK_MS = 380
+/** Pause at the start of each bot turn so play reads natural and Call Ichi has a window. */
+const THINK_MS_MIN = 1200
+const THINK_MS_MAX = 2000
+
+function thinkDelayMs(): number {
+  return THINK_MS_MIN + Math.floor(Math.random() * (THINK_MS_MAX - THINK_MS_MIN + 1))
+}
 
 export async function pumpIchiBots(
   state: IchiState,
@@ -110,12 +116,15 @@ export async function pumpIchiBots(
     isCancelled: () => boolean
     onThinking: (on: boolean) => void
     onStep: (next: IchiState) => void
+    /** Live match state — picks up off-turn Call Ichi during the think pause. */
+    getState?: () => IchiState
   },
 ): Promise<IchiState> {
   let cur = state
   opts.onThinking(true)
   try {
     while (!opts.isCancelled()) {
+      if (opts.getState) cur = opts.getState()
       if (cur.phase === 'roundEnd' || cur.phase === 'matchEnd') break
 
       const actor =
@@ -132,8 +141,19 @@ export async function pumpIchiBots(
         cur = { ...cur, current: actor }
       }
 
-      await new Promise((r) => window.setTimeout(r, THINK_MS))
+      await new Promise((r) => window.setTimeout(r, thinkDelayMs()))
       if (opts.isCancelled()) break
+      // Re-sync after the pause (human may have called Ichi).
+      if (opts.getState) cur = opts.getState()
+      if (cur.phase === 'roundEnd' || cur.phase === 'matchEnd') break
+      const actorNow =
+        cur.phase === 'colorPick' && cur.colorPicker != null
+          ? cur.colorPicker
+          : cur.phase === 'challenge' && cur.challengeTarget != null
+            ? cur.challengeTarget
+            : cur.current
+      if (!cur.players[actorNow]?.isComputer) break
+
       const next = stepIchiBot(cur)
       if (!next) break
       cur = next
