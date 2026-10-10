@@ -1,11 +1,11 @@
 import type { TrickConfig, TrickVariant, PassDirection } from './types'
 
 export function trickConfig(variant: TrickVariant, playerCount = 4): TrickConfig {
-  void playerCount
+  const n = clampTrickPlayerCount(variant, playerCount)
   if (variant === 'hearts') {
     return {
       variant: 'hearts',
-      playerCount: 4,
+      playerCount: n,
       playTo: 100,
       shootTheMoon: true,
       partnership: false,
@@ -44,16 +44,24 @@ export function trickVariantOptions(): { value: TrickVariant; label: string; rea
   ]
 }
 
+/** Hearts: 2–4. Other variants stay 4 until implemented. */
 export function clampTrickPlayerCount(variant: TrickVariant, playerCount: number): number {
-  void playerCount
-  // Hearts / Rooster / Spades / Euchre v1: always 4.
-  if (variant === 'hearts' || variant === 'rooster' || variant === 'spades' || variant === 'euchre') {
-    return 4
-  }
+  const n = Math.floor(playerCount) || 4
+  if (variant === 'hearts') return Math.max(2, Math.min(4, n))
   return 4
 }
 
-export function nextPassDirection(dir: PassDirection): PassDirection {
+export function nextPassDirection(dir: PassDirection, playerCount = 4): PassDirection {
+  const n = Math.max(2, Math.min(4, playerCount))
+  if (n === 2) {
+    if (dir === 'hold') return 'left'
+    return 'hold'
+  }
+  if (n === 3) {
+    if (dir === 'left') return 'right'
+    if (dir === 'right') return 'hold'
+    return 'left'
+  }
   if (dir === 'left') return 'right'
   if (dir === 'right') return 'across'
   if (dir === 'across') return 'hold'
@@ -65,4 +73,11 @@ export function passDirectionLabel(dir: PassDirection): string {
   if (dir === 'right') return 'right'
   if (dir === 'across') return 'across'
   return 'hold (no pass)'
+}
+
+/** Cards each player receives for Hearts. */
+export function heartsHandSize(playerCount: number): number {
+  const n = Math.max(2, Math.min(4, playerCount))
+  if (n === 3) return 17
+  return 13
 }

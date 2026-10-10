@@ -1,11 +1,16 @@
 # Hearts (trick family)
 
-Four players, one 52-card deck, Ace high. Lowest score wins; first to **100** loses the race (match ends when someone reaches 100 — lowest total wins).
+**2–4 players**, free-for-all (no partnerships). One 52-card deck (Ace high). Lowest score wins; first to **100** ends the match (lowest total wins). Empty chairs at the table are filled with bots.
+
+| Players | Deal | Pass cycle |
+|--------|------|------------|
+| 4 | 13 each | left → right → across → hold |
+| 3 | 17 each (2♦ removed) | left → right → hold |
+| 2 | 13 each | left → hold |
 
 ## Deal & pass
 
-- Deal 13 cards each.
-- Pass **three** cards each hand, cycling: left → right → across → hold (no pass).
+- Pass **three** cards each hand (except hold hands).
 - After the pass (or on hold), the player with the **2♣** leads the first trick.
 
 ## Play
@@ -19,6 +24,11 @@ Four players, one 52-card deck, Ace high. Lowest score wins; first to **100** lo
 - Each heart taken = **1** point.
 - Queen of spades = **13** points.
 - **Shoot the moon:** if one player takes all 26 penalty points in a hand, they score **0** and every other player scores **26**.
+
+## Table seating (SL)
+
+- **Solo:** pick 2 / 3 / 4 seats → you + bots.
+- **Multiplayer:** Create with 2+ humans, pick seat count, Ready, Start — remaining seats are bots (1v1–3, 2v1–2, 3v1, or 4 humans).
 
 ## Out of scope (v1)
 

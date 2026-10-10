@@ -191,7 +191,7 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
           Quit to Menu
         </button>
         <div>
-          <h2>Hearts · 4 players</h2>
+          <h2>Hearts · {state.players.length} players</h2>
           <p className="muted">
             Hand {state.round} · pass {passDirectionLabel(state.passDirection)}
             {state.heartsBroken ? ' · hearts broken' : ' · hearts locked'} · first to 100 (lowest wins)

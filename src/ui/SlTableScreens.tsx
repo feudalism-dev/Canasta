@@ -52,6 +52,9 @@ type Props = {
   onRummyPlayerCount: (n: number) => void
   trickVariant: TrickVariant
   onTrickVariant: (v: TrickVariant) => void
+  /** Total seats for Hearts solo/MP (2–4). Empty chairs become bots. */
+  trickPlayerCount: number
+  onTrickPlayerCount: (n: number) => void
   onFamily: (family: GameFamily) => void
   partnership: boolean
   onPartnership: (v: boolean) => void
@@ -94,6 +97,8 @@ export function SlTableScreens({
   onRummyPlayerCount,
   trickVariant,
   onTrickVariant,
+  trickPlayerCount,
+  onTrickPlayerCount,
   onFamily,
   partnership,
   onPartnership,
@@ -235,8 +240,7 @@ export function SlTableScreens({
   const iJoined = !!me?.joined
   const tableBusy = mode !== 'idle'
   const canSolo = !seatedBrowser && entered && !tableBusy && activeCount <= 1
-  const canCreate =
-    !seatedBrowser && entered && !tableBusy && activeCount >= 2 && !isTrickTable
+  const canCreate = !seatedBrowser && entered && !tableBusy && activeCount >= 2
   const canJoin = !seatedBrowser && entered && mode === 'lobby' && !iJoined
   const canMintBrowser =
     !seatedBrowser && entered && iJoined && !iAmHost && (mode === 'lobby' || mode === 'match')
@@ -405,11 +409,25 @@ export function SlTableScreens({
           </>
         ) : null}
         {!seatedBrowser && isTrickTable ? (
-          <p className="muted">
-            {trickVariant === 'hearts'
-              ? 'Hearts is always 4 players (you + 3 bots in empty seats). Pass left/right/across/hold; avoid hearts and Q♠; first to 100 (lowest) wins. Solo ready — PeerJS multiplayer next.'
-              : 'Rooster and other trick games are coming soon. Pick Hearts to play now.'}
-          </p>
+          <>
+            <label>
+              Players at the table (humans + bots in empty seats)
+              <select
+                value={trickPlayerCount}
+                disabled={!canEditRules || trickVariant !== 'hearts'}
+                onChange={(e) => onTrickPlayerCount(Number(e.target.value))}
+              >
+                <option value={2}>2 — 1v1 bot (solo) or 2 humans</option>
+                <option value={3}>3 — 1v2 bots, or 2 humans + 1 bot</option>
+                <option value={4}>4 — 1v3 / 2v2 / 3v1 bots, or 4 humans</option>
+              </select>
+            </label>
+            <p className="muted">
+              {trickVariant === 'hearts'
+                ? `Hearts (${trickPlayerCount} seats): empty chairs become bots. Solo = you + ${trickPlayerCount - 1} bot${trickPlayerCount > 2 ? 's' : ''}. Multiplayer Create/Join, then Start fills the rest.`
+                : 'Rooster and other trick games are coming soon. Pick Hearts to play now.'}
+            </p>
+          </>
         ) : null}
         {isCanastaTable && isHouseRulesHandAndFoot(variant) ? (
           <>
@@ -526,17 +544,21 @@ export function SlTableScreens({
                 ? 'A game is paused for this seat (about 60 seconds). Resume it, or Abandon to start fresh.'
                 : !canSolo && tableBusy
                   ? `Solo stays off while the table is “${mode}”.`
-                  : 'Multiplayer is always four hands. Seating picks teams — empty chairs are computers.'}
+                  : isTrickTable
+                    ? 'Solo fills empty seats with bots. Multiplayer: Create with 2+ humans, pick seat count, Start fills the rest with bots.'
+                    : isRummyTable
+                      ? 'Solo and multiplayer use your player count — empty chairs are computers.'
+                      : 'Multiplayer is always four hands. Seating picks teams — empty chairs are computers.'}
             </p>
           </>
         ) : (
           <p className="muted">You joined from a minted link. Stay seated in Second Life. Host plays on the HUD.</p>
         )}
-        {canCreate && !isTrickTable ? (
+        {canCreate ? (
           <button
             type="button"
             className="btn secondary"
-            disabled={busy}
+            disabled={busy || (isTrickTable && trickVariant !== 'hearts')}
             onClick={async () => {
               setBusy(true)
               try {
@@ -553,9 +575,6 @@ export function SlTableScreens({
           >
             Create Multiplayer
           </button>
-        ) : null}
-        {isTrickTable && canCreate ? (
-          <p className="muted">Trick multiplayer (PeerJS) is next — use Play Solo for Hearts now.</p>
         ) : null}
         {canJoin && table?.roomCode ? (
           <button

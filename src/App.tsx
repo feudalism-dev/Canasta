@@ -31,6 +31,11 @@ import {
   joinRummyPeerRoom,
   type RummyPeerSession,
 } from './net/rummyPeerSession'
+import {
+  createTrickPeerHost,
+  joinTrickPeerRoom,
+  type TrickPeerSession,
+} from './net/trickPeerSession'
 import { startRummySolo, type RummyLocalSession } from './ui/rummyLocalSession'
 import { startTrickSolo, type TrickLocalSession } from './ui/trickLocalSession'
 import {
@@ -91,8 +96,10 @@ function AppInner() {
   const [rummyLocal, setRummyLocal] = useState<RummyLocalSession | null>(null)
   const [rummyPeer, setRummyPeer] = useState<RummyPeerSession | null>(null)
   const [trickVariant, setTrickVariant] = useState<TrickVariant>('hearts')
+  const [trickPlayerCount, setTrickPlayerCount] = useState(4)
   const [trickPlay, setTrickPlay] = useState(urlPlayHearts)
   const [trickLocal, setTrickLocal] = useState<TrickLocalSession | null>(null)
+  const [trickPeer, setTrickPeer] = useState<TrickPeerSession | null>(null)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
@@ -205,14 +212,14 @@ function AppInner() {
 
   const wrap = (node: ReactNode) => {
     const rummyUi = family === 'rummy' || rummyPlay || Boolean(rummyLocal) || Boolean(rummyPeer)
-    const trickUi = family === 'trick' || trickPlay || Boolean(trickLocal)
+    const trickUi = family === 'trick' || trickPlay || Boolean(trickLocal) || Boolean(trickPeer)
     const hideCanastaChrome = rummyUi || trickUi
     return (
       <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
         <AppChrome
           slBoot={tableHud || seatedBrowser || slBoot?.parked ? slBoot : null}
           parked={Boolean(slBoot?.parked)}
-          roomCode={rummyPeer?.roomCode || peer?.roomCode || slBoot?.room}
+          roomCode={trickPeer?.roomCode || rummyPeer?.roomCode || peer?.roomCode || slBoot?.room}
           showOppBooks={showOppBooks}
           onShowOppBooks={
             hideCanastaChrome
@@ -242,7 +249,13 @@ function AppInner() {
           }
           onMenu={
             screen === 'game' &&
-            (state || rummyPlay || rummyLocal || rummyPeer?.state || trickPlay || trickLocal)
+            (state ||
+              rummyPlay ||
+              rummyLocal ||
+              rummyPeer?.state ||
+              trickPlay ||
+              trickLocal ||
+              trickPeer?.state)
               ? () => void leaveToMenu(true)
               : undefined
           }
@@ -257,8 +270,9 @@ function AppInner() {
   }
 
   useEffect(() => {
-    if ((peer?.state || rummyPeer?.state || rummyLocal || trickLocal) && screen === 'sl') setScreen('game')
-  }, [peer?.state, rummyPeer?.state, rummyLocal, trickLocal, screen, tick])
+    if ((peer?.state || rummyPeer?.state || rummyLocal || trickLocal || trickPeer?.state) && screen === 'sl')
+      setScreen('game')
+  }, [peer?.state, rummyPeer?.state, rummyLocal, trickLocal, trickPeer?.state, screen, tick])
 
   useEffect(() => {
     if (!rummyPeer) return
@@ -274,6 +288,17 @@ function AppInner() {
     if (!trickLocal) return
     return trickLocal.onChange(() => setTick((t) => t + 1))
   }, [trickLocal])
+
+  useEffect(() => {
+    if (!trickPeer) return
+    return trickPeer.onChange(() => setTick((t) => t + 1))
+  }, [trickPeer])
+
+  useEffect(() => {
+    if (!trickPeer || trickPeer.isHost) return
+    setTrickVariant(trickPeer.variant)
+    setTrickPlayerCount(trickPeer.playerCount)
+  }, [trickPeer, tick])
 
   useEffect(() => {
     if (!state?.lastMessage) return
@@ -343,6 +368,7 @@ function AppInner() {
     rummyLocal?.destroy()
     rummyPeer?.destroy()
     trickLocal?.destroy()
+    trickPeer?.destroy()
     if (family === 'rummy') {
       if (tableHud && slBoot?.slCap) {
         try {
@@ -357,6 +383,7 @@ function AppInner() {
       setLocal(null)
       setPeer(null)
       setRummyPeer(null)
+      setTrickPeer(null)
       setTrickLocal(null)
       setRummyLocal(ctrl)
       setRummyPlay(false)
@@ -372,23 +399,26 @@ function AppInner() {
       }
       if (tableHud && slBoot?.slCap) {
         try {
-          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, 4)
+          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, trickPlayerCount)
         } catch (e) {
           push(e instanceof Error ? e.message : 'Could not claim table')
         }
       }
       const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
-      const ctrl = startTrickSolo(name, 4, trickVariant, humanSeat)
+      const ctrl = startTrickSolo(name, trickPlayerCount, trickVariant, humanSeat)
       setLocal(null)
       setPeer(null)
       setRummyPeer(null)
       setRummyLocal(null)
+      setTrickPeer(null)
       setTrickLocal(ctrl)
       setRummyPlay(false)
       setTrickPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
-      push('Hearts solo — you + 3 bots.')
+      push(
+        `Hearts solo — ${trickPlayerCount} players (you + ${trickPlayerCount - 1} bot${trickPlayerCount > 2 ? 's' : ''}).`,
+      )
       return
     }
     const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
@@ -407,6 +437,7 @@ function AppInner() {
     setRummyLocal(null)
     setRummyPeer(null)
     setTrickLocal(null)
+    setTrickPeer(null)
     setRummyPlay(false)
     setTrickPlay(false)
     slMatchKind.current = tableHud ? 'solo' : 'none'
@@ -434,11 +465,13 @@ function AppInner() {
     rummyPeer?.destroy()
     rummyLocal?.destroy()
     trickLocal?.destroy()
+    trickPeer?.destroy()
     setPeer(null)
     setLocal(null)
     setRummyPeer(null)
     setRummyLocal(null)
     setTrickLocal(null)
+    setTrickPeer(null)
     setRummyPlay(false)
     setTrickPlay(false)
     if (tableHud && slBoot?.slCap && slMatchKind.current !== 'none') {
@@ -532,7 +565,8 @@ function AppInner() {
     !state &&
     !rummyLocal &&
     !rummyPeer?.state &&
-    !trickLocal
+    !trickLocal &&
+    !trickPeer?.state
   ) {
     return wrap(
       <SlTableScreens
@@ -561,7 +595,15 @@ function AppInner() {
           rummyPeer?.setPlayerCount(next)
         }}
         trickVariant={trickVariant}
-        onTrickVariant={setTrickVariant}
+        onTrickVariant={(v) => {
+          setTrickVariant(v)
+          trickPeer?.setVariant(v)
+        }}
+        trickPlayerCount={trickPlayerCount}
+        onTrickPlayerCount={(n) => {
+          setTrickPlayerCount(n)
+          trickPeer?.setPlayerCount(n)
+        }}
         onFamily={setFamily}
         partnership={partnership}
         onPartnership={setPartnership}
@@ -577,8 +619,26 @@ function AppInner() {
           peer?.destroy()
           local?.destroy()
           rummyPeer?.destroy()
+          trickPeer?.destroy()
           if (family === 'trick') {
-            push('Trick multiplayer is next — Play Solo for now.')
+            if (trickVariant !== 'hearts') {
+              push('That trick game is coming soon — pick Hearts.')
+              return
+            }
+            const session = await createTrickPeerHost(name, {
+              roomCode,
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+              variant: trickVariant,
+              playerCount: trickPlayerCount,
+            })
+            setTrickPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickLocal(null)
+            slMatchKind.current = 'mp'
             return
           }
           if (family === 'rummy') {
@@ -593,6 +653,7 @@ function AppInner() {
             setPeer(null)
             setLocal(null)
             setRummyLocal(null)
+            setTrickPeer(null)
             slMatchKind.current = 'mp'
             return
           }
@@ -608,12 +669,28 @@ function AppInner() {
           setLocal(null)
           setRummyPeer(null)
           setRummyLocal(null)
+          setTrickPeer(null)
           slMatchKind.current = 'mp'
         }}
         onJoinedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
           rummyPeer?.destroy()
+          trickPeer?.destroy()
+          if (family === 'trick') {
+            const session = await joinTrickPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setTrickPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'rummy') {
             const session = await joinRummyPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -623,6 +700,7 @@ function AppInner() {
             setPeer(null)
             setLocal(null)
             setRummyLocal(null)
+            setTrickPeer(null)
             slMatchKind.current = 'mp'
             return
           }
@@ -631,6 +709,7 @@ function AppInner() {
           setLocal(null)
           setRummyPeer(null)
           setRummyLocal(null)
+          setTrickPeer(null)
           slMatchKind.current = 'mp'
         }}
         house={house}
@@ -642,7 +721,9 @@ function AppInner() {
           const occupants = (tableStatus?.roster || [])
             .filter((r) => r.seat >= 0 && r.joined)
             .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid, joined: true }))
-          if (family === 'rummy') {
+          if (family === 'trick') {
+            trickPeer?.startMatch(occupants)
+          } else if (family === 'rummy') {
             rummyPeer?.startMatch(occupants)
           } else {
             peer?.startMatch(occupants)
@@ -652,22 +733,41 @@ function AppInner() {
         onLeaveLobby={async () => {
           peer?.destroy()
           rummyPeer?.destroy()
+          trickPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
+          setTrickPeer(null)
           slMatchKind.current = 'none'
         }}
         onDetachPeer={() => {
           peer?.destroy()
           rummyPeer?.destroy()
+          trickPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
+          setTrickPeer(null)
           slMatchKind.current = 'none'
         }}
-        peerHasState={Boolean(peer?.state || rummyPeer?.state)}
+        peerHasState={Boolean(peer?.state || rummyPeer?.state || trickPeer?.state)}
         onRejoinPeer={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
           rummyPeer?.destroy()
+          trickPeer?.destroy()
+          if (family === 'trick') {
+            const session = await joinTrickPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setTrickPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'rummy') {
             const session = await joinRummyPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -677,6 +777,7 @@ function AppInner() {
             setPeer(null)
             setLocal(null)
             setRummyLocal(null)
+            setTrickPeer(null)
             slMatchKind.current = 'mp'
             return
           }
@@ -685,12 +786,14 @@ function AppInner() {
           setLocal(null)
           setRummyPeer(null)
           setRummyLocal(null)
+          setTrickPeer(null)
           slMatchKind.current = 'mp'
         }}
-        peerRoomCode={rummyPeer?.roomCode || peer?.roomCode}
-        peerSeats={rummyPeer?.seats || peer?.seats}
-        isPeerHost={rummyPeer?.isHost ?? peer?.isHost}
+        peerRoomCode={trickPeer?.roomCode || rummyPeer?.roomCode || peer?.roomCode}
+        peerSeats={trickPeer?.seats || rummyPeer?.seats || peer?.seats}
+        isPeerHost={trickPeer?.isHost ?? rummyPeer?.isHost ?? peer?.isHost}
         onPeerReadyToggle={(ready) => {
+          trickPeer?.setReady(ready)
           rummyPeer?.setReady(ready)
           peer?.setReady(ready)
         }}
@@ -704,21 +807,22 @@ function AppInner() {
     )
   }
 
-  if (trickLocal || trickPlay) {
+  if (trickLocal || trickPeer?.state || trickPlay) {
+    const ctrl = trickLocal || trickPeer
     return wrap(
       <TrickBoard
         yourName={name}
         variant={trickVariant}
         controller={
-          trickLocal
+          ctrl?.state
             ? {
-                state: trickLocal.state,
-                localIndex: trickLocal.localIndex,
-                aiThinking: trickLocal.aiThinking,
-                submit: (m) => trickLocal.submit(m),
-                nextHand: () => trickLocal.nextHand(),
-                newMatch: () => trickLocal.newMatch(),
-                onChange: (cb) => trickLocal.onChange(cb),
+                state: ctrl.state,
+                localIndex: ctrl.localIndex,
+                aiThinking: ctrl.aiThinking,
+                submit: (m) => ctrl.submit(m),
+                nextHand: () => ctrl.nextHand(),
+                newMatch: trickLocal ? () => trickLocal.newMatch() : undefined,
+                onChange: (cb) => ctrl.onChange(cb),
               }
             : null
         }

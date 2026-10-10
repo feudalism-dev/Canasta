@@ -10,17 +10,21 @@ import {
 import {
   cloneTrick,
   currentPlayer,
-  indexWithTwoOfClubs,
+  indexWithLeadCard,
   removeFromHand,
 } from './state'
 import type { TrickHandScoreLine, TrickMove, TrickState } from './types'
 
 export type TrickApplyResult = { ok: true; state: TrickState } | { ok: false; error: string }
 
-function passTargetIndex(from: number, dir: TrickState['passDirection']): number {
-  if (dir === 'left') return (from + 1) % 4
-  if (dir === 'right') return (from + 3) % 4
-  if (dir === 'across') return (from + 2) % 4
+function nPlayers(state: TrickState): number {
+  return state.players.length
+}
+
+function passTargetIndex(from: number, dir: TrickState['passDirection'], n: number): number {
+  if (dir === 'left') return (from + 1) % n
+  if (dir === 'right') return (from + n - 1) % n
+  if (dir === 'across') return (from + Math.floor(n / 2)) % n
   return from
 }
 
@@ -33,10 +37,20 @@ export function legalPlays(state: TrickState, playerIndex: number): Card[] {
   const tricksDone = state.tricksTaken.reduce((a, b) => a + b, 0)
   if (tricksDone === 0 && state.trick.length === 0) {
     const two = hand.find((c) => c.suit === 'C' && c.rank === '2')
-    return two ? [two] : []
+    if (two) return [two]
+    // 2♣ not in this player's hand (or not dealt) — only the designated leader may act;
+    // they may lead any legal lead card.
   }
 
   if (state.trick.length === 0) {
+    if (tricksDone === 0) {
+      // Opening lead: only the lead player should be current; allow clubs preference already handled.
+      if (!state.heartsBroken) {
+        const nonHearts = hand.filter((c) => !isHeart(c))
+        if (nonHearts.length) return nonHearts
+      }
+      return [...hand]
+    }
     if (!state.heartsBroken) {
       const nonHearts = hand.filter((c) => !isHeart(c))
       if (nonHearts.length) return nonHearts
@@ -71,15 +85,18 @@ function winnerOfTrick(
 
 function scoreHand(state: TrickState): void {
   const taken = state.players.map((p) => p.takenThisHand)
-  const moon = Boolean(state.config.shootTheMoon && taken.some((t) => t === 26))
+  const totalPts = taken.reduce((a, b) => a + b, 0)
+  const moon = Boolean(
+    state.config.shootTheMoon && totalPts > 0 && taken.some((t) => t === totalPts),
+  )
   const deltas = new Map<string, number>()
   const parts: string[] = []
 
   if (moon) {
-    const shooter = state.players.findIndex((p) => p.takenThisHand === 26)
+    const shooter = state.players.findIndex((p) => p.takenThisHand === totalPts)
     for (let i = 0; i < state.players.length; i++) {
       const pl = state.players[i]!
-      const delta = i === shooter ? 0 : 26
+      const delta = i === shooter ? 0 : totalPts
       pl.score += delta
       deltas.set(pl.id, delta)
       parts.push(`${pl.name} +${delta}`)
@@ -136,7 +153,7 @@ function finishTrick(state: TrickState): void {
   state.trickLeader = winnerIdx
   state.current = winnerIdx
 
-  const cardsLeft = state.players.reduce((n, p) => n + p.hand.length, 0)
+  const cardsLeft = state.players.reduce((s, p) => s + p.hand.length, 0)
   if (cardsLeft === 0) scoreHand(state)
 }
 
@@ -145,6 +162,7 @@ export function applyTrickMove(state: TrickState, move: TrickMove): TrickApplyRe
     return { ok: false, error: 'Round is over' }
   }
   const next = cloneTrick(state)
+  const n = nPlayers(next)
 
   if (move.t === 'pass') {
     if (next.phase !== 'pass') return { ok: false, error: 'Not a pass hand' }
@@ -161,22 +179,22 @@ export function applyTrickMove(state: TrickState, move: TrickMove): TrickApplyRe
 
     let guard = 0
     do {
-      next.current = (next.current + 1) % 4
+      next.current = (next.current + 1) % n
       guard += 1
-    } while (next.passed[next.current] && guard < 4)
+    } while (next.passed[next.current] && guard < n)
 
     if (next.passed.every(Boolean)) {
-      for (let i = 0; i < 4; i++) {
-        const dest = passTargetIndex(i, next.passDirection)
+      for (let i = 0; i < n; i++) {
+        const dest = passTargetIndex(i, next.passDirection, n)
         const gift = next.passQueue[i]
         if (!gift) continue
         next.players[dest]!.hand = sortTrickHand([...next.players[dest]!.hand, ...gift])
       }
-      next.passQueue = [null, null, null, null]
+      next.passQueue = Array.from({ length: n }, () => null)
       next.phase = 'play'
-      next.trickLeader = indexWithTwoOfClubs(next)
+      next.trickLeader = indexWithLeadCard(next)
       next.current = next.trickLeader
-      next.log.push(`Pass complete — ${next.players[next.trickLeader]!.name} leads with 2♣.`)
+      next.log.push(`Pass complete — ${next.players[next.trickLeader]!.name} leads.`)
     }
     return { ok: true, state: next }
   }
@@ -197,10 +215,10 @@ export function applyTrickMove(state: TrickState, move: TrickMove): TrickApplyRe
     if (next.trick.length === 1) next.lastTrickNote = null
     next.log.push(`${me.name} played ${card.rank}${card.suit}.`)
 
-    if (next.trick.length >= 4) {
+    if (next.trick.length >= n) {
       finishTrick(next)
     } else {
-      next.current = (next.current + 1) % 4
+      next.current = (next.current + 1) % n
     }
     return { ok: true, state: next }
   }
