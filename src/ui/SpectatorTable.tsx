@@ -733,14 +733,19 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         </div>
       ) : (
         <div className="spec-parlor">
-          {isRummy ? (
+          {isIchi ? (
+            <h2 className="spec-parlor-title">
+              ICHI
+              <em>parlor</em>
+            </h2>
+          ) : isRummy ? (
             <h2 className="spec-parlor-title">
               RUMMY
               <em>parlor</em>
             </h2>
           ) : isTrick ? (
             <h2 className="spec-parlor-title">
-              HEARTS
+              TRICK
               <em>parlor</em>
             </h2>
           ) : (
@@ -750,11 +755,13 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </h2>
           )}
           <p>
-            {isRummy
-              ? 'Sit to play · free-for-all Rummy'
-              : isTrick
-                ? 'Sit to play · Hearts (Rooster soon)'
-                : 'Sit to play · partners sit across'}
+            {isIchi
+              ? 'Sit to play · Classic Ichi'
+              : isRummy
+                ? 'Sit to play · free-for-all Rummy'
+                : isTrick
+                  ? 'Sit to play · Hearts, Rooster, Spades…'
+                  : 'Sit to play · partners sit across'}
           </p>
         </div>
       )}
