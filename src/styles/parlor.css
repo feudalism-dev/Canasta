@@ -1838,6 +1838,21 @@ ul {
   min-width: 5.5rem;
 }
 
+.ichi-face.is-dark-side {
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 0, 0, 0.35),
+    0 2px 0 rgba(0, 0, 0, 0.45);
+  filter: saturate(1.15) brightness(0.92);
+}
+
+.ichi-palace-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
 /* -- Rummy solo board (compact; uses CardView sizing) -- */
 .rummy-board {
   display: flex;

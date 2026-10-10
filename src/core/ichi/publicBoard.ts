@@ -104,10 +104,22 @@ export function encodeIchiPublicBoard(board: IchiPublicBoard): string {
   const playTo = board.playTo == null ? '-' : String(board.playTo)
   const turn = board.currentSeat < 0 ? '-' : String(board.currentSeat)
   const top = board.topDiscard ? encodeIchiFace(board.topDiscard) : '-'
+  const variantCh =
+    board.variant === 'eights'
+      ? 'e'
+      : board.variant === 'dos'
+        ? 'd'
+        : board.variant === 'switch'
+          ? 'w'
+          : board.variant === 'palace'
+            ? 'p'
+            : board.variant === 'flip'
+              ? 'f'
+              : 'c'
   const head = [
     'I1',
     '1',
-    'c', // classic
+    variantCh,
     String(board.playerCount),
     String(board.round),
     playTo,
@@ -159,7 +171,18 @@ export function decodeIchiPublicBoard(raw: string): IchiPublicBoard {
 
   return {
     live: true,
-    variant: 'classic',
+    variant:
+      head[2] === 'e'
+        ? 'eights'
+        : head[2] === 'd'
+          ? 'dos'
+          : head[2] === 'w'
+            ? 'switch'
+            : head[2] === 'p'
+              ? 'palace'
+              : head[2] === 'f'
+                ? 'flip'
+                : 'classic',
     playerCount: Number(head[3]) || players.length || 4,
     round: Number(head[4]) || 1,
     playTo: playRaw === '-' ? null : Number(playRaw),

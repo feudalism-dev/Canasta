@@ -1,6 +1,6 @@
-/** Ichi (shedding) family — Uno-style. */
+/** Ichi (shedding) family — color-card parlor games. */
 
-export type IchiVariant = 'classic'
+export type IchiVariant = 'classic' | 'eights' | 'dos' | 'switch' | 'palace' | 'flip'
 
 export type IchiColor = 'R' | 'Y' | 'G' | 'B'
 
@@ -20,6 +20,10 @@ export type IchiKind =
   | 'draw2'
   | 'wild'
   | 'wdf'
+  | 'flip'
+
+/** Dark-side kinds for Flip (subset). */
+export type IchiDarkKind = IchiKind
 
 export type IchiPhase =
   | 'play'
@@ -32,6 +36,9 @@ export type IchiCard = {
   id: string
   color: IchiColor | null
   kind: IchiKind
+  /** Flip: face when the table is on the dark side. */
+  darkColor?: IchiColor | null
+  darkKind?: IchiKind
 }
 
 export type IchiPlayer = {
@@ -41,6 +48,12 @@ export type IchiPlayer = {
   isComputer: boolean
   hand: IchiCard[]
   score: number
+  /** Palace: 3 face-down. */
+  palaceDown?: IchiCard[]
+  /** Palace: 3 face-up. */
+  palaceUp?: IchiCard[]
+  /** Palace hands won (match scoring). */
+  handsWon?: number
 }
 
 export type IchiConfig = {
@@ -62,28 +75,28 @@ export type IchiState = {
   phase: IchiPhase
   current: number
   round: number
-  /** +1 clockwise, -1 counter-clockwise. */
   direction: 1 | -1
   stock: IchiCard[]
   discard: IchiCard[]
-  /** Active color (after wilds / top card). */
+  /** DOS: second discard pile. */
+  discardB: IchiCard[]
   currentColor: IchiColor
-  /** Player who must name a color (wild / wdf). */
+  /** DOS: color of pile B. */
+  currentColorB: IchiColor
   colorPicker: number | null
-  /** Pending WDF challenge window: index of player who may challenge. */
   challengeTarget: number | null
-  /** Who played the WDF under challenge. */
   wdfPlayer: number | null
-  /** Color in force before the WDF (for legality check). */
   colorBeforeWdf: IchiColor | null
-  /** Who must still call Ichi (played to 1 without calling). */
   ichiPending: number | null
-  /** Players who have called Ichi this hand while at 1 card. */
   ichiCalled: boolean[]
-  /** Whether the pending WDF was legal when played. */
   wdfLegal: boolean | null
-  /** After drawing a playable card, must play it or pass. */
   drawnPlayableId: string | null
+  /** Switch: stacked draw debt for the next player. */
+  pendingDraw: number
+  /** Which DOS pile colorPick applies to (0 / 1). */
+  colorPickPile: 0 | 1 | null
+  /** Flip: light or dark table side. */
+  flipSide: 'light' | 'dark'
   winnerId: string | null
   log: string[]
   lastHandNote: string | null
@@ -92,10 +105,12 @@ export type IchiState = {
 }
 
 export type IchiMove =
-  | { t: 'play'; cardId: string }
+  | { t: 'play'; cardId: string; pile?: 0 | 1 }
+  | { t: 'playTwo'; cardIds: [string, string]; pile?: 0 | 1 }
   | { t: 'draw' }
   | { t: 'pass' }
   | { t: 'chooseColor'; color: IchiColor }
   | { t: 'callIchi' }
   | { t: 'challenge' }
   | { t: 'acceptWdf' }
+  | { t: 'takePile' }

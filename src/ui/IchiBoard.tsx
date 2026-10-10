@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { pumpIchiBots } from '../ai/ichiBot'
-import { colorLabel, kindLabel, ICHI_COLORS, sortIchiHand } from '../core/ichi/deck'
+import {
+  colorLabel,
+  faceColor,
+  faceKind,
+  kindLabel,
+  ICHI_COLORS,
+  sortIchiHand,
+} from '../core/ichi/deck'
 import { applyIchiMove, legalPlays } from '../core/ichi/rules'
 import { createIchiMatch, dealNextIchiRound, topCard } from '../core/ichi/state'
 import type { IchiCard, IchiColor, IchiMove, IchiState, IchiVariant } from '../core/ichi/types'
-import { ichiVariantLabel } from '../core/ichi/variants'
+import { ichiTip, ichiVariantLabel } from '../core/ichi/variants'
 
 export type IchiBoardController = {
   state: IchiState
@@ -36,18 +43,22 @@ function IchiCardFace({
   size = 'md',
   dimmed,
   legal,
+  side = 'light',
   onClick,
 }: {
   card: IchiCard
   size?: 'md' | 'lg'
   dimmed?: boolean
   legal?: boolean
+  side?: 'light' | 'dark'
   onClick?: () => void
 }) {
-  const bg = card.color ? COLOR_CSS[card.color] : '#1e2a33'
-  const label = kindLabel(card.kind)
-  const cls = `ichi-face is-${size}${dimmed ? ' is-dim' : ''}${legal ? ' is-legal' : ''}${onClick ? ' is-clickable' : ''}`
-  const aria = `${label}${card.color ? ` ${colorLabel(card.color)}` : ' wild'}`
+  const col = faceColor(card, side)
+  const kind = faceKind(card, side)
+  const bg = col ? COLOR_CSS[col] : '#1e2a33'
+  const label = kindLabel(kind)
+  const cls = `ichi-face is-${size}${dimmed ? ' is-dim' : ''}${legal ? ' is-legal' : ''}${onClick ? ' is-clickable' : ''}${side === 'dark' ? ' is-dark-side' : ''}`
+  const aria = `${label}${col ? ` ${colorLabel(col)}` : ' wild'}${side === 'dark' ? ' (dark)' : ''}`
   const body = (
     <>
       <span className="ichi-face-corner">{label}</span>
@@ -74,8 +85,14 @@ function phaseTip(state: IchiState): string {
   if (state.phase === 'challenge') {
     return 'Wild Draw Four: accept (draw 4) or challenge if you think they held the prior color.'
   }
+  if (state.pendingDraw > 0) return `Draw stack is ${state.pendingDraw} — play a 2/+2/+4 or Draw to take them.`
   if (state.drawnPlayableId) return 'You drew a playable card — play it, or Pass to keep it and end your turn.'
-  return 'Match the discard color or symbol. Wild always works. Call Ichi when you play down to one card.'
+  if (state.config.variant === 'palace') return 'Equal or higher on the pile. No play? Take the pile.'
+  if (state.config.variant === 'dos') return 'Play onto pile A or B. Matching numbers can go as a double.'
+  if (state.config.variant === 'flip') {
+    return `Table is ${state.flipSide}. Match that side’s color/symbol. Flip turns the deck.`
+  }
+  return ichiTip(state.config.variant)
 }
 
 export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controller }: Props) {
@@ -174,7 +191,10 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
     )
   }
 
-  const top = topCard(state)
+  const game = state.config.variant
+  const faceSide = state.flipSide
+  const top = topCard(state, 0)
+  const topB = game === 'dos' ? topCard(state, 1) : null
   const status =
     thinking && !yourTurn
       ? `${actingName} is thinking…`
@@ -183,7 +203,33 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
   const leaderId = ranked[0]?.id
   const handScoreById = new Map((state.lastHandScores ?? []).map((l) => [l.playerId, l]))
   const playTo = state.config.playTo
-  const orderedHand = sortIchiHand(you.hand)
+  const orderedHand = sortIchiHand(you.hand, faceSide)
+  const playCard = (cardId: string) => {
+    if (game === 'dos') {
+      const onA = legalPlays(state, localIndex, 0).some((c) => c.id === cardId)
+      const onB = legalPlays(state, localIndex, 1).some((c) => c.id === cardId)
+      play({ t: 'play', cardId, pile: onA ? 0 : onB ? 1 : 0 })
+      return
+    }
+    play({ t: 'play', cardId })
+  }
+  const dosDouble = (() => {
+    if (game !== 'dos' || !yourTurn || state.phase !== 'play') return null
+    const byKind = new Map<string, IchiCard[]>()
+    for (const c of you.hand) {
+      if (c.kind === 'wild' || c.kind === 'wdf') continue
+      const list = byKind.get(c.kind) ?? []
+      list.push(c)
+      byKind.set(c.kind, list)
+    }
+    for (const [, list] of byKind) {
+      if (list.length < 2) continue
+      if (legalIds.has(list[0]!.id) || legalIds.has(list[1]!.id)) {
+        return [list[0]!.id, list[1]!.id] as [string, string]
+      }
+    }
+    return null
+  })()
 
   return (
     <div className={`shell-game ichi-board rummy-board${yourTurn ? ' is-your-turn' : ''}`}>
@@ -193,19 +239,21 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
         </button>
         <div>
           <h2>
-            {ichiVariantLabel(variant)} · {state.players.length} players
+            {ichiVariantLabel(game)} · {state.players.length} players
           </h2>
           <p className="muted">
             Hand {state.round}
-            {playTo != null ? ` · first to ${playTo}` : ''}
+            {playTo != null
+              ? game === 'palace'
+                ? ` · first to ${playTo} hand wins`
+                : ` · first to ${playTo}`
+              : ''}
             {` · ${colorLabel(state.currentColor)}`}
+            {game === 'dos' ? ` / ${colorLabel(state.currentColorB)}` : ''}
+            {game === 'flip' ? ` · ${faceSide} side` : ''}
             {state.direction === 1 ? ' · clockwise' : ' · counter-clockwise'}
           </p>
-          <p className="rummy-tip">
-            Match color or symbol on the discard. Skip / Reverse / +2 hit the next player. Wild picks
-            color; Wild +4 can be challenged. Empty your hand — call <strong>Ichi</strong> at one
-            card.
-          </p>
+          <p className="rummy-tip">{ichiTip(game)}</p>
         </div>
       </header>
 
@@ -253,7 +301,9 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
                 </span>
               ) : (
                 <span className="rummy-score-delta">
-                  {p.hand.length} card{p.hand.length === 1 ? '' : 's'}
+                  {game === 'palace'
+                    ? `${p.hand.length}h / ${(p.palaceUp ?? []).length}↑ / ${(p.palaceDown ?? []).length}↓ · ${p.handsWon ?? 0} wins`
+                    : `${p.hand.length} card${p.hand.length === 1 ? '' : 's'}`}
                   {isTheirTurn ? (pi === localIndex ? ' · YOUR TURN' : ' · THEIR TURN') : ''}
                 </span>
               )}
@@ -309,9 +359,13 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
 
       <div className="trick-current ichi-table" aria-label="Ichi table">
         <span className="pile-label">
-          Color {colorLabel(state.currentColor)}
+          {game === 'dos'
+            ? `Pile A ${colorLabel(state.currentColor)} · Pile B ${colorLabel(state.currentColorB)}`
+            : `Color ${colorLabel(state.currentColor)}`}
+          {game === 'flip' ? ` · ${faceSide}` : ''}
           {state.direction === 1 ? ' · clockwise' : ' · counter-clockwise'}
           {` · stock ${state.stock.length}`}
+          {state.pendingDraw > 0 ? ` · draw ${state.pendingDraw}` : ''}
         </span>
         <div className="rummy-piles ichi-piles">
           <div className="rummy-pile" aria-label="Stock">
@@ -320,26 +374,61 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
               <span className="ichi-face-center">{state.stock.length}</span>
             </div>
           </div>
-          <div className="rummy-pile" aria-label="Discard">
-            <span className="pile-label">Discard</span>
+          <div className="rummy-pile" aria-label={game === 'dos' ? 'Pile A' : 'Discard'}>
+            <span className="pile-label">{game === 'dos' ? 'Pile A' : 'Discard'}</span>
             {top ? (
-              <IchiCardFace card={top} size="lg" />
+              <IchiCardFace card={top} size="lg" side={faceSide} />
             ) : (
               <div className="ichi-face is-lg is-empty">—</div>
             )}
           </div>
-          <div
-            className="ichi-color-badge"
-            style={{ borderColor: COLOR_CSS[state.currentColor] }}
-            aria-label={`Current color ${colorLabel(state.currentColor)}`}
-          >
-            <span
-              className="ichi-color-swatch"
-              style={{ background: COLOR_CSS[state.currentColor] }}
-            />
-            <strong>{colorLabel(state.currentColor)}</strong>
-          </div>
+          {game === 'dos' ? (
+            <div className="rummy-pile" aria-label="Pile B">
+              <span className="pile-label">Pile B</span>
+              {topB ? (
+                <IchiCardFace card={topB} size="lg" side={faceSide} />
+              ) : (
+                <div className="ichi-face is-lg is-empty">—</div>
+              )}
+            </div>
+          ) : (
+            <div
+              className="ichi-color-badge"
+              style={{ borderColor: COLOR_CSS[state.currentColor] }}
+              aria-label={`Current color ${colorLabel(state.currentColor)}`}
+            >
+              <span
+                className="ichi-color-swatch"
+                style={{ background: COLOR_CSS[state.currentColor] }}
+              />
+              <strong>{colorLabel(state.currentColor)}</strong>
+            </div>
+          )}
         </div>
+        {game === 'palace' && (you.palaceUp?.length || you.palaceDown?.length) ? (
+          <div className="ichi-palace-row">
+            <span className="pile-label">Your up cards</span>
+            <div className="rummy-card-row">
+              {(you.palaceUp ?? []).map((c) => (
+                <IchiCardFace
+                  key={c.id}
+                  card={c}
+                  size="md"
+                  side={faceSide}
+                  legal={yourTurn && state.phase === 'play' && legalIds.has(c.id)}
+                  onClick={
+                    yourTurn && state.phase === 'play' && legalIds.has(c.id)
+                      ? () => playCard(c.id)
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+            <span className="muted tiny">
+              Down cards: {(you.palaceDown ?? []).length} (blind when hand & ups are gone)
+            </span>
+          </div>
+        ) : null}
         <p className="muted tiny">{phaseTip(state)}</p>
       </div>
 
@@ -353,30 +442,57 @@ export function IchiBoard({ yourName, variant, playerCount = 4, onExit, controll
               type="button"
               className={`rummy-hand-slot ichi-hand-slot${illegal ? ' is-illegal' : ''}${can ? ' is-legal-slot' : ''}`}
               disabled={!can}
-              onClick={() => play({ t: 'play', cardId: c.id })}
+              onClick={() => playCard(c.id)}
             >
-              <IchiCardFace card={c} size="md" dimmed={illegal} legal={can} />
+              <IchiCardFace card={c} size="md" dimmed={illegal} legal={can} side={faceSide} />
             </button>
           )
         })}
       </div>
       <p className="muted tiny rummy-hand-hint">
-        Highlighted cards are legal plays · Tap one to discard it
-        {you.hand.length === 1 ? ' · Don’t forget Call Ichi!' : ''}
+        Highlighted cards are legal plays · Tap one to play
+        {(game === 'classic' || game === 'flip') && you.hand.length === 1
+          ? ' · Don’t forget Call Ichi!'
+          : ''}
       </p>
 
       <div className="rummy-actions">
         {!roundOver && !matchOver && state.phase === 'play' && yourTurn ? (
           <>
-            <button
-              type="button"
-              className="btn secondary"
-              disabled={legal.length > 0 && !state.drawnPlayableId}
-              onClick={() => play(state.drawnPlayableId ? { t: 'pass' } : { t: 'draw' })}
-            >
-              {state.drawnPlayableId ? 'Pass (keep drawn card)' : 'Draw from stock'}
-            </button>
-            {(you.hand.length === 1 || state.ichiPending === localIndex) &&
+            {game === 'palace' ? (
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={legal.length > 0}
+                onClick={() => play({ t: 'takePile' })}
+              >
+                Take the pile
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={legal.length > 0 && !state.drawnPlayableId && state.pendingDraw === 0}
+                onClick={() => play(state.drawnPlayableId ? { t: 'pass' } : { t: 'draw' })}
+              >
+                {state.drawnPlayableId
+                  ? 'Pass (keep drawn card)'
+                  : state.pendingDraw > 0
+                    ? `Draw ${state.pendingDraw}`
+                    : 'Draw from stock'}
+              </button>
+            )}
+            {dosDouble ? (
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => play({ t: 'playTwo', cardIds: dosDouble })}
+              >
+                Play matching pair
+              </button>
+            ) : null}
+            {(game === 'classic' || game === 'flip') &&
+            (you.hand.length === 1 || state.ichiPending === localIndex) &&
             !state.ichiCalled[localIndex] ? (
               <button type="button" className="btn primary" onClick={() => play({ t: 'callIchi' })}>
                 Call Ichi!

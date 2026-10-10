@@ -1,5 +1,13 @@
-import { isNumber, isWild, shuffleIchiDeck, sortIchiHand } from './deck'
-import { clampIchiPlayerCount, ichiConfig } from './variants'
+import {
+  deckForVariant,
+  faceColor,
+  faceKind,
+  isNumber,
+  isWild,
+  shuffleDeck,
+  sortIchiHand,
+} from './deck'
+import { clampIchiPlayerCount, ichiConfig, ichiDealCount, ichiVariantLabel } from './variants'
 import type { IchiCard, IchiPlayer, IchiState, IchiVariant } from './types'
 
 export function cloneIchi(state: IchiState): IchiState {
@@ -19,30 +27,32 @@ export function nextIndex(state: IchiState, from = state.current, steps = 1): nu
   return i
 }
 
-function topDiscard(state: IchiState): IchiCard | null {
-  return state.discard[state.discard.length - 1] ?? null
-}
-
 function ensureStock(state: IchiState): void {
   if (state.stock.length > 0) return
-  if (state.discard.length <= 1) return
-  const top = state.discard[state.discard.length - 1]!
-  const rest = state.discard.slice(0, -1)
-  state.discard = [top]
-  // Reshuffle rest into stock
-  for (let i = rest.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    const t = rest[i]!
-    rest[i] = rest[j]!
-    rest[j] = t
+  const pile = state.discard
+  if (pile.length <= 1) {
+    // DOS: also try pile B
+    if (state.config.variant === 'dos' && state.discardB.length > 1) {
+      const top = state.discardB[state.discardB.length - 1]!
+      const rest = state.discardB.slice(0, -1)
+      state.discardB = [top]
+      state.stock = shuffleDeck(rest, Date.now() % 1e9)
+      state.log.push('Stock reshuffled from pile B.')
+      return
+    }
+    return
   }
-  state.stock = rest
+  const top = pile[pile.length - 1]!
+  const rest = pile.slice(0, -1)
+  state.discard = [top]
+  state.stock = shuffleDeck(rest, Date.now() % 1e9)
   state.log.push('Stock reshuffled from discard.')
 }
 
 export function drawCards(state: IchiState, playerIndex: number, count: number): IchiCard[] {
   const pl = state.players[playerIndex]!
   const taken: IchiCard[] = []
+  const side = state.flipSide
   for (let i = 0; i < count; i++) {
     ensureStock(state)
     const c = state.stock[0]
@@ -50,8 +60,41 @@ export function drawCards(state: IchiState, playerIndex: number, count: number):
     state.stock = state.stock.slice(1)
     taken.push(c)
   }
-  pl.hand = sortIchiHand([...pl.hand, ...taken])
+  pl.hand = sortIchiHand([...pl.hand, ...taken], side)
   return taken
+}
+
+function emptyExtras(n: number): Pick<
+  IchiState,
+  | 'discardB'
+  | 'currentColorB'
+  | 'pendingDraw'
+  | 'colorPickPile'
+  | 'flipSide'
+  | 'colorPicker'
+  | 'challengeTarget'
+  | 'wdfPlayer'
+  | 'colorBeforeWdf'
+  | 'ichiPending'
+  | 'ichiCalled'
+  | 'wdfLegal'
+  | 'drawnPlayableId'
+> {
+  return {
+    discardB: [],
+    currentColorB: 'R',
+    pendingDraw: 0,
+    colorPickPile: null,
+    flipSide: 'light',
+    colorPicker: null,
+    challengeTarget: null,
+    wdfPlayer: null,
+    colorBeforeWdf: null,
+    ichiPending: null,
+    ichiCalled: Array.from({ length: n }, () => false),
+    wdfLegal: null,
+    drawnPlayableId: null,
+  }
 }
 
 export function createIchiMatch(
@@ -74,6 +117,9 @@ export function createIchiMatch(
     isComputer: !!useComputers[i],
     hand: [],
     score: 0,
+    palaceDown: [],
+    palaceUp: [],
+    handsWon: 0,
   }))
 
   return dealIchiHand(
@@ -87,36 +133,51 @@ export function createIchiMatch(
       stock: [],
       discard: [],
       currentColor: 'R',
-      colorPicker: null,
-      challengeTarget: null,
-      wdfPlayer: null,
-      colorBeforeWdf: null,
-      ichiPending: null,
-      ichiCalled: Array.from({ length: n }, () => false),
-      wdfLegal: null,
-      drawnPlayableId: null,
       winnerId: null,
       log: [],
       lastHandNote: null,
       lastHandScores: null,
       lastMessage: null,
+      ...emptyExtras(n),
     },
     seed,
   )
 }
 
+function pickStarter(deck: IchiCard[], side: 'light' | 'dark'): {
+  starter: IchiCard | null
+  rest: IchiCard[]
+  buried: IchiCard[]
+} {
+  let rest = deck
+  const buried: IchiCard[] = []
+  let starter: IchiCard | null = null
+  while (rest.length) {
+    const c = rest[0]!
+    rest = rest.slice(1)
+    if (isNumber(c, side) && faceColor(c, side)) {
+      starter = c
+      break
+    }
+    buried.push(c)
+  }
+  if (!starter) {
+    const c = buried.pop() ?? rest[0]
+    if (c) {
+      starter = c
+      if (rest[0] === c) rest = rest.slice(1)
+    }
+  }
+  return { starter, rest, buried }
+}
+
 export function dealIchiHand(state: IchiState, seed: number): IchiState {
   const next = cloneIchi(state)
   const n = next.players.length
-  for (const pl of next.players) pl.hand = []
-  next.ichiCalled = Array.from({ length: n }, () => false)
-  next.ichiPending = null
-  next.colorPicker = null
-  next.challengeTarget = null
-  next.wdfPlayer = null
-  next.colorBeforeWdf = null
-  next.wdfLegal = null
-  next.drawnPlayableId = null
+  const v = next.config.variant
+  const side: 'light' | 'dark' = 'light'
+  Object.assign(next, emptyExtras(n))
+  next.flipSide = 'light'
   next.direction = 1
   next.phase = 'play'
   next.winnerId = null
@@ -124,8 +185,51 @@ export function dealIchiHand(state: IchiState, seed: number): IchiState {
   next.lastHandScores = null
   next.lastMessage = null
 
-  let deck = shuffleIchiDeck(seed)
-  for (let c = 0; c < 7; c++) {
+  for (const pl of next.players) {
+    pl.hand = []
+    pl.palaceDown = []
+    pl.palaceUp = []
+  }
+
+  let deck = shuffleDeck(deckForVariant(v), seed)
+  const label = ichiVariantLabel(v)
+
+  if (v === 'palace') {
+    for (let p = 0; p < n; p++) {
+      for (let i = 0; i < 3; i++) {
+        const c = deck[0]
+        if (!c) break
+        deck = deck.slice(1)
+        next.players[p]!.palaceDown!.push(c)
+      }
+      for (let i = 0; i < 3; i++) {
+        const c = deck[0]
+        if (!c) break
+        deck = deck.slice(1)
+        next.players[p]!.palaceUp!.push(c)
+      }
+      for (let i = 0; i < 3; i++) {
+        const c = deck[0]
+        if (!c) break
+        deck = deck.slice(1)
+        next.players[p]!.hand.push(c)
+      }
+      next.players[p]!.hand = sortIchiHand(next.players[p]!.hand)
+    }
+    const { starter, rest, buried } = pickStarter(deck, side)
+    next.stock = [...rest, ...buried]
+    next.discard = starter ? [starter] : []
+    next.currentColor = (starter && faceColor(starter, side)) || 'R'
+    next.current = 0
+    next.log = [
+      `Hand ${next.round} — ${label}. Play equal or higher. ${next.players[0]!.name} leads.`,
+    ]
+    next.lastMessage = next.log[0]!
+    return next
+  }
+
+  const dealN = ichiDealCount(v)
+  for (let c = 0; c < dealN; c++) {
     for (let p = 0; p < n; p++) {
       const card = deck[0]
       if (!card) break
@@ -133,42 +237,29 @@ export function dealIchiHand(state: IchiState, seed: number): IchiState {
       next.players[p]!.hand.push(card)
     }
   }
-  for (const pl of next.players) pl.hand = sortIchiHand(pl.hand)
+  for (const pl of next.players) pl.hand = sortIchiHand(pl.hand, side)
 
-  // Flip until we have a number for start (avoid action as start face)
-  let starter: IchiCard | null = null
-  const buried: IchiCard[] = []
-  while (deck.length) {
-    const c = deck[0]!
-    deck = deck.slice(1)
-    if (isNumber(c) && c.color) {
-      starter = c
-      break
-    }
-    buried.push(c)
-  }
-  if (!starter) {
-    // Fallback: any non-wdf
-    const c = buried.pop() ?? deck[0]
-    if (c) {
-      starter = c
-      if (deck[0] === c) deck = deck.slice(1)
-    }
-  }
-  next.stock = [...deck, ...buried]
+  const { starter, rest, buried } = pickStarter(deck, side)
+  next.stock = [...rest, ...buried]
   next.discard = starter ? [starter] : []
-  if (starter && starter.color) next.currentColor = starter.color
-  else if (starter && isWild(starter)) {
-    next.currentColor = 'R'
+  next.currentColor = (starter && faceColor(starter, side)) || 'R'
+
+  if (v === 'dos') {
+    const second = pickStarter(next.stock, side)
+    next.stock = [...second.rest, ...second.buried]
+    next.discardB = second.starter ? [second.starter] : []
+    next.currentColorB = (second.starter && faceColor(second.starter, side)) || 'Y'
+  }
+
+  if (starter && isWild(starter, side)) {
     next.phase = 'colorPick'
     next.colorPicker = 0
-  } else {
-    next.currentColor = 'R'
+    next.colorPickPile = 0
   }
 
   next.current = 0
   next.log = [
-    `Hand ${next.round} — Classic Ichi. Top ${starter ? `${starter.kind}${starter.color ?? ''}` : '?'}. ${next.players[0]!.name} leads.`,
+    `Hand ${next.round} — ${label}. ${next.players[0]!.name} leads.`,
   ]
   next.lastMessage = next.log[0]!
   return next
@@ -177,13 +268,12 @@ export function dealIchiHand(state: IchiState, seed: number): IchiState {
 export function dealNextIchiRound(prev: IchiState, seed = Date.now()): IchiState {
   const base = cloneIchi(prev)
   base.round = prev.round + 1
-  // Rotate who starts (left of previous starter conceptually — advance seat 0 rotation via current offset)
-  // Keep player order; first to act = (round-1) % n for variety
   const dealt = dealIchiHand(base, seed)
-  dealt.current = (prev.round) % dealt.players.length
+  dealt.current = prev.round % dealt.players.length
   if (dealt.phase === 'colorPick') dealt.colorPicker = dealt.current
   dealt.log[0] =
-    `Hand ${dealt.round} — Classic Ichi. ${dealt.players[dealt.current]!.name} leads.`
+    `Hand ${dealt.round} — ${ichiVariantLabel(dealt.config.variant)}. ${dealt.players[dealt.current]!.name} leads.`
+  dealt.lastMessage = dealt.log[0]!
   return dealt
 }
 
@@ -196,6 +286,14 @@ export function withPhysicalSeats(state: IchiState, seats: number[]): IchiState 
   return next
 }
 
-export function topCard(state: IchiState): IchiCard | null {
-  return topDiscard(state)
+export function topCard(state: IchiState, pile: 0 | 1 = 0): IchiCard | null {
+  const d = pile === 1 ? state.discardB : state.discard
+  return d[d.length - 1] ?? null
+}
+
+export function activeFace(state: IchiState, card: IchiCard) {
+  return {
+    kind: faceKind(card, state.flipSide),
+    color: faceColor(card, state.flipSide),
+  }
 }

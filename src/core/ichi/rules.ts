@@ -1,6 +1,19 @@
-import { cardPoints, isWild, sortIchiHand } from './deck'
+import { isWild, sortIchiHand } from './deck'
+import { scoreShedHand } from './score'
 import { cloneIchi, drawCards, nextIndex, topCard } from './state'
-import type { IchiCard, IchiColor, IchiHandScoreLine, IchiMove, IchiState } from './types'
+import type { IchiCard, IchiColor, IchiMove, IchiState } from './types'
+import {
+  applyDos,
+  applyEights,
+  applyFlip,
+  applyPalace,
+  applySwitch,
+  legalDos,
+  legalEights,
+  legalFlip,
+  legalPalace,
+  legalSwitch,
+} from './variantPlay'
 
 export type IchiApplyResult = { ok: true; state: IchiState } | { ok: false; error: string }
 
@@ -8,16 +21,21 @@ function hasColorMatch(hand: IchiCard[], color: IchiColor): boolean {
   return hand.some((c) => c.color === color)
 }
 
-export function legalPlays(state: IchiState, playerIndex: number): IchiCard[] {
+export function legalPlays(state: IchiState, playerIndex: number, pile?: 0 | 1): IchiCard[] {
+  const v = state.config.variant
+  if (v === 'eights') return legalEights(state, playerIndex)
+  if (v === 'dos') return legalDos(state, playerIndex, pile)
+  if (v === 'switch') return legalSwitch(state, playerIndex)
+  if (v === 'palace') return legalPalace(state, playerIndex)
+  if (v === 'flip') return legalFlip(state, playerIndex)
+
   if (state.phase !== 'play') return []
   if (playerIndex !== state.current) return []
   const pl = state.players[playerIndex]
   if (!pl) return []
-
   if (state.drawnPlayableId) {
     return pl.hand.filter((c) => c.id === state.drawnPlayableId)
   }
-
   const hasColor = hasColorMatch(pl.hand, state.currentColor)
   const top = topCard(state)
   return pl.hand.filter((c) => {
@@ -30,6 +48,7 @@ export function legalPlays(state: IchiState, playerIndex: number): IchiCard[] {
 }
 
 function catchMissedIchi(state: IchiState): void {
+  if (state.config.variant !== 'classic' && state.config.variant !== 'flip') return
   if (state.ichiPending == null) return
   const idx = state.ichiPending
   if (state.ichiCalled[idx]) {
@@ -45,62 +64,8 @@ function catchMissedIchi(state: IchiState): void {
   state.ichiPending = null
 }
 
-function scoreHand(state: IchiState, winnerIdx: number): void {
-  const winner = state.players[winnerIdx]!
-  let total = 0
-  const deltas = new Map<string, number>()
-  for (let i = 0; i < state.players.length; i++) {
-    const pl = state.players[i]!
-    if (i === winnerIdx) {
-      deltas.set(pl.id, 0)
-      continue
-    }
-    total += pl.hand.reduce((s, c) => s + cardPoints(c), 0)
-    deltas.set(pl.id, 0)
-  }
-  winner.score += total
-  deltas.set(winner.id, total)
-  const parts = state.players.map((p) => {
-    const d = deltas.get(p.id) ?? 0
-    return `${p.name} ${d > 0 ? '+' : ''}${d} (${p.score})`
-  })
-  state.lastHandNote = `${winner.name} goes out — scores ${total}. ${parts.join('; ')}`
-  state.lastHandScores = state.players.map(
-    (p): IchiHandScoreLine => ({
-      playerId: p.id,
-      name: p.name,
-      delta: deltas.get(p.id) ?? 0,
-      total: p.score,
-    }),
-  )
-  state.log.push(state.lastHandNote)
-  state.lastMessage = state.lastHandNote
-  state.phase = 'roundEnd'
-
-  const target = state.config.playTo
-  if (target != null) {
-    const sorted = [...state.players].sort((a, b) => b.score - a.score)
-    if (sorted[0]!.score >= target) {
-      if (sorted[1] && sorted[0]!.score === sorted[1]!.score) {
-        state.log.push(`Tied at ${sorted[0]!.score} — play another hand.`)
-      } else {
-        state.phase = 'matchEnd'
-        state.winnerId = sorted[0]!.id
-        state.log.push(`Match over — ${sorted[0]!.name} wins with ${sorted[0]!.score}.`)
-        state.lastMessage = state.log[state.log.length - 1]!
-      }
-    }
-  }
-}
-
-function afterNumberOrColorSet(state: IchiState, from: number): void {
-  state.current = nextIndex(state, from)
-  state.phase = 'play'
-}
-
 function finishPlayEffects(state: IchiState, card: IchiCard, playerIndex: number): void {
   const n = state.players.length
-
   if (card.kind === 'wild') {
     state.phase = 'colorPick'
     state.colorPicker = playerIndex
@@ -108,7 +73,6 @@ function finishPlayEffects(state: IchiState, card: IchiCard, playerIndex: number
     state.lastMessage = `${state.players[playerIndex]!.name} played Wild — choose a color.`
     return
   }
-
   if (card.kind === 'wdf') {
     state.phase = 'colorPick'
     state.colorPicker = playerIndex
@@ -118,10 +82,8 @@ function finishPlayEffects(state: IchiState, card: IchiCard, playerIndex: number
     state.lastMessage = `${state.players[playerIndex]!.name} played Wild Draw Four — choose a color.`
     return
   }
-
   if (card.kind === 'reverse') {
     if (n === 2) {
-      // Acts as skip — same player goes again
       state.direction = state.direction === 1 ? -1 : 1
       state.current = playerIndex
       state.log.push('Reverse (2 players) — skipped opponent.')
@@ -133,7 +95,6 @@ function finishPlayEffects(state: IchiState, card: IchiCard, playerIndex: number
     state.phase = 'play'
     return
   }
-
   if (card.kind === 'skip') {
     const skipped = nextIndex(state, playerIndex)
     state.current = nextIndex(state, playerIndex, 2)
@@ -141,7 +102,6 @@ function finishPlayEffects(state: IchiState, card: IchiCard, playerIndex: number
     state.phase = 'play'
     return
   }
-
   if (card.kind === 'draw2') {
     const victim = nextIndex(state, playerIndex)
     drawCards(state, victim, 2)
@@ -150,8 +110,8 @@ function finishPlayEffects(state: IchiState, card: IchiCard, playerIndex: number
     state.phase = 'play'
     return
   }
-
-  afterNumberOrColorSet(state, playerIndex)
+  state.current = nextIndex(state, playerIndex)
+  state.phase = 'play'
 }
 
 function isPlayableDrawn(state: IchiState, card: IchiCard, hand: IchiCard[]): boolean {
@@ -165,10 +125,7 @@ function isPlayableDrawn(state: IchiState, card: IchiCard, hand: IchiCard[]): bo
   return false
 }
 
-export function applyIchiMove(state: IchiState, move: IchiMove): IchiApplyResult {
-  if (state.phase === 'roundEnd' || state.phase === 'matchEnd') {
-    return { ok: false, error: 'Round is over' }
-  }
+function applyClassic(state: IchiState, move: IchiMove): IchiApplyResult {
   const next = cloneIchi(state)
 
   if (move.t === 'callIchi') {
@@ -189,18 +146,15 @@ export function applyIchiMove(state: IchiState, move: IchiMove): IchiApplyResult
     const picker = next.colorPicker
     const colors: IchiColor[] = ['R', 'Y', 'G', 'B']
     if (!colors.includes(move.color)) return { ok: false, error: 'Pick R/Y/G/B' }
-
     next.log.push(`${next.players[picker]!.name} names ${move.color}.`)
     next.currentColor = move.color
     next.colorPicker = null
-
     if (next.wdfPlayer != null) {
       next.phase = 'challenge'
       next.current = next.challengeTarget ?? nextIndex(next, next.wdfPlayer)
       next.lastMessage = `${next.players[next.current]!.name} may challenge the +4.`
       return { ok: true, state: next }
     }
-
     next.phase = 'play'
     next.current = nextIndex(next, picker)
     next.lastMessage = `Color is ${move.color}.`
@@ -214,7 +168,6 @@ export function applyIchiMove(state: IchiState, move: IchiMove): IchiApplyResult
     const challenger = next.challengeTarget
     const accused = next.wdfPlayer
     const legal = next.wdfLegal !== false
-
     if (!legal) {
       drawCards(next, accused, 4)
       next.log.push(`Challenge succeeds — ${next.players[accused]!.name} draws 4.`)
@@ -290,18 +243,18 @@ export function applyIchiMove(state: IchiState, move: IchiMove): IchiApplyResult
     if (!card) return { ok: false, error: 'Card not in hand' }
     const legal = legalPlays(next, me)
     if (!legal.some((c) => c.id === card.id)) return { ok: false, error: 'Illegal play' }
-
     if (card.kind === 'wdf') {
       next.colorBeforeWdf = next.currentColor
-      next.wdfLegal = !hasColorMatch(pl.hand.filter((c) => c.id !== card.id), next.currentColor)
+      next.wdfLegal = !hasColorMatch(
+        pl.hand.filter((c) => c.id !== card.id),
+        next.currentColor,
+      )
     }
-
     pl.hand = sortIchiHand(pl.hand.filter((c) => c.id !== card.id))
     next.discard.push(card)
     next.drawnPlayableId = null
     if (card.color) next.currentColor = card.color
     next.log.push(`${pl.name} played ${card.kind}${card.color ?? ''}.`)
-
     if (pl.hand.length === 1) {
       next.ichiPending = me
       if (pl.isComputer) {
@@ -310,16 +263,36 @@ export function applyIchiMove(state: IchiState, move: IchiMove): IchiApplyResult
         next.log.push(`${pl.name} calls Ichi!`)
       }
     }
-
     if (pl.hand.length === 0) {
-      scoreHand(next, me)
+      scoreShedHand(next, me)
       return { ok: true, state: next }
     }
-
     finishPlayEffects(next, card, me)
     next.lastMessage = next.log[next.log.length - 1] ?? next.lastMessage
     return { ok: true, state: next }
   }
 
   return { ok: false, error: 'Unknown move' }
+}
+
+export function applyIchiMove(state: IchiState, move: IchiMove): IchiApplyResult {
+  if (state.phase === 'roundEnd' || state.phase === 'matchEnd') {
+    return { ok: false, error: 'Round is over' }
+  }
+  const v = state.config.variant
+  if (v === 'eights') return applyEights(state, move)
+  if (v === 'dos') return applyDos(state, move)
+  if (v === 'switch') return applySwitch(state, move)
+  if (v === 'palace') return applyPalace(state, move)
+  if (v === 'flip') {
+    // Flip reuses classic challenge/accept after color pick
+    if (move.t === 'challenge' || move.t === 'acceptWdf' || move.t === 'callIchi') {
+      return applyClassic(state, move)
+    }
+    if (move.t === 'chooseColor' && state.wdfPlayer != null) {
+      return applyClassic(state, move)
+    }
+    return applyFlip(state, move)
+  }
+  return applyClassic(state, move)
 }

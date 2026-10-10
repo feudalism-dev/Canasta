@@ -471,8 +471,9 @@ export function SlTableScreens({
               </select>
             </label>
             <p className="muted">
-              Classic Ichi ({ichiPlayerCount} seats): match color or number, action cards, first to 500.
-              Empty chairs become bots.
+              {ichiPlayerCount} seats · Ichi color cards (no suits). Empty chairs become bots.
+              Pick a ready variant above — Classic / Flip to 500; Eights / Twin Piles / Switch to 200;
+              Palace first to 3 hand wins.
             </p>
           </>
         ) : null}
@@ -609,7 +610,8 @@ export function SlTableScreens({
               busy ||
               (isTrickTable &&
                 !['hearts', 'rooster', 'spades', 'euchre', 'ohhell'].includes(trickVariant)) ||
-              (isIchiTable && ichiVariant !== 'classic')
+              (isIchiTable &&
+                !['classic', 'eights', 'dos', 'switch', 'palace', 'flip'].includes(ichiVariant))
             }
             onClick={async () => {
               setBusy(true)
