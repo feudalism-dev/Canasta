@@ -1869,6 +1869,35 @@ ul {
   letter-spacing: 0.02em;
 }
 
+.phaseit-melds {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+  max-width: 52rem;
+}
+
+.phaseit-meld-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.phaseit-meld-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-right: 0.75rem;
+}
+
+.phaseit-lay-panel {
+  margin: 0.35rem 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.35rem;
+  background: rgba(0, 0, 0, 0.18);
+}
+
 .skippo-builders {
   flex-wrap: wrap;
   justify-content: center;

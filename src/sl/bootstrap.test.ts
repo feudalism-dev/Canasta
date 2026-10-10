@@ -53,6 +53,14 @@ describe('HUD bootstrap', () => {
     expect(boot?.view).toBe('table')
   })
 
+  it('reads phaseit family from the table-top MoAP URL', () => {
+    const boot = readSlBootstrap(
+      'https://x.test/Canasta/?view=table&family=phaseit&uid=spec&tableId=11111111-1111-1111-1111-111111111111',
+    )
+    expect(boot?.family).toBe('phaseit')
+    expect(boot?.view).toBe('table')
+  })
+
   it('recognizes a minted seated browser match URL', () => {
     const boot = readSlBootstrap(BROWSER_MATCH)
     expect(boot?.token).toBe('deadbeef')

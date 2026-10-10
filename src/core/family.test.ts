@@ -33,6 +33,14 @@ describe('family lock', () => {
     expect(normalizeFamily('SKIPPO')).toBe('skippo')
   })
 
+  it('recognizes phaseit family', () => {
+    expect(normalizeFamily('phaseit')).toBe('phaseit')
+    expect(resolveTableFamily('phaseit')).toBe('phaseit')
+    expect(familyHintPresent('phaseit')).toBe(true)
+    expect(normalizeFamily('PHASEIT')).toBe('phaseit')
+    expect(normalizeFamily('phase-it')).toBe('phaseit')
+  })
+
   it('detects whether a real family hint exists', () => {
     expect(familyHintPresent(undefined, '')).toBe(false)
     expect(familyHintPresent('rummy')).toBe(true)

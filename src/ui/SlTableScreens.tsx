@@ -5,6 +5,7 @@ import type { RummyVariant } from '../core/rummy/types'
 import type { TrickVariant } from '../core/trick/types'
 import type { IchiVariant } from '../core/ichi/types'
 import type { SkippoVariant } from '../core/skippo/types'
+import type { PhaseItVariant } from '../core/phaseit/types'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
 import { BetaVariantNotice } from './BetaVariantNotice'
@@ -13,6 +14,7 @@ import { RummyVariantSelect } from './RummyVariantSelect'
 import { TrickVariantSelect } from './TrickVariantSelect'
 import { IchiVariantSelect } from './IchiVariantSelect'
 import { SkippoVariantSelect } from './SkippoVariantSelect'
+import { PhaseItVariantSelect } from './PhaseItVariantSelect'
 import { SeatMap } from './SeatMap'
 import type { SlBootstrap } from '../sl/bootstrap'
 import { openMatchInBrowser } from '../sl/sessionUrl'
@@ -67,6 +69,10 @@ type Props = {
   onSkippoVariant: (v: SkippoVariant) => void
   skippoPlayerCount: number
   onSkippoPlayerCount: (n: number) => void
+  phaseitVariant: PhaseItVariant
+  onPhaseitVariant: (v: PhaseItVariant) => void
+  phaseitPlayerCount: number
+  onPhaseitPlayerCount: (n: number) => void
   onFamily: (family: GameFamily) => void
   partnership: boolean
   onPartnership: (v: boolean) => void
@@ -119,6 +125,10 @@ export function SlTableScreens({
   onSkippoVariant,
   skippoPlayerCount,
   onSkippoPlayerCount,
+  phaseitVariant,
+  onPhaseitVariant,
+  phaseitPlayerCount,
+  onPhaseitPlayerCount,
   onFamily,
   partnership,
   onPartnership,
@@ -174,6 +184,7 @@ export function SlTableScreens({
   const isTrickTable = family === 'trick'
   const isIchiTable = family === 'ichi'
   const isSkippoTable = family === 'skippo'
+  const isPhaseitTable = family === 'phaseit'
   const isCanastaTable = family === 'canasta'
 
   const enterTable = async (name: string) => {
@@ -344,6 +355,8 @@ export function SlTableScreens({
                   ? 'Ichi'
                   : isSkippoTable
                     ? 'Skippo'
+                    : isPhaseitTable
+                      ? 'Phase It'
                     : 'Hand & Foot / Canasta'}
         </h1>
         {!familyKnown ? (
@@ -356,6 +369,8 @@ export function SlTableScreens({
           <p className="muted">This table is locked to the Ichi family (creator SKU).</p>
         ) : isSkippoTable ? (
           <p className="muted">This table is locked to the Skippo family (creator SKU).</p>
+        ) : isPhaseitTable ? (
+          <p className="muted">This table is locked to the Phase It family (creator SKU).</p>
         ) : null}
         <label>
           Name
@@ -369,6 +384,8 @@ export function SlTableScreens({
           <IchiVariantSelect value={ichiVariant} disabled={!canEditRules} onChange={onIchiVariant} />
         ) : isSkippoTable ? (
           <SkippoVariantSelect value={skippoVariant} disabled={!canEditRules} onChange={onSkippoVariant} />
+        ) : isPhaseitTable ? (
+          <PhaseItVariantSelect value={phaseitVariant} disabled={!canEditRules} onChange={onPhaseitVariant} />
         ) : (
           <label>
             Game
@@ -519,6 +536,25 @@ export function SlTableScreens({
             </p>
           </>
         ) : null}
+        {!seatedBrowser && isPhaseitTable ? (
+          <>
+            <label className="field">
+              <span>Players</span>
+              <select
+                value={phaseitPlayerCount}
+                disabled={!canEditRules}
+                onChange={(e) => onPhaseitPlayerCount(Number(e.target.value))}
+              >
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+              </select>
+            </label>
+            <p className="muted">
+              {phaseitPlayerCount} seats · race through 10 phases. Empty chairs become bots.
+            </p>
+          </>
+        ) : null}
         {isCanastaTable && isHouseRulesHandAndFoot(variant) ? (
           <>
             {showMpLobby && !rulesLocked ? (
@@ -634,7 +670,7 @@ export function SlTableScreens({
                 ? 'A game is paused for this seat (about 60 seconds). Resume it, or Abandon to start fresh.'
                 : !canSolo && tableBusy
                   ? `Solo stays off while the table is “${mode}”.`
-                  : isTrickTable || isIchiTable || isSkippoTable
+                  : isTrickTable || isIchiTable || isSkippoTable || isPhaseitTable
                     ? 'Solo fills empty seats with bots. Multiplayer: Create with 2+ humans, pick seat count, Start fills the rest with bots.'
                     : isRummyTable
                       ? 'Solo and multiplayer use your player count — empty chairs are computers.'
@@ -655,7 +691,8 @@ export function SlTableScreens({
               (isIchiTable &&
                 !['classic', 'eights', 'dos', 'switch', 'palace', 'flip'].includes(ichiVariant)) ||
               (isSkippoTable &&
-                !['classic', 'short', 'partners', 'jumpin'].includes(skippoVariant))
+                !['classic', 'short', 'partners', 'jumpin'].includes(skippoVariant)) ||
+              (isPhaseitTable && !['classic'].includes(phaseitVariant))
             }
             onClick={async () => {
               setBusy(true)
@@ -888,6 +925,9 @@ export function SlTableScreens({
         ) : null}
         {isSkippoTable ? (
           <p className="muted">See Docs/RULES_SKIPPO.md — Furware scores and the table-top MoAP update while you play.</p>
+        ) : null}
+        {isPhaseitTable ? (
+          <p className="muted">See Docs/RULES_PHASEIT.md — Furware scores and the table-top MoAP update while you play.</p>
         ) : null}
         {status ? <p className="muted">{status}</p> : null}
         {err ? <p className="error">{err}</p> : null}

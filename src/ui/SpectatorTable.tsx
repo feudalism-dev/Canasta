@@ -45,8 +45,18 @@ import {
   type SkippoPublicBoard,
   type SkippoPublicPlayer,
 } from '../core/skippo/publicBoard'
+import {
+  decodePhaseItPublicBoard,
+  idlePhaseItPublicBoard,
+  phaseItSpectatorStatus,
+  phaseItVariantLabel,
+  isPhaseItBoardPayload,
+  type PhaseItPublicBoard,
+  type PhaseItPublicPlayer,
+} from '../core/phaseit/publicBoard'
 import { colorLabel, kindLabel } from '../core/ichi/deck'
 import { cardLabel } from '../core/skippo/deck'
+import { cardLabel as phaseItCardLabel } from '../core/phaseit/deck'
 import { passDirectionLabel } from '../core/trick/variants'
 import { isHandAndFoot, variantLabel } from '../core/houseRules'
 import { tableGetBoard, tableStatus } from '../sl/tableApi'
@@ -75,6 +85,34 @@ function trickPlayerAt(board: TrickPublicBoard, seat: number): TrickPublicPlayer
 
 function skippoPlayerAt(board: SkippoPublicBoard, seat: number): SkippoPublicPlayer | undefined {
   return board.players.find((p) => p.seat === seat)
+}
+
+function phaseitPlayerAt(board: PhaseItPublicBoard, seat: number): PhaseItPublicPlayer | undefined {
+  return board.players.find((p) => p.seat === seat)
+}
+
+function PhaseItSeatChip({
+  board,
+  seat,
+  label,
+}: {
+  board: PhaseItPublicBoard
+  seat: number
+  label: string
+}) {
+  const p = phaseitPlayerAt(board, seat)
+  const isTurn = board.currentSeat === seat
+  return (
+    <div className={`spec-seat${isTurn ? ' is-turn' : ''}`}>
+      <strong>{p?.name || `Seat ${seat + 1}`}</strong>
+      <span className="muted tiny">{label}</span>
+      {p ? (
+        <span className="muted tiny">
+          Ph {Math.min(10, p.phase + 1)}{p.phaseDown ? ' ✓' : ''} · {p.handCount} · {p.score}
+        </span>
+      ) : null}
+    </div>
+  )
 }
 
 function SkippoSeatChip({
@@ -305,6 +343,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const [trickBoard, setTrickBoard] = useState<TrickPublicBoard>(idleTrickPublicBoard)
   const [ichiBoard, setIchiBoard] = useState<IchiPublicBoard>(idleIchiPublicBoard)
   const [skippoBoard, setSkippoBoard] = useState<SkippoPublicBoard>(idleSkippoPublicBoard)
+  const [phaseitBoard, setPhaseitBoard] = useState<PhaseItPublicBoard>(idlePhaseItPublicBoard)
   const [linkOk, setLinkOk] = useState(true)
   const [family, setFamily] = useState<GameFamily>(() => normalizeFamily(familyHint))
   const rootRef = useRef<HTMLDivElement>(null)
@@ -324,6 +363,18 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     const applyRaw = (raw: string | undefined) => {
       if (!raw || !raw.trim()) return false
       const text = raw.trim()
+      if (isPhaseItBoardPayload(text)) {
+        const next = decodePhaseItPublicBoard(text)
+        setPhaseitBoard(next)
+        if (next.live) {
+          setBoard(idlePublicBoard())
+          setRummyBoard(idleRummyPublicBoard())
+          setTrickBoard(idleTrickPublicBoard())
+          setIchiBoard(idleIchiPublicBoard())
+          setSkippoBoard(idleSkippoPublicBoard())
+        }
+        return true
+      }
       if (isSkippoBoardPayload(text)) {
         const next = decodeSkippoPublicBoard(text)
         setSkippoBoard(next)
@@ -332,6 +383,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setRummyBoard(idleRummyPublicBoard())
           setTrickBoard(idleTrickPublicBoard())
           setIchiBoard(idleIchiPublicBoard())
+          setPhaseitBoard(idlePhaseItPublicBoard())
         }
         return true
       }
@@ -354,6 +406,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setRummyBoard(idleRummyPublicBoard())
           setIchiBoard(idleIchiPublicBoard())
           setSkippoBoard(idleSkippoPublicBoard())
+          setPhaseitBoard(idlePhaseItPublicBoard())
         }
         return true
       }
@@ -365,6 +418,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setTrickBoard(idleTrickPublicBoard())
           setIchiBoard(idleIchiPublicBoard())
           setSkippoBoard(idleSkippoPublicBoard())
+          setPhaseitBoard(idlePhaseItPublicBoard())
         }
         return true
       }
@@ -375,6 +429,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         setTrickBoard(idleTrickPublicBoard())
         setIchiBoard(idleIchiPublicBoard())
         setSkippoBoard(idleSkippoPublicBoard())
+          setPhaseitBoard(idlePhaseItPublicBoard())
         return true
       }
       if (isIdleBoardPayload(text)) {
@@ -383,6 +438,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         setTrickBoard(idleTrickPublicBoard())
         setIchiBoard(idleIchiPublicBoard())
         setSkippoBoard(idleSkippoPublicBoard())
+          setPhaseitBoard(idlePhaseItPublicBoard())
         return true
       }
       return false
@@ -401,6 +457,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setTrickBoard(idleTrickPublicBoard())
           setIchiBoard(idleIchiPublicBoard())
           setSkippoBoard(idleSkippoPublicBoard())
+          setPhaseitBoard(idlePhaseItPublicBoard())
           inflight = false
           return
         }
@@ -428,13 +485,17 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const isTrick = family === 'trick'
   const isIchi = family === 'ichi'
   const isSkippo = family === 'skippo'
+  const isPhaseit = family === 'phaseit'
   const rummyLive = isRummy && rummyBoard.live
   const trickLive = isTrick && trickBoard.live
   const ichiLive = isIchi && ichiBoard.live
   const skippoLive = isSkippo && skippoBoard.live
-  const canastaLive = !isRummy && !isTrick && !isIchi && !isSkippo && board.live
+  const phaseitLive = isPhaseit && phaseitBoard.live
+  const canastaLive = !isRummy && !isTrick && !isIchi && !isSkippo && !isPhaseit && board.live
   const config = spectatorConfig(board)
-  const variant = skippoLive
+  const variant = phaseitLive
+    ? phaseItVariantLabel(phaseitBoard.variant)
+    : skippoLive
     ? skippoVariantLabel(skippoBoard.variant)
     : ichiLive
       ? ichiVariantLabel(ichiBoard.variant)
@@ -443,7 +504,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         : isRummy
           ? rummyVariantLabel(rummyBoard.variant)
           : variantLabel(board.variant)
-  const roundLine = skippoLive
+  const roundLine = phaseitLive
+    ? `H${phaseitBoard.round}`
+    : skippoLive
     ? skippoBoard.playTo != null
       ? `H${skippoBoard.round} · to ${skippoBoard.playTo}`
       : `H${skippoBoard.round}`
@@ -476,9 +539,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
       : null
   const stockCount = rummyLive ? rummyBoard.stock : board.stock
   const discardCount = rummyLive ? rummyBoard.discardCount : board.discardCount
-  const frozen = !rummyLive && !trickLive && !ichiLive && !skippoLive && board.frozen
+  const frozen = !rummyLive && !trickLive && !ichiLive && !skippoLive && !phaseitLive && board.frozen
   const sideways = Boolean(topCard && (isWild(topCard) || frozen))
-  const live = rummyLive || trickLive || ichiLive || skippoLive || canastaLive
+  const live = rummyLive || trickLive || ichiLive || skippoLive || phaseitLive || canastaLive
   const trickPalette = trickBoard.variant === 'rooster' ? 'rooster' : 'french'
   const ichiColorCss: Record<string, string> = {
     R: '#c0392b',
@@ -491,7 +554,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     <div className={`spectator-root ${live ? 'is-live' : ''}`} ref={rootRef}>
       <div className="table-felt" />
       <div className="table-brass" />
-      {!isRummy && !isTrick && !isIchi && !isSkippo ? (
+      {!isRummy && !isTrick && !isIchi && !isSkippo && !isPhaseit ? (
         <TableFlyLayer board={board} rootRef={rootRef} />
       ) : null}
 
@@ -499,7 +562,12 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         <>
           <header className="spec-banner">
             <div className="brand-mark">
-              {skippoLive ? (
+              {phaseitLive ? (
+                <>
+                  <span>PHASE IT</span>
+                  <small>TABLE TOP · PLAYER 1 VIEW</small>
+                </>
+              ) : skippoLive ? (
                 <>
                   <span>SKIPPO</span>
                   <small>TABLE TOP · PLAYER 1 VIEW</small>
@@ -527,7 +595,16 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               )}
             </div>
             <div className="score-ticker">
-              {skippoLive ? (
+              {phaseitLive ? (
+                <>
+                  <div>
+                    <em>{variant}</em> {roundLine}
+                  </div>
+                  <div>
+                    <em>{phaseitBoard.playerCount}p</em> · phases race
+                  </div>
+                </>
+              ) : skippoLive ? (
                 <>
                   <div>
                     <em>{variant}</em> {roundLine}
@@ -599,7 +676,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </div>
           </header>
           <p className="spec-turn">
-            {skippoLive
+            {phaseitLive
+              ? phaseItSpectatorStatus(phaseitBoard)
+              : skippoLive
               ? skippoSpectatorStatus(skippoBoard)
               : ichiLive
                 ? ichiSpectatorStatus(ichiBoard)
@@ -609,7 +688,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                     ? rummyPhaseLine(rummyBoard)
                     : phaseLine(board, family)}
           </p>
-          {(skippoLive
+          {(phaseitLive
+            ? phaseitBoard.lastMessage
+            : skippoLive
             ? skippoBoard.lastMessage
             : ichiLive
               ? ichiBoard.lastMessage
@@ -619,7 +700,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                   ? rummyBoard.lastMessage
                   : board.lastMessage) ? (
             <p className="spec-msg">
-              {skippoLive
+              {phaseitLive
+                ? phaseitBoard.lastMessage
+                : skippoLive
                 ? skippoBoard.lastMessage
                 : ichiLive
                   ? ichiBoard.lastMessage
@@ -633,6 +716,61 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         </>
       ) : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
+
+      {phaseitLive ? (
+        <div className="spec-grid is-trick">
+          <div className="spec-north">
+            <PhaseItSeatChip board={phaseitBoard} seat={2} label="opposite" />
+          </div>
+          <div className="spec-them" />
+          <div className="spec-west">
+            <PhaseItSeatChip board={phaseitBoard} seat={3} label="left" />
+          </div>
+          <div className="spec-mid">
+            <div className="spec-trick-center" aria-label="Phase It piles">
+              <span className="pile-label">Stock {phaseitBoard.stockCount}</span>
+              <div className="rummy-card-row" style={{ justifyContent: 'center', gap: '0.35rem' }}>
+                <div className="ichi-face is-md is-back">Deck</div>
+                {phaseitBoard.topDiscard ? (
+                  <div
+                    className="ichi-face is-md"
+                    style={{
+                      background:
+                        phaseitBoard.topDiscard.color === 'R'
+                          ? '#c0392b'
+                          : phaseitBoard.topDiscard.color === 'Y'
+                            ? '#d4a017'
+                            : phaseitBoard.topDiscard.color === 'G'
+                              ? '#1e8449'
+                              : phaseitBoard.topDiscard.color === 'B'
+                                ? '#2471a3'
+                                : '#3d2a4a',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {phaseItCardLabel(phaseitBoard.topDiscard)}
+                  </div>
+                ) : (
+                  <div className="ichi-face is-md is-empty">—</div>
+                )}
+              </div>
+              {phaseitBoard.lastMessage ? (
+                <span className="muted tiny">{phaseitBoard.lastMessage}</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="spec-east">
+            <PhaseItSeatChip board={phaseitBoard} seat={1} label="right" />
+          </div>
+          <div className="spec-south">
+            <PhaseItSeatChip board={phaseitBoard} seat={0} label="this side" />
+          </div>
+        </div>
+      ) : null}
 
       {skippoLive ? (
         <div className="spec-grid is-trick">

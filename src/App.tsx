@@ -12,6 +12,7 @@ import { RummyBoard } from './ui/RummyBoard'
 import { TrickBoard } from './ui/TrickBoard'
 import { IchiBoard } from './ui/IchiBoard'
 import { SkippoBoard } from './ui/SkippoBoard'
+import { PhaseItBoard } from './ui/PhaseItBoard'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { ParkedHud } from './ui/ParkedHud'
 import { Scoreboard } from './ui/Scoreboard'
@@ -21,6 +22,7 @@ import type { RummyVariant } from './core/rummy/types'
 import type { TrickVariant } from './core/trick/types'
 import type { IchiVariant } from './core/ichi/types'
 import type { SkippoVariant } from './core/skippo/types'
+import type { PhaseItVariant } from './core/phaseit/types'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
 import { resumeSolo, startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
@@ -50,10 +52,16 @@ import {
   joinSkippoPeerRoom,
   type SkippoPeerSession,
 } from './net/skippoPeerSession'
+import {
+  createPhaseItPeerHost,
+  joinPhaseItPeerRoom,
+  type PhaseItPeerSession,
+} from './net/phaseitPeerSession'
 import { startRummySolo, type RummyLocalSession } from './ui/rummyLocalSession'
 import { startTrickSolo, type TrickLocalSession } from './ui/trickLocalSession'
 import { startIchiSolo, type IchiLocalSession } from './ui/ichiLocalSession'
 import { startSkippoSolo, type SkippoLocalSession } from './ui/skippoLocalSession'
+import { startPhaseItSolo, type PhaseItLocalSession } from './ui/phaseitLocalSession'
 import {
   clearMatchResume,
   loadMatchResume,
@@ -67,6 +75,7 @@ import { emitRummyDisplay, resetRummyDisplaySync } from './sl/rummyDisplaySync'
 import { emitTrickDisplay, resetTrickDisplaySync } from './sl/trickDisplaySync'
 import { syncIchiDisplay, resetIchiDisplaySync } from './sl/ichiDisplaySync'
 import { syncSkippoDisplay, resetSkippoDisplaySync } from './sl/skippoDisplaySync'
+import { syncPhaseItDisplay, resetPhaseItDisplaySync } from './sl/phaseitDisplaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 import { playYourTurnBell } from './ui/sfx'
 
@@ -96,10 +105,11 @@ function AppInner() {
   const urlPlayHearts = urlPlay === 'hearts' || urlPlay === 'trick'
   const urlPlayIchi = urlPlay === 'ichi'
   const urlPlaySkippo = urlPlay === 'skippo'
+  const urlPlayPhaseIt = urlPlay === 'phaseit'
   const [screen, setScreen] = useState<Screen>(
     tableHud || seatedBrowser
       ? 'sl'
-      : urlPlayRummy || urlPlayHearts || urlPlayIchi || urlPlaySkippo
+      : urlPlayRummy || urlPlayHearts || urlPlayIchi || urlPlaySkippo || urlPlayPhaseIt
         ? 'game'
         : 'menu',
   )
@@ -135,6 +145,11 @@ function AppInner() {
   const [skippoPlay, setSkippoPlay] = useState(urlPlaySkippo)
   const [skippoLocal, setSkippoLocal] = useState<SkippoLocalSession | null>(null)
   const [skippoPeer, setSkippoPeer] = useState<SkippoPeerSession | null>(null)
+  const [phaseitVariant, setPhaseitVariant] = useState<PhaseItVariant>('classic')
+  const [phaseitPlayerCount, setPhaseitPlayerCount] = useState(4)
+  const [phaseitPlay, setPhaseitPlay] = useState(urlPlayPhaseIt)
+  const [phaseitLocal, setPhaseitLocal] = useState<PhaseItLocalSession | null>(null)
+  const [phaseitPeer, setPhaseitPeer] = useState<PhaseItPeerSession | null>(null)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
@@ -250,13 +265,15 @@ function AppInner() {
     const trickUi = family === 'trick' || trickPlay || Boolean(trickLocal) || Boolean(trickPeer)
     const ichiUi = family === 'ichi' || ichiPlay || Boolean(ichiLocal) || Boolean(ichiPeer)
     const skippoUi = family === 'skippo' || skippoPlay || Boolean(skippoLocal) || Boolean(skippoPeer)
-    const hideCanastaChrome = rummyUi || trickUi || ichiUi || skippoUi
+    const phaseitUi = family === 'phaseit' || phaseitPlay || Boolean(phaseitLocal) || Boolean(phaseitPeer)
+    const hideCanastaChrome = rummyUi || trickUi || ichiUi || skippoUi || phaseitUi
     return (
       <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
         <AppChrome
           slBoot={tableHud || seatedBrowser || slBoot?.parked ? slBoot : null}
           parked={Boolean(slBoot?.parked)}
           roomCode={
+            phaseitPeer?.roomCode ||
             skippoPeer?.roomCode ||
             ichiPeer?.roomCode ||
             trickPeer?.roomCode ||
@@ -329,7 +346,9 @@ function AppInner() {
         ichiLocal ||
         ichiPeer?.state ||
         skippoLocal ||
-        skippoPeer?.state) &&
+        skippoPeer?.state ||
+        phaseitLocal ||
+        phaseitPeer?.state) &&
       screen === 'sl'
     )
       setScreen('game')
@@ -343,6 +362,8 @@ function AppInner() {
     ichiPeer?.state,
     skippoLocal,
     skippoPeer?.state,
+    phaseitLocal,
+    phaseitPeer?.state,
     screen,
     tick,
   ])
@@ -404,6 +425,22 @@ function AppInner() {
     setSkippoVariant(skippoPeer.variant)
     setSkippoPlayerCount(skippoPeer.playerCount)
   }, [skippoPeer, tick])
+
+  useEffect(() => {
+    if (!phaseitLocal) return
+    return phaseitLocal.onChange(() => setTick((t) => t + 1))
+  }, [phaseitLocal])
+
+  useEffect(() => {
+    if (!phaseitPeer) return
+    return phaseitPeer.onChange(() => setTick((t) => t + 1))
+  }, [phaseitPeer])
+
+  useEffect(() => {
+    if (!phaseitPeer || phaseitPeer.isHost) return
+    setPhaseitVariant(phaseitPeer.variant)
+    setPhaseitPlayerCount(phaseitPeer.playerCount)
+  }, [phaseitPeer, tick])
 
   useEffect(() => {
     if (!state?.lastMessage) return
@@ -468,6 +505,14 @@ function AppInner() {
     syncSkippoDisplay(skippoState, slBoot.slCap, slBoot.uid, slBoot.seat)
   }, [tick, skippoLocal, skippoPeer, slBoot, tableHud])
 
+  useEffect(() => {
+    const phaseitState = phaseitLocal?.state ?? phaseitPeer?.state
+    if (!phaseitState || !tableHud || !slBoot?.slCap) return
+    const isEmitter = Boolean(phaseitLocal) || phaseitPeer?.isHost === true
+    if (!isEmitter) return
+    syncPhaseItDisplay(phaseitState, slBoot.slCap, slBoot.uid, slBoot.seat)
+  }, [tick, phaseitLocal, phaseitPeer, slBoot, tableHud])
+
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
     if (local) {
@@ -502,6 +547,43 @@ function AppInner() {
     ichiPeer?.destroy()
     skippoLocal?.destroy()
     skippoPeer?.destroy()
+    phaseitLocal?.destroy()
+    phaseitPeer?.destroy()
+    if (family === 'phaseit') {
+      if (tableHud && slBoot?.slCap) {
+        try {
+          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, phaseitPlayerCount)
+        } catch (e) {
+          push(e instanceof Error ? e.message : 'Could not claim table')
+        }
+      }
+      const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
+      const ctrl = startPhaseItSolo(name, phaseitPlayerCount, phaseitVariant, humanSeat)
+      resetPhaseItDisplaySync()
+      setLocal(null)
+      setPeer(null)
+      setRummyPeer(null)
+      setRummyLocal(null)
+      setTrickPeer(null)
+      setTrickLocal(null)
+      setIchiPeer(null)
+      setIchiLocal(null)
+      setSkippoPeer(null)
+      setSkippoLocal(null)
+      setPhaseitPeer(null)
+      setPhaseitLocal(ctrl)
+      setRummyPlay(false)
+      setTrickPlay(false)
+      setIchiPlay(false)
+      setSkippoPlay(false)
+      setPhaseitPlay(false)
+      slMatchKind.current = tableHud ? 'solo' : 'none'
+      setScreen('game')
+      push(
+        `Phase It solo — ${phaseitPlayerCount} players (you + ${phaseitPlayerCount - 1} bot${phaseitPlayerCount > 2 ? 's' : ''}).`,
+      )
+      return
+    }
     if (family === 'skippo') {
       if (tableHud && slBoot?.slCap) {
         try {
@@ -523,10 +605,13 @@ function AppInner() {
       setIchiLocal(null)
       setSkippoPeer(null)
       setSkippoLocal(ctrl)
+      setPhaseitPeer(null)
+      setPhaseitLocal(null)
       setRummyPlay(false)
       setTrickPlay(false)
       setIchiPlay(false)
       setSkippoPlay(false)
+      setPhaseitPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       push(
@@ -553,12 +638,15 @@ function AppInner() {
       setTrickLocal(null)
       setSkippoPeer(null)
       setSkippoLocal(null)
+      setPhaseitPeer(null)
+      setPhaseitLocal(null)
       setIchiPeer(null)
       setIchiLocal(ctrl)
       setRummyPlay(false)
       setTrickPlay(false)
       setIchiPlay(false)
       setSkippoPlay(false)
+      setPhaseitPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       push(
@@ -588,6 +676,7 @@ function AppInner() {
       setRummyPlay(false)
       setIchiPlay(false)
       setSkippoPlay(false)
+      setPhaseitPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       push(`Rummy solo — ${rummyPlayerCount} players (you + ${rummyPlayerCount - 1} bot${rummyPlayerCount > 2 ? 's' : ''}).`)
@@ -623,6 +712,7 @@ function AppInner() {
       setTrickPlay(false)
       setIchiPlay(false)
       setSkippoPlay(false)
+      setPhaseitPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       const labels: Record<string, string> = {
@@ -688,6 +778,8 @@ function AppInner() {
     ichiPeer?.destroy()
     skippoLocal?.destroy()
     skippoPeer?.destroy()
+    phaseitLocal?.destroy()
+    phaseitPeer?.destroy()
     setPeer(null)
     setLocal(null)
     setRummyPeer(null)
@@ -698,10 +790,13 @@ function AppInner() {
     setIchiPeer(null)
     setSkippoLocal(null)
     setSkippoPeer(null)
+    setPhaseitLocal(null)
+    setPhaseitPeer(null)
     setRummyPlay(false)
     setTrickPlay(false)
     setIchiPlay(false)
     setSkippoPlay(false)
+    setPhaseitPlay(false)
     if (tableHud && slBoot?.slCap && slMatchKind.current !== 'none') {
       try {
         await tableEndGame(slBoot.slCap, slBoot.uid, slBoot.seat)
@@ -798,7 +893,9 @@ function AppInner() {
     !ichiLocal &&
     !ichiPeer?.state &&
     !skippoLocal &&
-    !skippoPeer?.state
+    !skippoPeer?.state &&
+    !phaseitLocal &&
+    !phaseitPeer?.state
   ) {
     return wrap(
       <SlTableScreens
@@ -854,6 +951,7 @@ function AppInner() {
             family !== 'trick' &&
             family !== 'ichi' &&
             family !== 'skippo' &&
+            family !== 'phaseit' &&
             loadMatchResume({ uid: slBoot.uid, seat: slBoot.seat, tableId: slBoot.tableId }),
         )}
         ichiVariant={ichiVariant}
@@ -881,6 +979,16 @@ function AppInner() {
           setSkippoPlayerCount(next)
           skippoPeer?.setPlayerCount(next)
         }}
+        phaseitVariant={phaseitVariant}
+        onPhaseitVariant={(v) => {
+          setPhaseitVariant(v)
+          phaseitPeer?.setVariant(v)
+        }}
+        phaseitPlayerCount={phaseitPlayerCount}
+        onPhaseitPlayerCount={(n) => {
+          setPhaseitPlayerCount(n)
+          phaseitPeer?.setPlayerCount(n)
+        }}
         onCreatedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
@@ -888,6 +996,31 @@ function AppInner() {
           trickPeer?.destroy()
           ichiPeer?.destroy()
           skippoPeer?.destroy()
+          phaseitPeer?.destroy()
+          if (family === 'phaseit') {
+            const session = await createPhaseItPeerHost(name, {
+              roomCode,
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+              variant: phaseitVariant,
+              playerCount: phaseitPlayerCount,
+            })
+            resetPhaseItDisplaySync()
+            setPhaseitPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'skippo') {
             const session = await createSkippoPeerHost(name, {
               roomCode,
@@ -907,6 +1040,8 @@ function AppInner() {
             setIchiPeer(null)
             setIchiLocal(null)
             setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
             slMatchKind.current = 'mp'
             return
           }
@@ -992,6 +1127,27 @@ function AppInner() {
           trickPeer?.destroy()
           ichiPeer?.destroy()
           skippoPeer?.destroy()
+          phaseitPeer?.destroy()
+          if (family === 'phaseit') {
+            const session = await joinPhaseItPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setPhaseitPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'skippo') {
             const session = await joinSkippoPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -1007,6 +1163,8 @@ function AppInner() {
             setIchiPeer(null)
             setIchiLocal(null)
             setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
             slMatchKind.current = 'mp'
             return
           }
@@ -1075,7 +1233,9 @@ function AppInner() {
           const occupants = (tableStatus?.roster || [])
             .filter((r) => r.seat >= 0 && r.joined)
             .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid, joined: true }))
-          if (family === 'skippo') {
+          if (family === 'phaseit') {
+            phaseitPeer?.startMatch(occupants)
+          } else if (family === 'skippo') {
             skippoPeer?.startMatch(occupants)
           } else if (family === 'ichi') {
             ichiPeer?.startMatch(occupants)
@@ -1094,11 +1254,13 @@ function AppInner() {
           trickPeer?.destroy()
           ichiPeer?.destroy()
           skippoPeer?.destroy()
+          phaseitPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
           setIchiPeer(null)
           setSkippoPeer(null)
+          setPhaseitPeer(null)
           slMatchKind.current = 'none'
         }}
         onDetachPeer={() => {
@@ -1107,15 +1269,17 @@ function AppInner() {
           trickPeer?.destroy()
           ichiPeer?.destroy()
           skippoPeer?.destroy()
+          phaseitPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
           setIchiPeer(null)
           setSkippoPeer(null)
+          setPhaseitPeer(null)
           slMatchKind.current = 'none'
         }}
         peerHasState={Boolean(
-          peer?.state || rummyPeer?.state || trickPeer?.state || ichiPeer?.state || skippoPeer?.state,
+          peer?.state || rummyPeer?.state || trickPeer?.state || ichiPeer?.state || skippoPeer?.state || phaseitPeer?.state,
         )}
         onRejoinPeer={async (roomCode) => {
           peer?.destroy()
@@ -1124,6 +1288,27 @@ function AppInner() {
           trickPeer?.destroy()
           ichiPeer?.destroy()
           skippoPeer?.destroy()
+          phaseitPeer?.destroy()
+          if (family === 'phaseit') {
+            const session = await joinPhaseItPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setPhaseitPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'skippo') {
             const session = await joinSkippoPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -1206,9 +1391,10 @@ function AppInner() {
           peer?.roomCode
         }
         peerSeats={
-          skippoPeer?.seats || ichiPeer?.seats || trickPeer?.seats || rummyPeer?.seats || peer?.seats
+          phaseitPeer?.seats || skippoPeer?.seats || ichiPeer?.seats || trickPeer?.seats || rummyPeer?.seats || peer?.seats
         }
         isPeerHost={
+          phaseitPeer?.isHost ??
           skippoPeer?.isHost ??
           ichiPeer?.isHost ??
           trickPeer?.isHost ??
@@ -1216,6 +1402,7 @@ function AppInner() {
           peer?.isHost
         }
         onPeerReadyToggle={(ready) => {
+          phaseitPeer?.setReady(ready)
           skippoPeer?.setReady(ready)
           ichiPeer?.setReady(ready)
           trickPeer?.setReady(ready)
@@ -1228,6 +1415,31 @@ function AppInner() {
           writeCoachTips(on)
           setCoachTips(on)
         }}
+      />,
+    )
+  }
+
+  if (phaseitLocal || phaseitPeer?.state || phaseitPlay) {
+    const ctrl = phaseitLocal || phaseitPeer
+    return wrap(
+      <PhaseItBoard
+        yourName={name}
+        variant={phaseitVariant}
+        playerCount={phaseitPlayerCount}
+        controller={
+          ctrl?.state
+            ? {
+                state: ctrl.state,
+                localIndex: ctrl.localIndex,
+                aiThinking: ctrl.aiThinking,
+                submit: (m) => ctrl.submit(m),
+                nextHand: () => ctrl.nextHand(),
+                newMatch: phaseitLocal ? () => phaseitLocal.newMatch() : undefined,
+                onChange: (cb) => ctrl.onChange(cb),
+              }
+            : null
+        }
+        onExit={() => void leaveToMenu(true)}
       />,
     )
   }
