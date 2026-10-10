@@ -192,7 +192,7 @@ function buildSkippoSession(
   let state: SkippoState | null = null
   let status = isHost ? `Room ${code}` : 'Joining…'
   let variant: SkippoVariant = opts?.variant || 'classic'
-  let playerCount = clampSkippoPlayerCount(opts?.playerCount || 4)
+  let playerCount = clampSkippoPlayerCount(opts?.playerCount || 4, variant)
   let aiThinking = false
   let cancelled = false
   let running = false
@@ -303,12 +303,12 @@ function buildSkippoSession(
     }
     if (msg.t === 'variant' && isHost) {
       variant = msg.variant
-      playerCount = clampSkippoPlayerCount(playerCount)
+      playerCount = clampSkippoPlayerCount(playerCount, variant)
       syncLobby()
       return
     }
     if (msg.t === 'playerCount' && isHost) {
-      playerCount = clampSkippoPlayerCount(msg.playerCount)
+      playerCount = clampSkippoPlayerCount(msg.playerCount, variant)
       syncLobby()
       return
     }
@@ -422,12 +422,12 @@ function buildSkippoSession(
     setVariant: (v) => {
       if (!isHost) return
       variant = v
-      playerCount = clampSkippoPlayerCount(playerCount)
+      playerCount = clampSkippoPlayerCount(playerCount, variant)
       syncLobby()
     },
     setPlayerCount: (n) => {
       if (!isHost) return
-      playerCount = clampSkippoPlayerCount(n)
+      playerCount = clampSkippoPlayerCount(n, variant)
       syncLobby()
     },
     startMatch: (occupants = []) => {
@@ -457,7 +457,8 @@ function buildSkippoSession(
     submit: (move) => {
       if (!state) return { ok: false, error: 'No match' }
       const li = localIndexOf()
-      if (state.current !== li) return { ok: false, error: 'Not your turn' }
+      const canJump = move.t === 'jumpIn' && state.config.jumpIn
+      if (!canJump && state.current !== li) return { ok: false, error: 'Not your turn' }
       if (isHost) {
         const res = applySkippoMove(state, move)
         if (!res.ok) return res

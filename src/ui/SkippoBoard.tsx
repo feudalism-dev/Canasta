@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { pumpSkippoBots } from '../ai/skippoBot'
 import { cardLabel, sortSkippoHand } from '../core/skippo/deck'
-import { applySkippoMove, legalPlays, type LegalPlay } from '../core/skippo/rules'
+import { applySkippoMove, legalJumpIns, legalPlays, type LegalPlay } from '../core/skippo/rules'
 import { createSkippoMatch, dealNextSkippoRound, stockTop } from '../core/skippo/state'
 import type { SkippoCard, SkippoMove, SkippoState, SkippoVariant } from '../core/skippo/types'
-import { skippoTip, skippoVariantLabel } from '../core/skippo/variants'
+import { partnerIndex, skippoTip, skippoVariantLabel } from '../core/skippo/variants'
 
 export type SkippoBoardController = {
   state: SkippoState
@@ -128,10 +128,22 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
   const matchOver = state?.phase === 'matchEnd'
   const yourTurn = state != null && state.current === localIndex && state.phase === 'play'
   const actingName = state?.players[state.current]?.name ?? 'Someone'
+  const jumpMode =
+    state != null &&
+    state.config.jumpIn &&
+    state.phase === 'play' &&
+    !yourTurn &&
+    !roundOver &&
+    !matchOver
 
   const legal = useMemo(
-    () => (state && yourTurn ? legalPlays(state, localIndex) : []),
-    [state, yourTurn, localIndex, tick],
+    () =>
+      state && yourTurn
+        ? legalPlays(state, localIndex)
+        : state && jumpMode
+          ? legalJumpIns(state, localIndex)
+          : [],
+    [state, yourTurn, jumpMode, localIndex, tick],
   )
 
   const play = (move: SkippoMove) => {
@@ -196,25 +208,28 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
         (discardIndex == null || p.discardIndex === discardIndex),
     )
 
+  const moveKind = jumpMode ? ('jumpIn' as const) : ('play' as const)
+  const canInteract = yourTurn || jumpMode
+
   const onSelectCard = (
     source: 'hand' | 'stock' | 'discard',
     cardId: string,
     discardIndex?: 0 | 1 | 2 | 3,
   ) => {
-    if (!yourTurn) return
-    if (discardMode && source === 'hand') {
+    if (!canInteract) return
+    if (yourTurn && discardMode && source === 'hand') {
       setSelected({ source, cardId })
       return
     }
     const opts = playsFor(source, cardId, discardIndex)
     if (!opts.length) {
-      if (source === 'hand') setSelected({ source, cardId })
+      if (source === 'hand' && yourTurn) setSelected({ source, cardId })
       return
     }
     if (opts.length === 1) {
       const p = opts[0]!
       play({
-        t: 'play',
+        t: moveKind,
         source: p.source,
         builder: p.builder,
         cardId: p.source === 'hand' ? p.card.id : undefined,
@@ -231,7 +246,9 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
       : []
 
   return (
-    <div className={`shell-game skippo-board rummy-board${yourTurn ? ' is-your-turn' : ''}`}>
+    <div
+      className={`shell-game skippo-board rummy-board${yourTurn || jumpMode ? ' is-your-turn' : ''}`}
+    >
       <header className="rummy-head">
         <button type="button" className="btn ghost" onClick={onExit}>
           Quit to Menu
@@ -239,10 +256,12 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
         <div>
           <h2>
             {skippoVariantLabel(state.config.variant)} · {state.players.length} players
+            {state.config.partners ? ' · partners' : ''}
           </h2>
           <p className="muted">
             Hand {state.round}
             {playTo != null ? ` · first to ${playTo}` : ''}
+            {` · stock ${state.config.stockSize}`}
             {` · draw ${state.draw.length}`}
           </p>
           <p className="rummy-tip">{skippoTip(state.config.variant)}</p>
@@ -250,17 +269,19 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
       </header>
 
       <div
-        className={`rummy-turn-banner is-${yourTurn ? 'you' : thinking ? 'wait' : 'other'}`}
+        className={`rummy-turn-banner is-${yourTurn || jumpMode ? 'you' : thinking ? 'wait' : 'other'}`}
         role="status"
       >
         <strong>
-          {thinking && !yourTurn
+          {thinking && !yourTurn && !jumpMode
             ? 'Computers are thinking…'
             : yourTurn
               ? discardMode
                 ? 'Discard one card to end your turn'
                 : 'Your turn — play, then discard'
-              : `${actingName}'s turn`}
+              : jumpMode && legal.length
+                ? 'Jump in! Exact rank on a builder'
+                : `${actingName}'s turn`}
         </strong>
         <span>{status}</span>
       </div>
@@ -282,6 +303,7 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
               <span className="rummy-score-name">
                 {p.name}
                 {pi === localIndex ? ' (you)' : ''}
+                {state.config.partners && partnerIndex(state, localIndex) === pi ? ' · partner' : ''}
                 {isWinner ? ' — wins' : isLeader && !matchOver ? ' · lead' : ''}
               </span>
               <span className="rummy-score-total">{p.score}</span>
@@ -332,7 +354,7 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
         <div className="rummy-piles skippo-builders">
           {state.builders.map((b, bi) => {
             const top = b.cards[b.cards.length - 1] ?? null
-            const canDrop = yourTurn && builderTargets.includes(bi as 0 | 1 | 2 | 3)
+            const canDrop = canInteract && builderTargets.includes(bi as 0 | 1 | 2 | 3)
             return (
               <div key={bi} className="rummy-pile">
                 <span className="pile-label">
@@ -347,7 +369,7 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
                       canDrop && selected
                         ? () =>
                             play({
-                              t: 'play',
+                              t: moveKind,
                               source: selected.source,
                               builder: bi as 0 | 1 | 2 | 3,
                               cardId: selected.source === 'hand' ? selected.cardId : undefined,
@@ -364,7 +386,7 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
                     onClick={() => {
                       if (!canDrop || !selected) return
                       play({
-                        t: 'play',
+                        t: moveKind,
                         source: selected.source,
                         builder: bi as 0 | 1 | 2 | 3,
                         cardId: selected.source === 'hand' ? selected.cardId : undefined,
@@ -388,9 +410,9 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
             <SkippoCardFace
               card={myStockTop}
               size="lg"
-              legal={yourTurn && playsFor('stock', myStockTop.id).length > 0}
+              legal={canInteract && !discardMode && playsFor('stock', myStockTop.id).length > 0}
               onClick={
-                yourTurn && !discardMode
+                canInteract && !discardMode
                   ? () => onSelectCard('stock', myStockTop.id)
                   : undefined
               }
@@ -405,7 +427,7 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
             {you.discards.map((pile, di) => {
               const top = pile[pile.length - 1]
               const canPlay =
-                yourTurn &&
+                canInteract &&
                 !discardMode &&
                 top &&
                 playsFor('discard', top.id, di as 0 | 1 | 2 | 3).length > 0
@@ -456,16 +478,16 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
         </div>
       </div>
 
-      <div className={`rummy-hand${yourTurn ? ' is-active' : ''}`} aria-label="Your hand">
+      <div className={`rummy-hand${canInteract ? ' is-active' : ''}`} aria-label="Your hand">
         {orderedHand.map((c) => {
-          const can = yourTurn && !discardMode && playsFor('hand', c.id).length > 0
+          const can = canInteract && !discardMode && playsFor('hand', c.id).length > 0
           const sel = selected?.source === 'hand' && selected.cardId === c.id
           return (
             <button
               key={c.id}
               type="button"
               className={`rummy-hand-slot ichi-hand-slot${can || (discardMode && yourTurn) ? ' is-legal-slot' : ''}${sel ? ' is-selected' : ''}`}
-              disabled={!yourTurn}
+              disabled={!canInteract}
               onClick={() => onSelectCard('hand', c.id)}
             >
               <SkippoCardFace card={c} size="md" legal={can || sel} />
@@ -474,7 +496,9 @@ export function SkippoBoard({ yourName, variant, playerCount = 4, onExit, contro
         })}
       </div>
       <p className="muted tiny rummy-hand-hint">
-        Tap a legal card (hand, stock top, or discard top), then a builder if needed. End with Discard.
+        {jumpMode
+          ? 'Jump-In: tap an exact-rank card (no wilds), then the matching builder.'
+          : 'Tap a legal card (hand, stock top, or discard top), then a builder if needed. End with Discard.'}
       </p>
 
       <div className="rummy-actions">

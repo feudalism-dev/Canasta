@@ -5,7 +5,7 @@ import {
   encodeSkippoPublicBoard,
   skippoPublicBoardFromState,
 } from './publicBoard'
-import { applySkippoMove, legalPlays } from './rules'
+import { applySkippoMove, legalJumpIns, legalPlays } from './rules'
 import { createSkippoMatch, stockTop } from './state'
 
 describe('Skippo deck', () => {
@@ -92,6 +92,71 @@ describe('Classic Skippo', () => {
     expect(s.current).toBe(1 - me)
     expect(s.players[s.current]!.hand.length).toBeGreaterThanOrEqual(5)
     expect(s.players[me]!.discards[0]).toHaveLength(1)
+  })
+})
+
+describe('Skippo variants', () => {
+  it('short stock deals 20', () => {
+    const s = createSkippoMatch(['A', 'B'], [false, true], 'short', 31)
+    expect(s.config.stockSize).toBe(20)
+    expect(s.players.every((p) => p.stock.length === 20)).toBe(true)
+    expect(s.config.playTo).toBe(300)
+  })
+
+  it('partners forces 4 and scores the team', () => {
+    let s = createSkippoMatch(['A', 'B', 'C', 'D'], [false, false, false, false], 'partners', 33)
+    expect(s.players).toHaveLength(4)
+    expect(s.config.partners).toBe(true)
+    // Physical seats default 0..3 — A partners with C
+    s.players[0]!.seat = 0
+    s.players[1]!.seat = 1
+    s.players[2]!.seat = 2
+    s.players[3]!.seat = 3
+    s.current = 0
+    s.builders[0]!.next = 1
+    s.players[0]!.stock = [{ id: 'last', rank: 1 }]
+    s.players[0]!.hand = [
+      { id: 'h1', rank: 5 },
+      { id: 'h2', rank: 6 },
+      { id: 'h3', rank: 7 },
+      { id: 'h4', rank: 8 },
+      { id: 'h5', rank: 9 },
+    ]
+    s.players[1]!.stock = [{ id: 'b1', rank: 2 }]
+    s.players[3]!.stock = [{ id: 'd1', rank: null }]
+    const res = applySkippoMove(s, { t: 'play', source: 'stock', builder: 0 })
+    expect(res.ok).toBe(true)
+    if (res.ok) s = res.state
+    expect(s.phase).toBe('roundEnd')
+    expect(s.players[0]!.score).toBe(s.players[2]!.score)
+    expect(s.players[0]!.score).toBeGreaterThan(0)
+  })
+
+  it('jump-in allows exact off-turn play', () => {
+    let s = createSkippoMatch(['A', 'B'], [false, false], 'jumpin', 35)
+    expect(s.config.jumpIn).toBe(true)
+    const me = s.current
+    const other = 1 - me
+    s.builders[0]!.next = 4
+    s.players[other]!.hand = [
+      { id: 'j4', rank: 4 },
+      { id: 'x1', rank: 9 },
+      { id: 'x2', rank: 10 },
+      { id: 'x3', rank: 11 },
+      { id: 'x4', rank: 12 },
+    ]
+    const jumps = legalJumpIns(s, other)
+    expect(jumps.some((p) => p.card.id === 'j4')).toBe(true)
+    const res = applySkippoMove(s, {
+      t: 'jumpIn',
+      source: 'hand',
+      cardId: 'j4',
+      builder: 0,
+    })
+    expect(res.ok).toBe(true)
+    if (res.ok) s = res.state
+    expect(s.current).toBe(me)
+    expect(s.builders[0]!.next).toBe(5)
   })
 })
 

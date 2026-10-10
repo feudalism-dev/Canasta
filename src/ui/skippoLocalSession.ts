@@ -43,7 +43,7 @@ export function startSkippoSolo(
   variant: SkippoVariant = 'classic',
   humanSeat = 0,
 ): SkippoLocalSession {
-  const n = clampSkippoPlayerCount(playerCount)
+  const n = clampSkippoPlayerCount(playerCount, variant)
   const roster = skippoSoloRoster(name, n)
   const seats = skippoSoloPhysicalSeats(humanSeat, n)
   let state = withPhysicalSeats(createSkippoMatch(roster.names, roster.computers, variant), seats)

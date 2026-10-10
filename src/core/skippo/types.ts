@@ -1,6 +1,6 @@
 /** Skippo — sequencing parlor family (Skip-Bo style). */
 
-export type SkippoVariant = 'classic'
+export type SkippoVariant = 'classic' | 'short' | 'partners' | 'jumpin'
 
 export type SkippoRank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
 
@@ -36,6 +36,10 @@ export type SkippoConfig = {
   playerCount: number
   playTo: number | null
   stockSize: number
+  /** Partners across (physical seats). Forces 4 players. */
+  partners: boolean
+  /** Exact-rank jump-in allowed off-turn (no wilds). */
+  jumpIn: boolean
 }
 
 export type SkippoHandScoreLine = {
@@ -70,3 +74,4 @@ export type SkippoSource = 'hand' | 'stock' | 'discard'
 export type SkippoMove =
   | { t: 'play'; source: SkippoSource; builder: 0 | 1 | 2 | 3; cardId?: string; discardIndex?: 0 | 1 | 2 | 3 }
   | { t: 'discard'; cardId: string; discardIndex: 0 | 1 | 2 | 3 }
+  | { t: 'jumpIn'; source: SkippoSource; builder: 0 | 1 | 2 | 3; cardId?: string; discardIndex?: 0 | 1 | 2 | 3 }

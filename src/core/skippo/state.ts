@@ -1,6 +1,6 @@
 import { buildSkippoDeck, shuffleDeck, sortSkippoHand } from './deck'
 import { scoreStockOut } from './score'
-import { clampSkippoPlayerCount, skippoConfig, skippoVariantLabel } from './variants'
+import { skippoConfig, skippoVariantLabel } from './variants'
 import type { SkippoBuilder, SkippoCard, SkippoPlayer, SkippoState, SkippoVariant } from './types'
 
 export function cloneSkippo(state: SkippoState): SkippoState {
@@ -62,8 +62,8 @@ export function createSkippoMatch(
   variant: SkippoVariant = 'classic',
   seed = Date.now(),
 ): SkippoState {
-  const n = clampSkippoPlayerCount(names.length)
-  const config = skippoConfig(variant, n)
+  const config = skippoConfig(variant, names.length)
+  const n = config.playerCount
   const useNames = names.slice(0, n)
   while (useNames.length < n) useNames.push(`P${useNames.length + 1}`)
   const useComp = computers.slice(0, n)

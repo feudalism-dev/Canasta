@@ -104,10 +104,18 @@ export function encodeSkippoPublicBoard(board: SkippoPublicBoard): string {
   const turn = board.currentSeat < 0 ? '-' : String(board.currentSeat)
   const tops = board.builders.map((c) => (c ? encodeSkippoFace(c) : '-')).join(',')
   const nexts = board.builderNext.join(',')
+  const variantCh =
+    board.variant === 'short'
+      ? 's'
+      : board.variant === 'partners'
+        ? 'p'
+        : board.variant === 'jumpin'
+          ? 'j'
+          : 'c'
   const head = [
     'K1',
     '1',
-    'c',
+    variantCh,
     String(board.playerCount),
     String(board.round),
     playTo,
@@ -164,7 +172,14 @@ export function decodeSkippoPublicBoard(raw: string): SkippoPublicBoard {
 
   return {
     live: true,
-    variant: 'classic',
+    variant:
+      head[2] === 's'
+        ? 'short'
+        : head[2] === 'p'
+          ? 'partners'
+          : head[2] === 'j'
+            ? 'jumpin'
+            : 'classic',
     playerCount: Number(head[3]) || players.length || 4,
     round: Number(head[4]) || 1,
     playTo: playRaw === '-' ? null : Number(playRaw),

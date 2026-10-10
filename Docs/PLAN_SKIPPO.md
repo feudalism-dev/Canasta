@@ -34,6 +34,9 @@ Brand name **Skippo** (not a commercial trademark). Sequencing / builder piles.
 | Id | Status | Notes |
 |----|--------|--------|
 | `classic` | ready | Stock 30; hand 5; 4 builders; 4 discards; to 500 |
+| `short` | ready | Stock 20; to 300 |
+| `partners` | ready | Always 4; across teams; shared hand score |
+| `jumpin` | ready | Exact-rank off-turn jump-in (no wilds) |
 
 See `RULES_SKIPPO.md`.
 

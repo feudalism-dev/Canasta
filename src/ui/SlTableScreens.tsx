@@ -499,8 +499,8 @@ export function SlTableScreens({
             <label>
               Players at the table (humans + bots in empty seats)
               <select
-                value={skippoPlayerCount}
-                disabled={!canEditRules}
+                value={skippoVariant === 'partners' ? 4 : skippoPlayerCount}
+                disabled={!canEditRules || skippoVariant === 'partners'}
                 onChange={(e) => onSkippoPlayerCount(Number(e.target.value))}
               >
                 <option value={2}>2 — 1v1 bot (solo) or 2 humans</option>
@@ -509,8 +509,13 @@ export function SlTableScreens({
               </select>
             </label>
             <p className="muted">
-              {skippoPlayerCount} seats · build 1–12, empty your 30-card stock. First to 500.
-              Empty chairs become bots.
+              {skippoVariant === 'partners'
+                ? 'Partners is always 4 — sit across from your teammate. Empty chairs become bots.'
+                : skippoVariant === 'short'
+                  ? `${skippoPlayerCount} seats · stock 20 · match to 300. Empty chairs become bots.`
+                  : skippoVariant === 'jumpin'
+                    ? `${skippoPlayerCount} seats · jump in with exact ranks off-turn. Empty chairs become bots.`
+                    : `${skippoPlayerCount} seats · stock 30 · match to 500. Empty chairs become bots.`}
             </p>
           </>
         ) : null}
@@ -649,7 +654,8 @@ export function SlTableScreens({
                 !['hearts', 'rooster', 'spades', 'euchre', 'ohhell'].includes(trickVariant)) ||
               (isIchiTable &&
                 !['classic', 'eights', 'dos', 'switch', 'palace', 'flip'].includes(ichiVariant)) ||
-              (isSkippoTable && skippoVariant !== 'classic')
+              (isSkippoTable &&
+                !['classic', 'short', 'partners', 'jumpin'].includes(skippoVariant))
             }
             onClick={async () => {
               setBusy(true)

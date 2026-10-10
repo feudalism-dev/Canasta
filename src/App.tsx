@@ -869,12 +869,17 @@ function AppInner() {
         skippoVariant={skippoVariant}
         onSkippoVariant={(v) => {
           setSkippoVariant(v)
+          if (v === 'partners') {
+            setSkippoPlayerCount(4)
+            skippoPeer?.setPlayerCount(4)
+          }
           skippoPeer?.setVariant(v)
         }}
-        skippoPlayerCount={skippoPlayerCount}
+        skippoPlayerCount={skippoVariant === 'partners' ? 4 : skippoPlayerCount}
         onSkippoPlayerCount={(n) => {
-          setSkippoPlayerCount(n)
-          skippoPeer?.setPlayerCount(n)
+          const next = skippoVariant === 'partners' ? 4 : n
+          setSkippoPlayerCount(next)
+          skippoPeer?.setPlayerCount(next)
         }}
         onCreatedMp={async (roomCode) => {
           peer?.destroy()
