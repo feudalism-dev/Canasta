@@ -146,10 +146,17 @@ export function kindLabel(kind: IchiKind): string {
   if (kind === 'skip') return 'Skip'
   if (kind === 'reverse') return 'Rev'
   if (kind === 'draw2') return '+2'
-  if (kind === 'wild') return 'Wild'
-  if (kind === 'wdf') return '+4'
+  if (kind === 'wild') return 'WILD'
+  if (kind === 'wdf') return 'Wild +4'
   if (kind === 'flip') return 'Flip'
   return kind
+}
+
+/** Compact corner text so longer center labels (e.g. Wild +4) still fit. */
+export function kindCornerLabel(kind: IchiKind): string {
+  if (kind === 'wild') return 'W'
+  if (kind === 'wdf') return '+4'
+  return kindLabel(kind)
 }
 
 export function colorLabel(c: IchiColor): string {

@@ -4,6 +4,7 @@ import {
   colorLabel,
   faceColor,
   faceKind,
+  kindCornerLabel,
   kindLabel,
   ICHI_COLORS,
   sortIchiHand,
@@ -57,13 +58,15 @@ function IchiCardFace({
   const kind = faceKind(card, side)
   const bg = col ? COLOR_CSS[col] : '#1e2a33'
   const label = kindLabel(kind)
-  const cls = `ichi-face is-${size}${dimmed ? ' is-dim' : ''}${legal ? ' is-legal' : ''}${onClick ? ' is-clickable' : ''}${side === 'dark' ? ' is-dark-side' : ''}`
+  const corner = kindCornerLabel(kind)
+  const long = label.length > 3
+  const cls = `ichi-face is-${size}${dimmed ? ' is-dim' : ''}${legal ? ' is-legal' : ''}${onClick ? ' is-clickable' : ''}${side === 'dark' ? ' is-dark-side' : ''}${long ? ' is-long-label' : ''}`
   const aria = `${label}${col ? ` ${colorLabel(col)}` : ' wild'}${side === 'dark' ? ' (dark)' : ''}`
   const body = (
     <>
-      <span className="ichi-face-corner">{label}</span>
+      <span className="ichi-face-corner">{corner}</span>
       <span className="ichi-face-center">{label}</span>
-      <span className="ichi-face-corner is-br">{label}</span>
+      <span className="ichi-face-corner is-br">{corner}</span>
     </>
   )
   if (onClick) {

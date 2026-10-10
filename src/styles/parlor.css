@@ -1799,6 +1799,18 @@ ul {
   font-size: 1.35rem;
 }
 
+.ichi-face.is-long-label .ichi-face-center {
+  font-size: 0.78rem;
+  line-height: 1.05;
+  text-align: center;
+  max-width: 90%;
+  white-space: pre-line;
+}
+
+.ichi-face.is-lg.is-long-label .ichi-face-center {
+  font-size: 0.95rem;
+}
+
 .ichi-hand-slot {
   border: none;
   background: transparent;
