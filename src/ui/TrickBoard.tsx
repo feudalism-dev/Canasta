@@ -571,7 +571,7 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
                 className="btn primary"
                 onClick={() => play({ t: 'nameTrump', suit })}
               >
-                Trump {ROOSTER_COLOR[suit]}
+                Trump {ROOSTER_COLOR[suit as Exclude<Suit, 'J'>]}
               </button>
             ))}
           </>
