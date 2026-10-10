@@ -1711,6 +1711,133 @@ ul {
   filter: grayscale(0.35);
 }
 
+/* -- Ichi board (shares rummy chrome; color-faced cards) -- */
+.ichi-board.rummy-board {
+  max-width: 52rem;
+}
+
+.ichi-piles {
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1.25rem;
+}
+
+.ichi-face {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.35rem;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  color: #fff;
+  font-family: var(--font-display, Georgia, serif);
+  font-weight: 700;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  user-select: none;
+}
+
+.ichi-face.is-md {
+  width: var(--card-w-md);
+  height: var(--card-h-md);
+}
+
+.ichi-face.is-lg {
+  width: var(--card-w-lg);
+  height: var(--card-h-lg);
+}
+
+.ichi-face.is-back {
+  background: linear-gradient(145deg, #1a2e24, #0c1a14);
+  border-color: rgba(201, 162, 39, 0.45);
+}
+
+.ichi-face.is-empty {
+  background: rgba(0, 0, 0, 0.25);
+  border-style: dashed;
+  opacity: 0.65;
+}
+
+.ichi-face.is-dim {
+  opacity: 0.38;
+  filter: grayscale(0.25);
+}
+
+.ichi-face.is-legal {
+  box-shadow:
+    0 0 0 2px rgba(201, 162, 39, 0.85),
+    0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.ichi-face.is-clickable {
+  cursor: pointer;
+}
+
+.ichi-face-corner {
+  position: absolute;
+  top: 0.2rem;
+  left: 0.3rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  opacity: 0.95;
+}
+
+.ichi-face-corner.is-br {
+  top: auto;
+  left: auto;
+  bottom: 0.2rem;
+  right: 0.3rem;
+  transform: rotate(180deg);
+}
+
+.ichi-face-center {
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.ichi-face.is-lg .ichi-face-center {
+  font-size: 1.35rem;
+}
+
+.ichi-hand-slot {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.ichi-hand-slot:disabled,
+.ichi-hand-slot.is-illegal {
+  cursor: not-allowed;
+}
+
+.ichi-hand-slot.is-legal-slot:not(:disabled):hover .ichi-face {
+  transform: translateY(-6px);
+}
+
+.ichi-color-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 4.5rem;
+  padding: 0.5rem 0.65rem;
+  border: 2px solid;
+  border-radius: 0.4rem;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.ichi-color-swatch {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.ichi-color-btn {
+  min-width: 5.5rem;
+}
+
 /* -- Rummy solo board (compact; uses CardView sizing) -- */
 .rummy-board {
   display: flex;
