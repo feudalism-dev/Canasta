@@ -20,9 +20,11 @@ export function ParkedHud({ boot }: { boot: SlBootstrap }) {
               ? ' (Rummy)'
               : boot.family === 'trick'
                 ? ' (Trick)'
-                : boot.family === 'canasta'
-                  ? ' (Hand &amp; Foot / Canasta)'
-                  : ''}
+                : boot.family === 'ichi'
+                  ? ' (Ichi)'
+                  : boot.family === 'canasta'
+                    ? ' (Hand &amp; Foot / Canasta)'
+                    : ''}
             . This HUD is on standby so you do not also play from the table.
           </p>
         )}

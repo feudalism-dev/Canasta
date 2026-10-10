@@ -1,0 +1,432 @@
+// Ichi — In-world display (Furware per-seat lines + table-top MOAP)
+// Drop on the display child prim (same linkset as Ichi_Table). Compile: Mono.
+// Same Furware mesh names as Canasta. MoAP URL includes family=ichi.
+// The table prim (Ichi_Table+Ichi_Http+AVsitter) must be the linkset root.
+
+integer DISPLAY_CMD_EVENT = 91001;
+integer DISPLAY_CMD_START = 91002;
+integer DISPLAY_CMD_RESET = 91003;
+integer DISPLAY_RSP_RESET_DONE = 91004;
+integer DISPLAY_CMD_CAP = 91005;
+integer DISPLAY_CMD_NEED_CAP = 91006;
+
+// Creator lock for the table-top MoAP page.
+string TABLE_FAMILY = "ichi";
+
+// Change this if the table-top media is not face 0.
+integer DISPLAY_FACE = 0;
+integer DISPLAY_MEDIA_PIXELS = 1024;
+// Fallback if asset-rev.txt fetch fails. Prefer bumping public/asset-rev.txt on Pages deploys.
+integer PAGE_ASSET_REV = 27;
+string WEB_URL = "https://feudalism-dev.github.io/Canasta/";
+
+integer DEBUG = FALSE;
+integer MAX_SEATS = 4;
+
+list gName = [];
+list gAv = [];
+integer gPlayers = 4;
+integer gLive = FALSE;
+integer gTurnSeat = -1;
+/** Per-seat match scores (free-for-all Ichi / Gin — not partnership). */
+list gScore = [];
+string gSlCap = "";
+string gLastHomeUrl = "";
+integer gPageRev = 0;
+key gRevReq = NULL_KEY;
+
+integer debug(string m)
+{
+    if (DEBUG) llOwnerSay("Ichi DISPLAY: " + m);
+    return TRUE;
+}
+
+integer effectiveRev()
+{
+    if (gPageRev > 0) return gPageRev;
+    return PAGE_ASSET_REV;
+}
+
+requestAssetRev()
+{
+    if (gRevReq != NULL_KEY) return;
+    gRevReq = llHTTPRequest(WEB_URL + "asset-rev.txt", [HTTP_METHOD, "GET"], "");
+}
+
+string tableIdOf()
+{
+    key rootId = llGetLinkKey(LINK_ROOT);
+    if (rootId == NULL_KEY) return (string)llGetKey();
+    return (string)rootId;
+}
+
+string sessionHome()
+{
+    string home = WEB_URL
+        + "?view=table"
+        + "&family=" + TABLE_FAMILY
+        + "&tableId=" + llEscapeURL(tableIdOf())
+        + "&uid=spec"
+        + "&rev=" + (string)effectiveRev();
+    if (gSlCap != "") home += "&sl_cap=" + llEscapeURL(gSlCap);
+    return home;
+}
+
+integer applyMoap(integer force)
+{
+    if (gSlCap == "") return FALSE;
+    string home = sessionHome();
+    if (!force && home == gLastHomeUrl) return FALSE;
+
+    string cur = home;
+    if (force) cur = home + "&cb=" + (string)llGetUnixTime();
+
+    if (force)
+    {
+        llClearPrimMedia(DISPLAY_FACE);
+    }
+    llSetPrimMediaParams(DISPLAY_FACE, [
+        PRIM_MEDIA_AUTO_PLAY, TRUE,
+        PRIM_MEDIA_AUTO_SCALE, TRUE,
+        PRIM_MEDIA_CONTROLS, PRIM_MEDIA_CONTROLS_MINI,
+        PRIM_MEDIA_CURRENT_URL, cur,
+        PRIM_MEDIA_HOME_URL, home,
+        PRIM_MEDIA_FIRST_CLICK_INTERACT, FALSE,
+        PRIM_MEDIA_WIDTH_PIXELS, DISPLAY_MEDIA_PIXELS,
+        PRIM_MEDIA_HEIGHT_PIXELS, DISPLAY_MEDIA_PIXELS,
+        PRIM_MEDIA_PERMS_CONTROL, PRIM_MEDIA_PERM_NONE,
+        PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_NONE
+    ]);
+    gLastHomeUrl = home;
+    debug("MoAP " + llGetSubString(cur, 0, 180));
+    return TRUE;
+}
+
+integer askForCap()
+{
+    llMessageLinked(LINK_SET, DISPLAY_CMD_NEED_CAP, "", NULL_KEY);
+    return TRUE;
+}
+
+string boxOf(integer seat)
+{
+    return "text" + (string)seat;
+}
+
+integer fwBox(string boxName, string body, string conf)
+{
+    llMessageLinked(LINK_SET, 0, conf, "fw_conf : " + boxName);
+    llMessageLinked(LINK_SET, 0, body, "fw_data : " + boxName);
+    return TRUE;
+}
+
+string clip(string s, integer maxLen)
+{
+    if (llStringLength(s) <= maxLen) return s;
+    return llGetSubString(s, 0, maxLen - 1);
+}
+
+string labelFor(integer seat)
+{
+    key av = llList2Key(gAv, seat);
+    if (av != NULL_KEY)
+    {
+        string dn = llGetDisplayName(av);
+        if (dn != "") return dn;
+    }
+    string nm = llList2String(gName, seat);
+    if (nm != "") return nm;
+    return "P" + (string)(seat + 1);
+}
+
+integer scoreFor(integer seat)
+{
+    if (seat < 0 || seat >= MAX_SEATS) return 0;
+    return llList2Integer(gScore, seat);
+}
+
+integer seatVacant(integer seat)
+{
+    if (llList2Key(gAv, seat) != NULL_KEY) return FALSE;
+    if (llList2String(gName, seat) != "") return FALSE;
+    return TRUE;
+}
+
+integer paintSeat(integer seat)
+{
+    string conf = "a=left; w=none; t=on; force=on";
+    string body;
+    integer showLive = FALSE;
+    if (gLive && seat < gPlayers)
+    {
+        if (!seatVacant(seat)) showLive = TRUE;
+    }
+    if (!showLive)
+    {
+        body = (string)(seat + 1) + " P" + (string)(seat + 1);
+        conf += "; c=0.85,0.78,0.55";
+    }
+    else
+    {
+        body = (string)(seat + 1) + " " + clip(labelFor(seat), 16);
+        body += " " + (string)scoreFor(seat);
+        if (gTurnSeat == seat)
+        {
+            body = "*" + body;
+            conf += "; c=1.0,0.85,0.25";
+        }
+        else
+        {
+            conf += "; c=0.96,0.91,0.82";
+        }
+    }
+    fwBox(boxOf(seat), body, conf);
+    return TRUE;
+}
+
+integer paintAll()
+{
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        paintSeat(i);
+    }
+    return TRUE;
+}
+
+integer clearState()
+{
+    gName = ["", "", "", ""];
+    gAv = [NULL_KEY, NULL_KEY, NULL_KEY, NULL_KEY];
+    gPlayers = 4;
+    gLive = FALSE;
+    gTurnSeat = -1;
+    gScore = [0, 0, 0, 0];
+    return TRUE;
+}
+
+integer clearSeatDisplay(integer seat)
+{
+    if (seat < 0 || seat >= MAX_SEATS) return FALSE;
+    gName = llListReplaceList(gName, [""], seat, seat);
+    gAv = llListReplaceList(gAv, [NULL_KEY], seat, seat);
+    gScore = llListReplaceList(gScore, [0], seat, seat);
+    if (gTurnSeat == seat) gTurnSeat = -1;
+    paintSeat(seat);
+    return TRUE;
+}
+
+integer takeScores(list parts, integer startAt)
+{
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        integer sc = 0;
+        integer idx = startAt + i;
+        if (idx < llGetListLength(parts)) sc = (integer)llList2String(parts, idx);
+        gScore = llListReplaceList(gScore, [sc], i, i);
+    }
+    return TRUE;
+}
+
+integer idleAttract()
+{
+    clearState();
+    paintAll();
+    debug("attract / idle");
+    return TRUE;
+}
+
+integer takeNames(list parts, integer startAt)
+{
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        string nm = "";
+        integer idx = startAt + i;
+        if (idx < llGetListLength(parts)) nm = llStringTrim(llList2String(parts, idx), STRING_TRIM);
+        gName = llListReplaceList(gName, [nm], i, i);
+    }
+    return TRUE;
+}
+
+integer takeAvatars(list parts, integer startAt)
+{
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        key av = NULL_KEY;
+        integer idx = startAt + i;
+        if (idx < llGetListLength(parts))
+        {
+            string raw = llStringTrim(llList2String(parts, idx), STRING_TRIM);
+            if (raw != "") av = (key)raw;
+        }
+        gAv = llListReplaceList(gAv, [av], i, i);
+    }
+    return TRUE;
+}
+
+integer handleStart(string payload)
+{
+    list parts = llParseStringKeepNulls(payload, ["|"], []);
+    integer n = llGetListLength(parts);
+    if (n < 1) return FALSE;
+    string kind = llList2String(parts, 0);
+    clearState();
+    gLive = TRUE;
+    if (kind == "solo")
+    {
+        if (n > 1) gPlayers = (integer)llList2String(parts, 1);
+        if (gPlayers < 2) gPlayers = 2;
+        if (gPlayers > MAX_SEATS) gPlayers = MAX_SEATS;
+        gTurnSeat = 0;
+        if (n > 2) gTurnSeat = (integer)llList2String(parts, 2);
+        if (n >= 3 + MAX_SEATS * 2)
+        {
+            takeAvatars(parts, 3);
+            takeNames(parts, 3 + MAX_SEATS);
+        }
+        else if (n >= 5)
+        {
+            takeNames(parts, n - MAX_SEATS);
+        }
+    }
+    else
+    {
+        gPlayers = MAX_SEATS;
+        gTurnSeat = 0;
+        if (n >= 1 + MAX_SEATS * 2)
+        {
+            takeAvatars(parts, 1);
+            takeNames(parts, 1 + MAX_SEATS);
+        }
+        else if (n >= 5)
+        {
+            takeNames(parts, n - MAX_SEATS);
+        }
+    }
+    if (gTurnSeat < 0 || gTurnSeat >= gPlayers) gTurnSeat = 0;
+    paintAll();
+    llOwnerSay("Ichi display: deal painted (" + kind + ").");
+    debug("START " + payload);
+    return TRUE;
+}
+
+integer handleEvent(string pipe)
+{
+    list parts = llParseStringKeepNulls(pipe, ["|"], []);
+    integer n = llGetListLength(parts);
+    if (n < 1) return FALSE;
+    string kind = llList2String(parts, 0);
+    integer player = 0;
+    if (n > 1) player = (integer)llList2String(parts, 1);
+    integer team = 0;
+    if (n > 2) team = (integer)llList2String(parts, 2);
+    integer seat = player - 1;
+    if (kind == "NAMES")
+    {
+        takeNames(parts, 1);
+        paintAll();
+        return TRUE;
+    }
+    if (kind == "TURN")
+    {
+        if (seat >= 0 && seat < MAX_SEATS) gTurnSeat = seat;
+        paintAll();
+        return TRUE;
+    }
+    if (kind == "SCORE")
+    {
+        // Ichi: SCORE|s0|s1|s2|s3  (legacy 2-field team scores still accepted)
+        if (n >= 5) takeScores(parts, 1);
+        else
+        {
+            gScore = llListReplaceList(gScore, [player], 0, 0);
+            gScore = llListReplaceList(gScore, [player], 2, 2);
+            gScore = llListReplaceList(gScore, [team], 1, 1);
+            gScore = llListReplaceList(gScore, [team], 3, 3);
+        }
+        paintAll();
+        return TRUE;
+    }
+    if (kind == "CLEARSEAT")
+    {
+        clearSeatDisplay(player);
+        return TRUE;
+    }
+    if (kind == "GAME_OVER")
+    {
+        gTurnSeat = -1;
+        paintAll();
+        return TRUE;
+    }
+    debug(pipe);
+    return TRUE;
+}
+
+default
+{
+    state_entry()
+    {
+        clearState();
+        llMessageLinked(LINK_SET, 0, "", "fw_reset");
+        askForCap();
+        requestAssetRev();
+        applyMoap(TRUE);
+        llOwnerSay("Ichi display: Furware text0–text3 + table-top MOAP face " + (string)DISPLAY_FACE + ".");
+    }
+
+    on_rez(integer p)
+    {
+        llResetScript();
+    }
+
+    http_response(key id, integer status, list meta, string body)
+    {
+        if (id != gRevReq) return;
+        gRevReq = NULL_KEY;
+        if (status == 200)
+        {
+            integer r = (integer)llStringTrim(body, STRING_TRIM);
+            if (r > 0 && r != gPageRev)
+            {
+                gPageRev = r;
+                applyMoap(TRUE);
+            }
+            else if (r > 0) gPageRev = r;
+        }
+    }
+
+    link_message(integer sender, integer num, string str, key id)
+    {
+        if (num == DISPLAY_CMD_RESET)
+        {
+            idleAttract();
+            llMessageLinked(LINK_SET, DISPLAY_RSP_RESET_DONE, "", NULL_KEY);
+            return;
+        }
+        if (num == DISPLAY_CMD_START)
+        {
+            handleStart(str);
+            return;
+        }
+        if (num == DISPLAY_CMD_EVENT)
+        {
+            handleEvent(str);
+            return;
+        }
+        if (num == DISPLAY_CMD_CAP)
+        {
+            gSlCap = str;
+            requestAssetRev();
+            applyMoap(TRUE);
+            return;
+        }
+        if ((string)id == "fw_ready")
+        {
+            paintAll();
+            llOwnerSay("Ichi display: Furware ready — painted idle lines.");
+        }
+    }
+}

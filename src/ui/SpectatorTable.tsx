@@ -27,6 +27,16 @@ import {
   type TrickPublicBoard,
   type TrickPublicPlayer,
 } from '../core/trick/publicBoard'
+import {
+  decodeIchiPublicBoard,
+  idleIchiPublicBoard,
+  ichiSpectatorStatus,
+  ichiVariantLabel,
+  isIchiBoardPayload,
+  type IchiPublicBoard,
+  type IchiPublicPlayer,
+} from '../core/ichi/publicBoard'
+import { colorLabel, kindLabel } from '../core/ichi/deck'
 import { passDirectionLabel } from '../core/trick/variants'
 import { isHandAndFoot, variantLabel } from '../core/houseRules'
 import { tableGetBoard, tableStatus } from '../sl/tableApi'
@@ -51,6 +61,43 @@ function rummyPlayerAt(board: RummyPublicBoard, seat: number): RummyPublicPlayer
 
 function trickPlayerAt(board: TrickPublicBoard, seat: number): TrickPublicPlayer | undefined {
   return board.players.find((p) => p.seat === seat)
+}
+
+function ichiPlayerAt(board: IchiPublicBoard, seat: number): IchiPublicPlayer | undefined {
+  return board.players.find((p) => p.seat === seat)
+}
+
+function IchiSeatChip({
+  board,
+  seat,
+  label,
+}: {
+  board: IchiPublicBoard
+  seat: number
+  label: string
+}) {
+  const p = ichiPlayerAt(board, seat)
+  const vacant = !p
+  const isTurn = board.live && board.currentSeat === seat
+  return (
+    <div className={`spec-seat ${isTurn ? 'is-turn' : ''} ${vacant ? 'is-vacant' : ''}`} data-seat={seat}>
+      <span className="spec-seat-num">
+        Player {seat + 1} · {label}
+      </span>
+      <strong>{vacant ? '—' : p.name}</strong>
+      {vacant ? (
+        <span className="muted tiny">Empty</span>
+      ) : (
+        <>
+          <span>
+            {p.handCount} in hand · {p.score} pts
+          </span>
+          <em>Seat</em>
+        </>
+      )}
+      {isTurn ? <span className="turn-pill">Turn</span> : null}
+    </div>
+  )
 }
 
 function whoLabel(board: PublicBoard, seat: number): string {
@@ -216,6 +263,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const [board, setBoard] = useState<PublicBoard>(idlePublicBoard)
   const [rummyBoard, setRummyBoard] = useState<RummyPublicBoard>(idleRummyPublicBoard)
   const [trickBoard, setTrickBoard] = useState<TrickPublicBoard>(idleTrickPublicBoard)
+  const [ichiBoard, setIchiBoard] = useState<IchiPublicBoard>(idleIchiPublicBoard)
   const [linkOk, setLinkOk] = useState(true)
   const [family, setFamily] = useState<GameFamily>(() => normalizeFamily(familyHint))
   const rootRef = useRef<HTMLDivElement>(null)
@@ -235,12 +283,23 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     const applyRaw = (raw: string | undefined) => {
       if (!raw || !raw.trim()) return false
       const text = raw.trim()
+      if (isIchiBoardPayload(text)) {
+        const next = decodeIchiPublicBoard(text)
+        setIchiBoard(next)
+        if (next.live) {
+          setBoard(idlePublicBoard())
+          setRummyBoard(idleRummyPublicBoard())
+          setTrickBoard(idleTrickPublicBoard())
+        }
+        return true
+      }
       if (isTrickBoardPayload(text)) {
         const next = decodeTrickPublicBoard(text)
         setTrickBoard(next)
         if (next.live) {
           setBoard(idlePublicBoard())
           setRummyBoard(idleRummyPublicBoard())
+          setIchiBoard(idleIchiPublicBoard())
         }
         return true
       }
@@ -250,6 +309,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         if (next.live) {
           setBoard(idlePublicBoard())
           setTrickBoard(idleTrickPublicBoard())
+          setIchiBoard(idleIchiPublicBoard())
         }
         return true
       }
@@ -258,12 +318,14 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         setBoard(next)
         setRummyBoard(idleRummyPublicBoard())
         setTrickBoard(idleTrickPublicBoard())
+        setIchiBoard(idleIchiPublicBoard())
         return true
       }
       if (isIdleBoardPayload(text)) {
         setBoard(idlePublicBoard())
         setRummyBoard(idleRummyPublicBoard())
         setTrickBoard(idleTrickPublicBoard())
+        setIchiBoard(idleIchiPublicBoard())
         return true
       }
       return false
@@ -280,6 +342,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setBoard(idlePublicBoard())
           setRummyBoard(idleRummyPublicBoard())
           setTrickBoard(idleTrickPublicBoard())
+          setIchiBoard(idleIchiPublicBoard())
           inflight = false
           return
         }
@@ -305,30 +368,38 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
 
   const isRummy = family === 'rummy'
   const isTrick = family === 'trick'
+  const isIchi = family === 'ichi'
   const rummyLive = isRummy && rummyBoard.live
   const trickLive = isTrick && trickBoard.live
-  const canastaLive = !isRummy && !isTrick && board.live
+  const ichiLive = isIchi && ichiBoard.live
+  const canastaLive = !isRummy && !isTrick && !isIchi && board.live
   const config = spectatorConfig(board)
-  const variant = trickLive
-    ? trickVariantLabel(trickBoard.variant)
-    : isRummy
-      ? rummyVariantLabel(rummyBoard.variant)
-      : variantLabel(board.variant)
-  const roundLine = trickLive
-    ? trickBoard.playTo != null
-      ? `H${trickBoard.round} · to ${trickBoard.playTo}`
-      : `H${trickBoard.round}`
-    : isRummy
-      ? rummyBoard.handsPerMatch != null
-        ? `H${rummyBoard.round}/${rummyBoard.handsPerMatch}`
-        : rummyBoard.playTo != null
-          ? `to ${rummyBoard.playTo}`
-          : `H${rummyBoard.round}`
-      : isHandAndFoot(board.variant)
-        ? `R${board.round}/4`
-        : board.playTo
-          ? `to ${board.playTo}`
-          : ''
+  const variant = ichiLive
+    ? ichiVariantLabel(ichiBoard.variant)
+    : trickLive
+      ? trickVariantLabel(trickBoard.variant)
+      : isRummy
+        ? rummyVariantLabel(rummyBoard.variant)
+        : variantLabel(board.variant)
+  const roundLine = ichiLive
+    ? ichiBoard.playTo != null
+      ? `H${ichiBoard.round} · to ${ichiBoard.playTo}`
+      : `H${ichiBoard.round}`
+    : trickLive
+      ? trickBoard.playTo != null
+        ? `H${trickBoard.round} · to ${trickBoard.playTo}`
+        : `H${trickBoard.round}`
+      : isRummy
+        ? rummyBoard.handsPerMatch != null
+          ? `H${rummyBoard.round}/${rummyBoard.handsPerMatch}`
+          : rummyBoard.playTo != null
+            ? `to ${rummyBoard.playTo}`
+            : `H${rummyBoard.round}`
+        : isHandAndFoot(board.variant)
+          ? `R${board.round}/4`
+          : board.playTo
+            ? `to ${board.playTo}`
+            : ''
 
   const topCard = rummyLive
     ? rummyBoard.top
@@ -339,22 +410,33 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
       : null
   const stockCount = rummyLive ? rummyBoard.stock : board.stock
   const discardCount = rummyLive ? rummyBoard.discardCount : board.discardCount
-  const frozen = !rummyLive && !trickLive && board.frozen
+  const frozen = !rummyLive && !trickLive && !ichiLive && board.frozen
   const sideways = Boolean(topCard && (isWild(topCard) || frozen))
-  const live = rummyLive || trickLive || canastaLive
+  const live = rummyLive || trickLive || ichiLive || canastaLive
   const trickPalette = trickBoard.variant === 'rooster' ? 'rooster' : 'french'
+  const ichiColorCss: Record<string, string> = {
+    R: '#c0392b',
+    Y: '#d4a017',
+    G: '#1e8449',
+    B: '#2471a3',
+  }
 
   return (
     <div className={`spectator-root ${live ? 'is-live' : ''}`} ref={rootRef}>
       <div className="table-felt" />
       <div className="table-brass" />
-      {!isRummy && !isTrick ? <TableFlyLayer board={board} rootRef={rootRef} /> : null}
+      {!isRummy && !isTrick && !isIchi ? <TableFlyLayer board={board} rootRef={rootRef} /> : null}
 
       {live ? (
         <>
           <header className="spec-banner">
             <div className="brand-mark">
-              {trickLive ? (
+              {ichiLive ? (
+                <>
+                  <span>ICHI</span>
+                  <small>TABLE TOP · PLAYER 1 VIEW</small>
+                </>
+              ) : trickLive ? (
                 <>
                   <span>{trickVariantLabel(trickBoard.variant).toUpperCase()}</span>
                   <small>TABLE TOP · PLAYER 1 VIEW</small>
@@ -372,7 +454,17 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               )}
             </div>
             <div className="score-ticker">
-              {trickLive ? (
+              {ichiLive ? (
+                <>
+                  <div>
+                    <em>{variant}</em> {roundLine}
+                  </div>
+                  <div>
+                    <em>{ichiBoard.playerCount}p</em> · color {ichiBoard.currentColor}
+                    {ichiBoard.direction === 1 ? ' · CW' : ' · CCW'}
+                  </div>
+                </>
+              ) : trickLive ? (
                 <>
                   <div>
                     <em>{variant}</em> {roundLine}
@@ -425,28 +517,83 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </div>
           </header>
           <p className="spec-turn">
-            {trickLive
-              ? trickSpectatorStatus(trickBoard)
-              : rummyLive
-                ? rummyPhaseLine(rummyBoard)
-                : phaseLine(board, family)}
-          </p>
-          {(trickLive
-            ? trickBoard.lastMessage
-            : rummyLive
-              ? rummyBoard.lastMessage
-              : board.lastMessage) ? (
-            <p className="spec-msg">
-              {trickLive
-                ? trickBoard.lastMessage
+            {ichiLive
+              ? ichiSpectatorStatus(ichiBoard)
+              : trickLive
+                ? trickSpectatorStatus(trickBoard)
                 : rummyLive
-                  ? rummyBoard.lastMessage
-                  : board.lastMessage}
+                  ? rummyPhaseLine(rummyBoard)
+                  : phaseLine(board, family)}
+          </p>
+          {(ichiLive
+            ? ichiBoard.lastMessage
+            : trickLive
+              ? trickBoard.lastMessage
+              : rummyLive
+                ? rummyBoard.lastMessage
+                : board.lastMessage) ? (
+            <p className="spec-msg">
+              {ichiLive
+                ? ichiBoard.lastMessage
+                : trickLive
+                  ? trickBoard.lastMessage
+                  : rummyLive
+                    ? rummyBoard.lastMessage
+                    : board.lastMessage}
             </p>
           ) : null}
         </>
       ) : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
+
+      {ichiLive ? (
+        <div className="spec-grid is-trick">
+          <div className="spec-north">
+            <IchiSeatChip board={ichiBoard} seat={2} label="opposite" />
+          </div>
+          <div className="spec-them" />
+          <div className="spec-west">
+            <IchiSeatChip board={ichiBoard} seat={3} label="left" />
+          </div>
+          <div className="spec-mid">
+            <div className="spec-trick-center" aria-label="Ichi discard">
+              <span className="pile-label">
+                Discard · {colorLabel(ichiBoard.currentColor)} · stock {ichiBoard.stockCount}
+              </span>
+              {ichiBoard.topDiscard ? (
+                <div
+                  style={{
+                    minWidth: '3.5rem',
+                    height: '4.8rem',
+                    borderRadius: '0.4rem',
+                    background: ichiBoard.topDiscard.color
+                      ? ichiColorCss[ichiBoard.topDiscard.color]
+                      : '#2c3e50',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                  }}
+                >
+                  {kindLabel(ichiBoard.topDiscard.kind)}
+                </div>
+              ) : (
+                <span className="muted">No discard</span>
+              )}
+              {ichiBoard.lastMessage ? (
+                <span className="muted tiny">{ichiBoard.lastMessage}</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="spec-east">
+            <IchiSeatChip board={ichiBoard} seat={1} label="right" />
+          </div>
+          <div className="spec-south">
+            <IchiSeatChip board={ichiBoard} seat={0} label="this side" />
+          </div>
+        </div>
+      ) : null}
 
       {trickLive ? (
         <div className="spec-grid is-trick">

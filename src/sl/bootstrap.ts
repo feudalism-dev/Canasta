@@ -13,7 +13,7 @@ export type SlBootstrap = {
   action: string
   view: 'table' | 'scores' | ''
   token: string
-  /** Creator-locked family from table MoAP (`canasta` | `rummy` | `trick`). */
+  /** Creator-locked family from table MoAP (`canasta` | `rummy` | `trick` | `ichi`). */
   family: string
 }
 

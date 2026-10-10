@@ -3,12 +3,14 @@ import type { HouseRules, Variant } from '../core/types'
 import { familyHintPresent, resolveTableFamily, type GameFamily } from '../core/family'
 import type { RummyVariant } from '../core/rummy/types'
 import type { TrickVariant } from '../core/trick/types'
+import type { IchiVariant } from '../core/ichi/types'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
 import { BetaVariantNotice } from './BetaVariantNotice'
 import { VariantSelect } from './VariantSelect'
 import { RummyVariantSelect } from './RummyVariantSelect'
 import { TrickVariantSelect } from './TrickVariantSelect'
+import { IchiVariantSelect } from './IchiVariantSelect'
 import { SeatMap } from './SeatMap'
 import type { SlBootstrap } from '../sl/bootstrap'
 import { openMatchInBrowser } from '../sl/sessionUrl'
@@ -55,6 +57,10 @@ type Props = {
   /** Total seats for Hearts solo/MP (2–4). Empty chairs become bots. */
   trickPlayerCount: number
   onTrickPlayerCount: (n: number) => void
+  ichiVariant: IchiVariant
+  onIchiVariant: (v: IchiVariant) => void
+  ichiPlayerCount: number
+  onIchiPlayerCount: (n: number) => void
   onFamily: (family: GameFamily) => void
   partnership: boolean
   onPartnership: (v: boolean) => void
@@ -99,6 +105,10 @@ export function SlTableScreens({
   onTrickVariant,
   trickPlayerCount,
   onTrickPlayerCount,
+  ichiVariant,
+  onIchiVariant,
+  ichiPlayerCount,
+  onIchiPlayerCount,
   onFamily,
   partnership,
   onPartnership,
@@ -152,6 +162,7 @@ export function SlTableScreens({
   const family = resolveTableFamily(table?.family, boot.family)
   const isRummyTable = family === 'rummy'
   const isTrickTable = family === 'trick'
+  const isIchiTable = family === 'ichi'
   const isCanastaTable = family === 'canasta'
 
   const enterTable = async (name: string) => {
@@ -318,7 +329,9 @@ export function SlTableScreens({
               ? 'Rummy'
               : isTrickTable
                 ? 'Trick'
-                : 'Hand & Foot / Canasta'}
+                : isIchiTable
+                  ? 'Ichi'
+                  : 'Hand & Foot / Canasta'}
         </h1>
         {!familyKnown ? (
           <p className="muted">Connecting to this table…</p>
@@ -326,6 +339,8 @@ export function SlTableScreens({
           <p className="muted">This table is locked to the Rummy family (creator SKU).</p>
         ) : isTrickTable ? (
           <p className="muted">This table is locked to the Trick family (Hearts, Rooster, …).</p>
+        ) : isIchiTable ? (
+          <p className="muted">This table is locked to the Ichi family (creator SKU).</p>
         ) : null}
         <label>
           Name
@@ -335,6 +350,8 @@ export function SlTableScreens({
           <RummyVariantSelect value={rummyVariant} disabled={!canEditRules} onChange={onRummyVariant} />
         ) : isTrickTable ? (
           <TrickVariantSelect value={trickVariant} disabled={!canEditRules} onChange={onTrickVariant} />
+        ) : isIchiTable ? (
+          <IchiVariantSelect value={ichiVariant} disabled={!canEditRules} onChange={onIchiVariant} />
         ) : (
           <label>
             Game
@@ -436,6 +453,26 @@ export function SlTableScreens({
                       : trickVariant === 'euchre'
                         ? 'Euchre is always 4 — partners across. Short deck, to 10.'
                         : 'Pick a ready trick game to play.'}
+            </p>
+          </>
+        ) : null}
+        {!seatedBrowser && isIchiTable ? (
+          <>
+            <label>
+              Players at the table (humans + bots in empty seats)
+              <select
+                value={ichiPlayerCount}
+                disabled={!canEditRules}
+                onChange={(e) => onIchiPlayerCount(Number(e.target.value))}
+              >
+                <option value={2}>2 — 1v1 bot (solo) or 2 humans</option>
+                <option value={3}>3 — 1v2 bots, or 2 humans + 1 bot</option>
+                <option value={4}>4 — 1v3 / 2v2 / 3v1 bots, or 4 humans</option>
+              </select>
+            </label>
+            <p className="muted">
+              Classic Ichi ({ichiPlayerCount} seats): match color or number, action cards, first to 500.
+              Empty chairs become bots.
             </p>
           </>
         ) : null}
@@ -554,7 +591,7 @@ export function SlTableScreens({
                 ? 'A game is paused for this seat (about 60 seconds). Resume it, or Abandon to start fresh.'
                 : !canSolo && tableBusy
                   ? `Solo stays off while the table is “${mode}”.`
-                  : isTrickTable
+                  : isTrickTable || isIchiTable
                     ? 'Solo fills empty seats with bots. Multiplayer: Create with 2+ humans, pick seat count, Start fills the rest with bots.'
                     : isRummyTable
                       ? 'Solo and multiplayer use your player count — empty chairs are computers.'
@@ -571,7 +608,8 @@ export function SlTableScreens({
             disabled={
               busy ||
               (isTrickTable &&
-                !['hearts', 'rooster', 'spades', 'euchre', 'ohhell'].includes(trickVariant))
+                !['hearts', 'rooster', 'spades', 'euchre', 'ohhell'].includes(trickVariant)) ||
+              (isIchiTable && ichiVariant !== 'classic')
             }
             onClick={async () => {
               setBusy(true)
@@ -798,6 +836,9 @@ export function SlTableScreens({
         ) : null}
         {isTrickTable ? (
           <p className="muted">See Docs/RULES_HEARTS.md — Furware scores and the table-top MoAP update while you play.</p>
+        ) : null}
+        {isIchiTable ? (
+          <p className="muted">See Docs/RULES_ICHI.md — Furware scores and the table-top MoAP update while you play.</p>
         ) : null}
         {status ? <p className="muted">{status}</p> : null}
         {err ? <p className="error">{err}</p> : null}

@@ -1,0 +1,442 @@
+// Ichi — HTTP-IN JSONP front door (creator-locked family=ichi).
+// Drop in the SAME prim as Ichi_Table.lsl (root / AVsitter). Same HUD as Canasta.
+// Compile: Mono. See Docs/PLAN_TRICK.md
+// Owns spectator board snapshot + guest browser mint tokens (keeps Table under Mono heap).
+//
+// Http ↔ Table: HTTP_CMD = 92001
+//   Http → Table: REQ|httpId|cb|action|uid|seat|name|players|p
+//   Http → Table: CAP|url
+//   Http → Table: BGATE|op|uid|seatHint   (mint/claim gate)
+//   Table → Http: RESP|cb|json   (id = http request key)
+//   Table → Http: STATUS|json
+//   Table → Http: BOARD|i|n|chunk
+//   Table → Http: BCLR|
+//   Table → Http: BCLEAR| or BCLEAR|seat
+//   Table → Http: BGATEOK|op|seat|roomCode  /  BGATEFAIL|err
+
+// Creator lock — buyers cannot change this. Web app gates on status.family.
+string TABLE_FAMILY = "ichi";
+integer HTTP_CMD = 92001;
+float CAP_RETRY_SEC = 6.0;
+integer MAX_SEATS = 4;
+integer BROWSER_TOKEN_TTL = 600;
+
+string gCapUrl = "";
+integer gCapRetry = 0;
+string gLastStatus = "{\"ok\":true,\"mode\":\"idle\",\"roster\":[]}";
+string gBoard = "";
+string gBoardAcc = "";
+integer gBoardNext = 0;
+integer gBoardTot = 0;
+
+list gBrowserTok = [];
+list gBrowserExp = [];
+
+key gPendHttp = NULL_KEY;
+string gPendCb = "";
+string gPendOp = "";
+key gPendUid = NULL_KEY;
+string gPendToken = "";
+
+string jsonEscape(string s)
+{
+    s = llDumpList2String(llParseStringKeepNulls(s, ["\\"], []), "\\\\");
+    s = llDumpList2String(llParseStringKeepNulls(s, ["\""], []), "\\\"");
+    return llDumpList2String(llParseStringKeepNulls(s, ["\n"], []), "\\n");
+}
+
+string withBoard(string status)
+{
+    integer n = llStringLength(status);
+    if (n < 2) return status;
+    if (llGetSubString(status, n - 1, n - 1) != "}") return status;
+    return llGetSubString(status, 0, n - 2) + ",\"board\":\"" + jsonEscape(gBoard) + "\"}";
+}
+
+string withHouse(string status)
+{
+    integer n = llStringLength(status);
+    if (n < 2) return status;
+    if (llGetSubString(status, n - 1, n - 1) != "}") return status;
+    string packed = llLinksetDataRead("cn.hf");
+    string owner = (string)llGetOwner();
+    return llGetSubString(status, 0, n - 2)
+        + ",\"ownerUid\":\"" + owner
+        + "\",\"house\":\"" + jsonEscape(packed) + "\"}";
+}
+
+string withFamily(string status)
+{
+    integer n = llStringLength(status);
+    if (n < 2) return status;
+    if (llGetSubString(status, n - 1, n - 1) != "}") return status;
+    return llGetSubString(status, 0, n - 2)
+        + ",\"family\":\"" + TABLE_FAMILY + "\"}";
+}
+
+string statusOut(string status)
+{
+    return withFamily(withHouse(withBoard(status)));
+}
+
+list parseQuery(string qs)
+{
+    list out = [];
+    list pairs = llParseString2List(qs, ["&"], []);
+    integer i;
+    integer n = llGetListLength(pairs);
+    for (i = 0; i < n; i++)
+    {
+        string pair = llList2String(pairs, i);
+        integer eq = llSubStringIndex(pair, "=");
+        if (eq >= 0)
+        {
+            out += [
+                llUnescapeURL(llGetSubString(pair, 0, eq - 1)),
+                llDumpList2String(llParseStringKeepNulls(llUnescapeURL(llGetSubString(pair, eq + 1, -1)), ["+"], []), " ")
+            ];
+        }
+    }
+    return out;
+}
+
+string qget(list params, string name)
+{
+    integer idx = llListFindList(params, [name]);
+    if (idx < 0) return "";
+    return llList2String(params, idx + 1);
+}
+
+integer cbOk(string cb)
+{
+    if (cb == "" || llStringLength(cb) > 64) return FALSE;
+    return TRUE;
+}
+
+sendJsonp(key httpId, string callback, string json)
+{
+    if (httpId == NULL_KEY) return;
+    if (!cbOk(callback))
+    {
+        llSetContentType(httpId, CONTENT_TYPE_TEXT);
+        llHTTPResponse(httpId, 400, "{\"ok\":false}");
+        return;
+    }
+    llSetContentType(httpId, CONTENT_TYPE_TEXT);
+    llHTTPResponse(httpId, 200, callback + "(" + json + ");");
+}
+
+toTable(string msg)
+{
+    llMessageLinked(LINK_THIS, HTTP_CMD, msg, NULL_KEY);
+}
+
+clearBoard()
+{
+    gBoard = "";
+    gBoardAcc = "";
+    gBoardNext = 0;
+    gBoardTot = 0;
+}
+
+initBrowser()
+{
+    gBrowserTok = ["", "", "", ""];
+    gBrowserExp = [0, 0, 0, 0];
+}
+
+clearBrowserSeat(integer seat)
+{
+    if (seat < 0 || seat >= MAX_SEATS) return;
+    gBrowserTok = llListReplaceList(gBrowserTok, [""], seat, seat);
+    gBrowserExp = llListReplaceList(gBrowserExp, [0], seat, seat);
+}
+
+clearAllBrowser()
+{
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++) clearBrowserSeat(i);
+}
+
+clearPend()
+{
+    gPendHttp = NULL_KEY;
+    gPendCb = "";
+    gPendOp = "";
+    gPendUid = NULL_KEY;
+    gPendToken = "";
+}
+
+string mintToken()
+{
+    string k = (string)llGenerateKey();
+    return llToLower(llDumpList2String(llParseString2List(k, ["-"], []), ""));
+}
+
+string statusWithToken(string token, integer exp)
+{
+    string j = statusOut(gLastStatus);
+    integer n = llStringLength(j);
+    if (n < 2) return "{\"ok\":false,\"error\":\"no status\"}";
+    return llGetSubString(j, 0, n - 2)
+        + ",\"token\":\"" + jsonEscape(token)
+        + "\",\"exp\":" + (string)exp + "}";
+}
+
+integer takeBoardChunk(string payload)
+{
+    list bp = llParseStringKeepNulls(payload, ["|"], []);
+    if (llList2String(bp, 0) != "BOARD") return FALSE;
+    integer idx = (integer)llList2String(bp, 1);
+    integer tot = (integer)llList2String(bp, 2);
+    string chunk = "";
+    integer k;
+    integer n = llGetListLength(bp);
+    for (k = 3; k < n; k++)
+    {
+        if (k > 3) chunk += "|";
+        chunk += llList2String(bp, k);
+    }
+    if (tot < 1) tot = 1;
+    if (idx == 0)
+    {
+        gBoardAcc = chunk;
+        gBoardNext = 1;
+        gBoardTot = tot;
+    }
+    else
+    {
+        if (idx != gBoardNext) return TRUE;
+        if (tot != gBoardTot) return TRUE;
+        gBoardAcc += chunk;
+        gBoardNext += 1;
+    }
+    if (gBoardNext >= gBoardTot)
+    {
+        gBoard = gBoardAcc;
+        gBoardAcc = "";
+        gBoardNext = 0;
+        gBoardTot = 0;
+    }
+    return TRUE;
+}
+
+requestCap()
+{
+    llRequestSecureURL();
+}
+
+failPend(string err)
+{
+    if (gPendHttp == NULL_KEY) return;
+    sendJsonp(gPendHttp, gPendCb, "{\"ok\":false,\"error\":\"" + jsonEscape(err) + "\"}");
+    clearPend();
+}
+
+finishMint(integer seat, string room)
+{
+    string token = mintToken();
+    integer exp = llGetUnixTime() + BROWSER_TOKEN_TTL;
+    gBrowserTok = llListReplaceList(gBrowserTok, [token], seat, seat);
+    gBrowserExp = llListReplaceList(gBrowserExp, [exp], seat, seat);
+    sendJsonp(gPendHttp, gPendCb, statusWithToken(token, exp));
+    clearPend();
+}
+
+finishClaim(integer seat, string room)
+{
+    string want = llToLower(llStringTrim(gPendToken, STRING_TRIM));
+    if (want == "")
+    {
+        failPend("token required");
+        return;
+    }
+    if (want != llList2String(gBrowserTok, seat))
+    {
+        failPend("bad token");
+        return;
+    }
+    if (llGetUnixTime() > llList2Integer(gBrowserExp, seat))
+    {
+        failPend("token expired");
+        return;
+    }
+    sendJsonp(gPendHttp, gPendCb, statusOut(gLastStatus));
+    clearPend();
+}
+
+handleHttp(key id, string query)
+{
+    list q = parseQuery(query);
+    string action = qget(q, "action");
+    string cb = qget(q, "cb");
+
+    if (action == "" || action == "status")
+    {
+        sendJsonp(id, cb, statusOut(gLastStatus));
+        return;
+    }
+    if (action == "board")
+    {
+        sendJsonp(id, cb, "{\"ok\":true,\"board\":\"" + jsonEscape(gBoard) + "\"}");
+        return;
+    }
+
+    string uid = qget(q, "uid");
+    string seat = qget(q, "seat");
+    string pname = qget(q, "name");
+    string players = qget(q, "players");
+    string p = qget(q, "p");
+
+    if (action == "save_house")
+    {
+        if (uid == "" || (key)uid != llGetOwner())
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"owner only\"}");
+            return;
+        }
+        if (llStringLength(p) < 8 || llStringLength(p) > 200)
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"bad house payload\"}");
+            return;
+        }
+        if (llGetSubString(p, 0, 1) != "v1")
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"bad house version\"}");
+            return;
+        }
+        llLinksetDataWrite("cn.hf", p);
+        sendJsonp(id, cb, statusOut("{\"ok\":true}"));
+        return;
+    }
+
+    if (action == "mint_browser" || action == "claim_browser")
+    {
+        if (gPendHttp != NULL_KEY)
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"busy\"}");
+            return;
+        }
+        if (uid == "")
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"uid required\"}");
+            return;
+        }
+        gPendHttp = id;
+        gPendCb = cb;
+        gPendOp = action;
+        gPendUid = (key)uid;
+        gPendToken = p;
+        toTable("BGATE|" + action + "|" + uid + "|" + seat);
+        return;
+    }
+
+    p = llDumpList2String(llParseStringKeepNulls(p, ["|"], []), "%7C");
+    toTable("REQ|" + (string)id + "|" + cb + "|" + action + "|" + uid + "|" + seat + "|" + pname + "|" + players + "|" + p);
+}
+
+default
+{
+    state_entry()
+    {
+        initBrowser();
+        clearPend();
+        requestCap();
+        llSetTimerEvent(CAP_RETRY_SEC);
+        llOwnerSay("Ichi HTTP ready (family=ichi). Free=" + (string)llGetFreeMemory());
+    }
+
+    on_rez(integer p)
+    {
+        llResetScript();
+    }
+
+    changed(integer change)
+    {
+        if (change & CHANGED_REGION_START) requestCap();
+    }
+
+    link_message(integer sender, integer num, string str, key id)
+    {
+        if (num != HTTP_CMD) return;
+        if (str == "NEEDCAP")
+        {
+            if (gCapUrl != "") toTable("CAP|" + gCapUrl);
+            else requestCap();
+            return;
+        }
+        if (llGetSubString(str, 0, 4) == "RESP|")
+        {
+            string rest = llGetSubString(str, 5, -1);
+            integer bar = llSubStringIndex(rest, "|");
+            if (bar < 0) return;
+            sendJsonp(id, llGetSubString(rest, 0, bar - 1), llGetSubString(rest, bar + 1, -1));
+            return;
+        }
+        if (llGetSubString(str, 0, 6) == "STATUS|")
+        {
+            string json = llGetSubString(str, 7, -1);
+            if (json != "") gLastStatus = json;
+            return;
+        }
+        if (llGetSubString(str, 0, 5) == "BOARD|")
+        {
+            takeBoardChunk(str);
+            return;
+        }
+        if (llGetSubString(str, 0, 4) == "BCLR|")
+        {
+            clearBoard();
+            return;
+        }
+        if (llGetSubString(str, 0, 6) == "BCLEAR|")
+        {
+            string rest = llGetSubString(str, 7, -1);
+            if (rest == "") clearAllBrowser();
+            else clearBrowserSeat((integer)rest);
+            return;
+        }
+        if (llGetSubString(str, 0, 7) == "BGATEOK|")
+        {
+            list gp = llParseStringKeepNulls(str, ["|"], []);
+            string op = llList2String(gp, 1);
+            integer seat = (integer)llList2String(gp, 2);
+            string room = llList2String(gp, 3);
+            if (gPendHttp == NULL_KEY) return;
+            if (op == "mint_browser") finishMint(seat, room);
+            else if (op == "claim_browser") finishClaim(seat, room);
+            else failPend("bad gate op");
+            return;
+        }
+        if (llGetSubString(str, 0, 9) == "BGATEFAIL|")
+        {
+            failPend(llGetSubString(str, 10, -1));
+            return;
+        }
+    }
+
+    http_request(key id, string method, string body)
+    {
+        if (method == URL_REQUEST_GRANTED)
+        {
+            gCapUrl = body;
+            gCapRetry = 0;
+            toTable("CAP|" + gCapUrl);
+            return;
+        }
+        if (method == URL_REQUEST_DENIED)
+        {
+            gCapUrl = "";
+            gCapRetry++;
+            return;
+        }
+        string query = llGetHTTPHeader(id, "x-query-string");
+        if (query == "" && llSubStringIndex(body, "action=") == 0) query = body;
+        handleHttp(id, query);
+    }
+
+    timer()
+    {
+        if (gCapUrl == "" && gCapRetry < 8) requestCap();
+    }
+}

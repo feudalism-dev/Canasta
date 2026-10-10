@@ -10,6 +10,7 @@ import { BetaVariantNotice } from './ui/BetaVariantNotice'
 import { VariantSelect } from './ui/VariantSelect'
 import { RummyBoard } from './ui/RummyBoard'
 import { TrickBoard } from './ui/TrickBoard'
+import { IchiBoard } from './ui/IchiBoard'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { ParkedHud } from './ui/ParkedHud'
 import { Scoreboard } from './ui/Scoreboard'
@@ -17,6 +18,7 @@ import { SpectatorTable } from './ui/SpectatorTable'
 import { resolveTableFamily, type GameFamily } from './core/family'
 import type { RummyVariant } from './core/rummy/types'
 import type { TrickVariant } from './core/trick/types'
+import type { IchiVariant } from './core/ichi/types'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
 import { resumeSolo, startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
@@ -36,8 +38,14 @@ import {
   joinTrickPeerRoom,
   type TrickPeerSession,
 } from './net/trickPeerSession'
+import {
+  createIchiPeerHost,
+  joinIchiPeerRoom,
+  type IchiPeerSession,
+} from './net/ichiPeerSession'
 import { startRummySolo, type RummyLocalSession } from './ui/rummyLocalSession'
 import { startTrickSolo, type TrickLocalSession } from './ui/trickLocalSession'
+import { startIchiSolo, type IchiLocalSession } from './ui/ichiLocalSession'
 import {
   clearMatchResume,
   loadMatchResume,
@@ -49,6 +57,7 @@ import { isSeatedBrowserSession, isTableHudSession, readSlBootstrap, readWebName
 import { emitDisplayPipes, emitPublicBoard } from './sl/displaySync'
 import { emitRummyDisplay, resetRummyDisplaySync } from './sl/rummyDisplaySync'
 import { emitTrickDisplay, resetTrickDisplaySync } from './sl/trickDisplaySync'
+import { syncIchiDisplay, resetIchiDisplaySync } from './sl/ichiDisplaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 import { playYourTurnBell } from './ui/sfx'
 
@@ -76,8 +85,13 @@ function AppInner() {
   })()
   const urlPlayRummy = urlPlay === 'rummy'
   const urlPlayHearts = urlPlay === 'hearts' || urlPlay === 'trick'
+  const urlPlayIchi = urlPlay === 'ichi'
   const [screen, setScreen] = useState<Screen>(
-    tableHud || seatedBrowser ? 'sl' : urlPlayRummy || urlPlayHearts ? 'game' : 'menu',
+    tableHud || seatedBrowser
+      ? 'sl'
+      : urlPlayRummy || urlPlayHearts || urlPlayIchi
+        ? 'game'
+        : 'menu',
   )
   const [name, setName] = useState(slBoot?.name || readWebNameHint() || 'You')
   const [variant, setVariant] = useState<Variant>('canasta')
@@ -101,6 +115,11 @@ function AppInner() {
   const [trickPlay, setTrickPlay] = useState(urlPlayHearts)
   const [trickLocal, setTrickLocal] = useState<TrickLocalSession | null>(null)
   const [trickPeer, setTrickPeer] = useState<TrickPeerSession | null>(null)
+  const [ichiVariant, setIchiVariant] = useState<IchiVariant>('classic')
+  const [ichiPlayerCount, setIchiPlayerCount] = useState(4)
+  const [ichiPlay, setIchiPlay] = useState(urlPlayIchi)
+  const [ichiLocal, setIchiLocal] = useState<IchiLocalSession | null>(null)
+  const [ichiPeer, setIchiPeer] = useState<IchiPeerSession | null>(null)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
@@ -214,13 +233,16 @@ function AppInner() {
   const wrap = (node: ReactNode) => {
     const rummyUi = family === 'rummy' || rummyPlay || Boolean(rummyLocal) || Boolean(rummyPeer)
     const trickUi = family === 'trick' || trickPlay || Boolean(trickLocal) || Boolean(trickPeer)
-    const hideCanastaChrome = rummyUi || trickUi
+    const ichiUi = family === 'ichi' || ichiPlay || Boolean(ichiLocal) || Boolean(ichiPeer)
+    const hideCanastaChrome = rummyUi || trickUi || ichiUi
     return (
       <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
         <AppChrome
           slBoot={tableHud || seatedBrowser || slBoot?.parked ? slBoot : null}
           parked={Boolean(slBoot?.parked)}
-          roomCode={trickPeer?.roomCode || rummyPeer?.roomCode || peer?.roomCode || slBoot?.room}
+          roomCode={
+            ichiPeer?.roomCode || trickPeer?.roomCode || rummyPeer?.roomCode || peer?.roomCode || slBoot?.room
+          }
           showOppBooks={showOppBooks}
           onShowOppBooks={
             hideCanastaChrome
@@ -256,7 +278,10 @@ function AppInner() {
               rummyPeer?.state ||
               trickPlay ||
               trickLocal ||
-              trickPeer?.state)
+              trickPeer?.state ||
+              ichiPlay ||
+              ichiLocal ||
+              ichiPeer?.state)
               ? () => void leaveToMenu(true)
               : undefined
           }
@@ -271,9 +296,28 @@ function AppInner() {
   }
 
   useEffect(() => {
-    if ((peer?.state || rummyPeer?.state || rummyLocal || trickLocal || trickPeer?.state) && screen === 'sl')
+    if (
+      (peer?.state ||
+        rummyPeer?.state ||
+        rummyLocal ||
+        trickLocal ||
+        trickPeer?.state ||
+        ichiLocal ||
+        ichiPeer?.state) &&
+      screen === 'sl'
+    )
       setScreen('game')
-  }, [peer?.state, rummyPeer?.state, rummyLocal, trickLocal, trickPeer?.state, screen, tick])
+  }, [
+    peer?.state,
+    rummyPeer?.state,
+    rummyLocal,
+    trickLocal,
+    trickPeer?.state,
+    ichiLocal,
+    ichiPeer?.state,
+    screen,
+    tick,
+  ])
 
   useEffect(() => {
     if (!rummyPeer) return
@@ -300,6 +344,22 @@ function AppInner() {
     setTrickVariant(trickPeer.variant)
     setTrickPlayerCount(trickPeer.playerCount)
   }, [trickPeer, tick])
+
+  useEffect(() => {
+    if (!ichiLocal) return
+    return ichiLocal.onChange(() => setTick((t) => t + 1))
+  }, [ichiLocal])
+
+  useEffect(() => {
+    if (!ichiPeer) return
+    return ichiPeer.onChange(() => setTick((t) => t + 1))
+  }, [ichiPeer])
+
+  useEffect(() => {
+    if (!ichiPeer || ichiPeer.isHost) return
+    setIchiVariant(ichiPeer.variant)
+    setIchiPlayerCount(ichiPeer.playerCount)
+  }, [ichiPeer, tick])
 
   useEffect(() => {
     if (!state?.lastMessage) return
@@ -348,6 +408,14 @@ function AppInner() {
     emitTrickDisplay(trickState, slBoot.slCap, slBoot.uid, slBoot.seat)
   }, [tick, trickLocal, trickPeer, slBoot, tableHud])
 
+  useEffect(() => {
+    const ichiState = ichiLocal?.state ?? ichiPeer?.state
+    if (!ichiState || !tableHud || !slBoot?.slCap) return
+    const isEmitter = Boolean(ichiLocal) || ichiPeer?.isHost === true
+    if (!isEmitter) return
+    syncIchiDisplay(ichiState, slBoot.slCap, slBoot.uid, slBoot.seat)
+  }, [tick, ichiLocal, ichiPeer, slBoot, tableHud])
+
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
     if (local) {
@@ -378,6 +446,37 @@ function AppInner() {
     rummyPeer?.destroy()
     trickLocal?.destroy()
     trickPeer?.destroy()
+    ichiLocal?.destroy()
+    ichiPeer?.destroy()
+    if (family === 'ichi') {
+      if (tableHud && slBoot?.slCap) {
+        try {
+          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, ichiPlayerCount)
+        } catch (e) {
+          push(e instanceof Error ? e.message : 'Could not claim table')
+        }
+      }
+      const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
+      const ctrl = startIchiSolo(name, ichiPlayerCount, ichiVariant, humanSeat)
+      resetIchiDisplaySync()
+      setLocal(null)
+      setPeer(null)
+      setRummyPeer(null)
+      setRummyLocal(null)
+      setTrickPeer(null)
+      setTrickLocal(null)
+      setIchiPeer(null)
+      setIchiLocal(ctrl)
+      setRummyPlay(false)
+      setTrickPlay(false)
+      setIchiPlay(false)
+      slMatchKind.current = tableHud ? 'solo' : 'none'
+      setScreen('game')
+      push(
+        `Ichi solo — ${ichiPlayerCount} players (you + ${ichiPlayerCount - 1} bot${ichiPlayerCount > 2 ? 's' : ''}).`,
+      )
+      return
+    }
     if (family === 'rummy') {
       if (tableHud && slBoot?.slCap) {
         try {
@@ -394,8 +493,11 @@ function AppInner() {
       setRummyPeer(null)
       setTrickPeer(null)
       setTrickLocal(null)
+      setIchiPeer(null)
+      setIchiLocal(null)
       setRummyLocal(ctrl)
       setRummyPlay(false)
+      setIchiPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       push(`Rummy solo — ${rummyPlayerCount} players (you + ${rummyPlayerCount - 1} bot${rummyPlayerCount > 2 ? 's' : ''}).`)
@@ -425,8 +527,11 @@ function AppInner() {
       setRummyLocal(null)
       setTrickPeer(null)
       setTrickLocal(ctrl)
+      setIchiLocal(null)
+      setIchiPeer(null)
       setRummyPlay(false)
       setTrickPlay(false)
+      setIchiPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       const labels: Record<string, string> = {
@@ -456,8 +561,11 @@ function AppInner() {
     setRummyPeer(null)
     setTrickLocal(null)
     setTrickPeer(null)
+    setIchiLocal(null)
+    setIchiPeer(null)
     setRummyPlay(false)
     setTrickPlay(false)
+    setIchiPlay(false)
     slMatchKind.current = tableHud ? 'solo' : 'none'
     setScreen('game')
     push(ctrl.state.lastMessage)
@@ -484,14 +592,19 @@ function AppInner() {
     rummyLocal?.destroy()
     trickLocal?.destroy()
     trickPeer?.destroy()
+    ichiLocal?.destroy()
+    ichiPeer?.destroy()
     setPeer(null)
     setLocal(null)
     setRummyPeer(null)
     setRummyLocal(null)
     setTrickLocal(null)
     setTrickPeer(null)
+    setIchiLocal(null)
+    setIchiPeer(null)
     setRummyPlay(false)
     setTrickPlay(false)
+    setIchiPlay(false)
     if (tableHud && slBoot?.slCap && slMatchKind.current !== 'none') {
       try {
         await tableEndGame(slBoot.slCap, slBoot.uid, slBoot.seat)
@@ -584,7 +697,9 @@ function AppInner() {
     !rummyLocal &&
     !rummyPeer?.state &&
     !trickLocal &&
-    !trickPeer?.state
+    !trickPeer?.state &&
+    !ichiLocal &&
+    !ichiPeer?.state
   ) {
     return wrap(
       <SlTableScreens
@@ -638,13 +753,45 @@ function AppInner() {
           slBoot &&
             family !== 'rummy' &&
             family !== 'trick' &&
+            family !== 'ichi' &&
             loadMatchResume({ uid: slBoot.uid, seat: slBoot.seat, tableId: slBoot.tableId }),
         )}
+        ichiVariant={ichiVariant}
+        onIchiVariant={(v) => {
+          setIchiVariant(v)
+          ichiPeer?.setVariant(v)
+        }}
+        ichiPlayerCount={ichiPlayerCount}
+        onIchiPlayerCount={(n) => {
+          setIchiPlayerCount(n)
+          ichiPeer?.setPlayerCount(n)
+        }}
         onCreatedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
           rummyPeer?.destroy()
           trickPeer?.destroy()
+          ichiPeer?.destroy()
+          if (family === 'ichi') {
+            const session = await createIchiPeerHost(name, {
+              roomCode,
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+              variant: ichiVariant,
+              playerCount: ichiPlayerCount,
+            })
+            resetIchiDisplaySync()
+            setIchiPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'trick') {
             const readyMp = ['hearts', 'rooster', 'spades', 'euchre', 'ohhell']
             if (!readyMp.includes(trickVariant)) {
@@ -705,6 +852,23 @@ function AppInner() {
           local?.destroy()
           rummyPeer?.destroy()
           trickPeer?.destroy()
+          ichiPeer?.destroy()
+          if (family === 'ichi') {
+            const session = await joinIchiPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setIchiPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'trick') {
             const session = await joinTrickPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -716,6 +880,7 @@ function AppInner() {
             setRummyPeer(null)
             setRummyLocal(null)
             setTrickLocal(null)
+            setIchiPeer(null)
             slMatchKind.current = 'mp'
             return
           }
@@ -729,6 +894,7 @@ function AppInner() {
             setLocal(null)
             setRummyLocal(null)
             setTrickPeer(null)
+            setIchiPeer(null)
             slMatchKind.current = 'mp'
             return
           }
@@ -738,6 +904,7 @@ function AppInner() {
           setRummyPeer(null)
           setRummyLocal(null)
           setTrickPeer(null)
+          setIchiPeer(null)
           slMatchKind.current = 'mp'
         }}
         house={house}
@@ -749,7 +916,9 @@ function AppInner() {
           const occupants = (tableStatus?.roster || [])
             .filter((r) => r.seat >= 0 && r.joined)
             .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid, joined: true }))
-          if (family === 'trick') {
+          if (family === 'ichi') {
+            ichiPeer?.startMatch(occupants)
+          } else if (family === 'trick') {
             trickPeer?.startMatch(occupants)
           } else if (family === 'rummy') {
             rummyPeer?.startMatch(occupants)
@@ -762,26 +931,47 @@ function AppInner() {
           peer?.destroy()
           rummyPeer?.destroy()
           trickPeer?.destroy()
+          ichiPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
+          setIchiPeer(null)
           slMatchKind.current = 'none'
         }}
         onDetachPeer={() => {
           peer?.destroy()
           rummyPeer?.destroy()
           trickPeer?.destroy()
+          ichiPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
+          setIchiPeer(null)
           slMatchKind.current = 'none'
         }}
-        peerHasState={Boolean(peer?.state || rummyPeer?.state || trickPeer?.state)}
+        peerHasState={Boolean(peer?.state || rummyPeer?.state || trickPeer?.state || ichiPeer?.state)}
         onRejoinPeer={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
           rummyPeer?.destroy()
           trickPeer?.destroy()
+          ichiPeer?.destroy()
+          if (family === 'ichi') {
+            const session = await joinIchiPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setIchiPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'trick') {
             const session = await joinTrickPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -793,6 +983,7 @@ function AppInner() {
             setRummyPeer(null)
             setRummyLocal(null)
             setTrickLocal(null)
+            setIchiPeer(null)
             slMatchKind.current = 'mp'
             return
           }
@@ -806,6 +997,7 @@ function AppInner() {
             setLocal(null)
             setRummyLocal(null)
             setTrickPeer(null)
+            setIchiPeer(null)
             slMatchKind.current = 'mp'
             return
           }
@@ -815,12 +1007,14 @@ function AppInner() {
           setRummyPeer(null)
           setRummyLocal(null)
           setTrickPeer(null)
+          setIchiPeer(null)
           slMatchKind.current = 'mp'
         }}
-        peerRoomCode={trickPeer?.roomCode || rummyPeer?.roomCode || peer?.roomCode}
-        peerSeats={trickPeer?.seats || rummyPeer?.seats || peer?.seats}
-        isPeerHost={trickPeer?.isHost ?? rummyPeer?.isHost ?? peer?.isHost}
+        peerRoomCode={ichiPeer?.roomCode || trickPeer?.roomCode || rummyPeer?.roomCode || peer?.roomCode}
+        peerSeats={ichiPeer?.seats || trickPeer?.seats || rummyPeer?.seats || peer?.seats}
+        isPeerHost={ichiPeer?.isHost ?? trickPeer?.isHost ?? rummyPeer?.isHost ?? peer?.isHost}
         onPeerReadyToggle={(ready) => {
+          ichiPeer?.setReady(ready)
           trickPeer?.setReady(ready)
           rummyPeer?.setReady(ready)
           peer?.setReady(ready)
@@ -831,6 +1025,31 @@ function AppInner() {
           writeCoachTips(on)
           setCoachTips(on)
         }}
+      />,
+    )
+  }
+
+  if (ichiLocal || ichiPeer?.state || ichiPlay) {
+    const ctrl = ichiLocal || ichiPeer
+    return wrap(
+      <IchiBoard
+        yourName={name}
+        variant={ichiVariant}
+        playerCount={ichiPlayerCount}
+        controller={
+          ctrl?.state
+            ? {
+                state: ctrl.state,
+                localIndex: ctrl.localIndex,
+                aiThinking: ctrl.aiThinking,
+                submit: (m) => ctrl.submit(m),
+                nextHand: () => ctrl.nextHand(),
+                newMatch: ichiLocal ? () => ichiLocal.newMatch() : undefined,
+                onChange: (cb) => ctrl.onChange(cb),
+              }
+            : null
+        }
+        onExit={() => void leaveToMenu(true)}
       />,
     )
   }

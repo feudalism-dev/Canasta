@@ -19,6 +19,13 @@ describe('family lock', () => {
     expect(familyHintPresent('trick')).toBe(true)
   })
 
+  it('recognizes ichi family', () => {
+    expect(normalizeFamily('ichi')).toBe('ichi')
+    expect(resolveTableFamily('ichi')).toBe('ichi')
+    expect(familyHintPresent('ichi')).toBe(true)
+    expect(normalizeFamily('ICHI')).toBe('ichi')
+  })
+
   it('detects whether a real family hint exists', () => {
     expect(familyHintPresent(undefined, '')).toBe(false)
     expect(familyHintPresent('rummy')).toBe(true)
