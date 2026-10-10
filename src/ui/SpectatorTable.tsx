@@ -342,6 +342,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const frozen = !rummyLive && !trickLive && board.frozen
   const sideways = Boolean(topCard && (isWild(topCard) || frozen))
   const live = rummyLive || trickLive || canastaLive
+  const trickPalette = trickBoard.variant === 'rooster' ? 'rooster' : 'french'
 
   return (
     <div className={`spectator-root ${live ? 'is-live' : ''}`} ref={rootRef}>
@@ -377,8 +378,12 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                     <em>{variant}</em> {roundLine}
                   </div>
                   <div>
-                    <em>{trickBoard.playerCount}p</em>{' '}
-                    {trickBoard.heartsBroken ? 'hearts broken' : 'hearts locked'}
+                    <em>{trickBoard.playerCount}p</em>
+                    {trickBoard.variant === 'hearts'
+                      ? trickBoard.heartsBroken
+                        ? ' · hearts broken'
+                        : ' · hearts locked'
+                      : ' · partners'}
                   </div>
                   {trickBoard.phase === 'pass' ? (
                     <div>
@@ -461,7 +466,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                     const who = trickPlayerAt(trickBoard, t.seat)
                     return (
                       <div key={`${t.seat}-${t.card.id}`} className="trick-play">
-                        <CardView card={t.card} size="lg" />
+                        <CardView card={t.card} size="lg" palette={trickPalette} />
                         <span className="muted tiny">{who?.name ?? `P${t.seat + 1}`}</span>
                       </div>
                     )
