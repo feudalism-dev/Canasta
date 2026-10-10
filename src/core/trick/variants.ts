@@ -15,8 +15,9 @@ export function trickConfig(variant: TrickVariant, playerCount = 4): TrickConfig
     return {
       variant: 'rooster',
       playerCount: 4,
-      playTo: 500,
+      playTo: 300,
       partnership: true,
+      scoreAscending: false,
     }
   }
   if (variant === 'spades') {
@@ -38,7 +39,7 @@ export function trickConfig(variant: TrickVariant, playerCount = 4): TrickConfig
 export function trickVariantOptions(): { value: TrickVariant; label: string; ready: boolean }[] {
   return [
     { value: 'hearts', label: 'Hearts — avoid points, to 100 (lowest wins)', ready: true },
-    { value: 'rooster', label: 'Rooster — Rook-style nest & trump (coming soon)', ready: false },
+    { value: 'rooster', label: 'Rooster — partnership nest & trump (to 300)', ready: true },
     { value: 'spades', label: 'Spades — bid tricks (coming soon)', ready: false },
     { value: 'euchre', label: 'Euchre — short deck trump (coming soon)', ready: false },
   ]

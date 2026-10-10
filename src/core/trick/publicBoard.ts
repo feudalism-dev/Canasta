@@ -59,6 +59,9 @@ function parseVariant(ch: string): TrickVariant {
 
 function phaseCode(p: TrickPhase | 'idle'): string {
   if (p === 'pass') return 'p'
+  if (p === 'bid') return 'b'
+  if (p === 'nest') return 'n'
+  if (p === 'trump') return 't'
   if (p === 'play') return 'y'
   if (p === 'roundEnd') return 'e'
   if (p === 'matchEnd') return 'g'
@@ -67,6 +70,9 @@ function phaseCode(p: TrickPhase | 'idle'): string {
 
 function parsePhase(ch: string): TrickPhase | 'idle' {
   if (ch === 'p') return 'pass'
+  if (ch === 'b') return 'bid'
+  if (ch === 'n') return 'nest'
+  if (ch === 't') return 'trump'
   if (ch === 'y') return 'play'
   if (ch === 'e') return 'roundEnd'
   if (ch === 'g') return 'matchEnd'
@@ -282,6 +288,9 @@ export function trickSpectatorStatus(board: TrickPublicBoard): string {
   if (board.phase === 'pass') {
     return `${who} is passing ${passDirectionLabel(board.passDirection)}…`
   }
+  if (board.phase === 'bid') return `${who} is bidding…`
+  if (board.phase === 'nest') return `${who} is burying the nest…`
+  if (board.phase === 'trump') return `${who} is naming trump…`
   if (board.phase === 'play') {
     if (board.trick.length === 0) return `${who} leads`
     return `${who} is playing · trick ${board.trick.length}/${board.playerCount}`

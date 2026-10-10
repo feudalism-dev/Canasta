@@ -40,9 +40,11 @@ describe('Hearts', () => {
     expect(legal.length).toBeGreaterThan(0)
   })
 
-  it('rejects rooster until implemented', () => {
-    expect(() =>
-      createTrickMatch(['A', 'B', 'C', 'D'], [false, true, true, true], 'rooster', 1),
-    ).toThrow(/not playable/)
+  it('deals Rooster with nest and bid phase', () => {
+    const state = createTrickMatch(['A', 'B', 'C', 'D'], [false, true, true, true], 'rooster', 1)
+    expect(state.config.variant).toBe('rooster')
+    expect(state.phase).toBe('bid')
+    expect(state.nest).toHaveLength(5)
+    expect(state.players.every((p) => p.hand.length === 9)).toBe(true)
   })
 })

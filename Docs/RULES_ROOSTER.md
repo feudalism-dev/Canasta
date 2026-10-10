@@ -1,13 +1,49 @@
-# Rooster (Rook-style) — planned
+# Rooster (Rook-style) — partnership v1
 
-Working name for our Rook-like game (avoid Hasbro’s **Rook** trademark). Engine under `family=trick`, variant `rooster`.
+Working name for our Rook-like game (avoid Hasbro’s **Rook** trademark). Engine: `family=trick`, variant `rooster`.
 
-## Target rules (v1 sketch)
+## Mode
 
-- Four players in fixed partnerships (1+3 vs 2+4).
-- Colored nest deck: four suits of 1–14 (or classic 1–14 + Rooster bird), plus a **Rooster** card as top trump / special.
-- Auction for trump / point contract; high bidder takes the **nest** (widow), discards back to hand size.
-- Point cards in tricks (highs / lows / nest counts — Pagat-style partnership Rook).
-- Play to an agreed total (e.g. 300 or 500).
+**Fixed partnerships** only (v1): seats **1+3 vs 2+4**. Call-partner and cutthroat come later.
 
-Exact point schedule and Call vs Partnership house options will be locked when implementation starts. Until then the lobby shows Rooster as **coming soon**.
+## Deck
+
+41 cards: four colors (Green/Red/Yellow/Black) ranked **5–14**, plus the **Rooster bird** (always top trump).
+
+Mapped to French faces in the engine: 11–14 → J/Q/K/A; colors → ♣/♥/♦/♠; bird → joker.
+
+## Deal
+
+- 9 cards each + **5-card nest**.
+- Dealer rotates each hand; bidding starts left of dealer.
+
+## Bidding
+
+- Min **70**, max **120**, steps of **5**.
+- Pass locks you out for the hand.
+- Continues until three have passed; high bidder takes the nest.
+- If the first three pass, the dealer **must** bid 70.
+
+## Nest & trump
+
+- High bidder adds the nest (14 cards), buries any 5 face-down (new nest).
+- Names trump color, then **leads**.
+
+## Play
+
+- Follow suit if able. Bird counts as trump.
+- Highest trump wins; else highest of the led color.
+- **Counters:** each 5 = 5; each 10 = 10; each 14 = 10; bird = 20 (**120** total).
+- Winner of the **last trick** also takes the buried nest counters.
+
+## Scoring
+
+- Bidding partnership must take ≥ bid in counters.
+  - **Made:** score the counters they took.
+  - **Set:** score **−bid** (ignore their counters that hand).
+- Opponents always score the counters they took.
+- First partnership to **300** wins. If both reach/exceed 300 on the same hand, higher total wins; tie → play another hand.
+
+## Hand arrange
+
+Players may **drag** cards in hand to rearrange, or press **Sort hand** (by color / trump).

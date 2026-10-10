@@ -410,22 +410,26 @@ export function SlTableScreens({
         ) : null}
         {!seatedBrowser && isTrickTable ? (
           <>
-            <label>
-              Players at the table (humans + bots in empty seats)
-              <select
-                value={trickPlayerCount}
-                disabled={!canEditRules || trickVariant !== 'hearts'}
-                onChange={(e) => onTrickPlayerCount(Number(e.target.value))}
-              >
-                <option value={2}>2 — 1v1 bot (solo) or 2 humans</option>
-                <option value={3}>3 — 1v2 bots, or 2 humans + 1 bot</option>
-                <option value={4}>4 — 1v3 / 2v2 / 3v1 bots, or 4 humans</option>
-              </select>
-            </label>
+            {trickVariant === 'hearts' ? (
+              <label>
+                Players at the table (humans + bots in empty seats)
+                <select
+                  value={trickPlayerCount}
+                  disabled={!canEditRules}
+                  onChange={(e) => onTrickPlayerCount(Number(e.target.value))}
+                >
+                  <option value={2}>2 — 1v1 bot (solo) or 2 humans</option>
+                  <option value={3}>3 — 1v2 bots, or 2 humans + 1 bot</option>
+                  <option value={4}>4 — 1v3 / 2v2 / 3v1 bots, or 4 humans</option>
+                </select>
+              </label>
+            ) : null}
             <p className="muted">
               {trickVariant === 'hearts'
                 ? `Hearts (${trickPlayerCount} seats): empty chairs become bots. Solo = you + ${trickPlayerCount - 1} bot${trickPlayerCount > 2 ? 's' : ''}. Multiplayer Create/Join, then Start fills the rest.`
-                : 'Rooster and other trick games are coming soon. Pick Hearts to play now.'}
+                : trickVariant === 'rooster'
+                  ? 'Rooster is always 4 — partners sit across (1+3 vs 2+4). Empty chairs are bots. Bid, take the nest, name trump, play to 300.'
+                  : 'Spades and Euchre are coming soon. Pick Hearts or Rooster to play now.'}
             </p>
           </>
         ) : null}
@@ -558,7 +562,7 @@ export function SlTableScreens({
           <button
             type="button"
             className="btn secondary"
-            disabled={busy || (isTrickTable && trickVariant !== 'hearts')}
+            disabled={busy || (isTrickTable && trickVariant !== 'hearts' && trickVariant !== 'rooster')}
             onClick={async () => {
               setBusy(true)
               try {

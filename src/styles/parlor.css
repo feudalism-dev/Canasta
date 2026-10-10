@@ -1857,6 +1857,39 @@ ul {
   max-width: 28rem;
 }
 
+.trick-bid-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.trick-bid-more select {
+  max-width: 5rem;
+}
+
+/* Rooster color faces (Green/Red/Yellow/Black + bird) */
+.cn-card-face.is-rooster .cn-card-suit {
+  font-style: normal;
+  font-size: 0.55em;
+  letter-spacing: 0.02em;
+}
+.cn-card-face.is-rooster-C {
+  color: #1f7a3a;
+}
+.cn-card-face.is-rooster-H {
+  color: #b3262e;
+}
+.cn-card-face.is-rooster-D {
+  color: #b8860b;
+}
+.cn-card-face.is-rooster-S {
+  color: #1a1a1a;
+}
+.cn-card-face.is-rooster-bird {
+  color: #6b3fa0;
+}
+
 .rummy-melds {
   display: flex;
   flex-wrap: wrap;

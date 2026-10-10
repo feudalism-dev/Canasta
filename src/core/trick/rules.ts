@@ -7,6 +7,7 @@ import {
   sortTrickHand,
   trickRankValue,
 } from './deck'
+import { applyRoosterMove, legalRoosterPlays } from './roosterRules'
 import {
   cloneTrick,
   currentPlayer,
@@ -29,6 +30,7 @@ function passTargetIndex(from: number, dir: TrickState['passDirection'], n: numb
 }
 
 export function legalPlays(state: TrickState, playerIndex: number): Card[] {
+  if (state.config.variant === 'rooster') return legalRoosterPlays(state, playerIndex)
   const pl = state.players[playerIndex]
   if (!pl) return []
   const hand = pl.hand
@@ -158,6 +160,7 @@ function finishTrick(state: TrickState): void {
 }
 
 export function applyTrickMove(state: TrickState, move: TrickMove): TrickApplyResult {
+  if (state.config.variant === 'rooster') return applyRoosterMove(state, move)
   if (state.phase === 'roundEnd' || state.phase === 'matchEnd') {
     return { ok: false, error: 'Round is over' }
   }

@@ -16,6 +16,8 @@ type Props = {
   dimmed?: boolean
   sideways?: boolean
   stamp?: BookStamp
+  /** Rook-style color faces for Rooster. */
+  palette?: 'french' | 'rooster'
   onClick?: () => void
 }
 
@@ -42,6 +44,7 @@ export function CardView({
   dimmed,
   sideways,
   stamp,
+  palette = 'french',
   onClick,
 }: Props) {
   const cls = [
@@ -53,7 +56,7 @@ export function CardView({
     parked ? 'is-parked' : '',
     dimmed ? 'is-dim' : '',
     sideways ? 'is-side' : '',
-    card && !facedown ? cardToneClass(card) : '',
+    card && !facedown && palette === 'french' ? cardToneClass(card) : '',
     stamp ? `is-stamp-${stamp}` : '',
   ]
     .filter(Boolean)
@@ -72,7 +75,7 @@ export function CardView({
 
   return (
     <Tag className={cls} {...clickProps} aria-label={`${rankLabel(card.rank)} of ${card.suit}`}>
-      <CardFace card={card} />
+      <CardFace card={card} palette={palette} />
       {stamp ? <span className="cn-stamp">{stampLabel(stamp)}</span> : null}
     </Tag>
   )

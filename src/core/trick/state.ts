@@ -1,7 +1,28 @@
 import { findCard, takeCards, type Card } from '../cards'
 import { buildTrickDeck, shuffleSeeded, sortTrickHand, trickRankValue } from './deck'
+import {
+  ROOSTER_HAND_SIZE,
+  ROOSTER_NEST_SIZE,
+  shuffleRoosterDeck,
+  sortRoosterHand,
+} from './roosterDeck'
 import { clampTrickPlayerCount, heartsHandSize, nextPassDirection, trickConfig } from './variants'
 import type { PassDirection, TrickPlayer, TrickState, TrickVariant } from './types'
+
+function emptyRoosterFields(dealer = 0): Pick<
+  TrickState,
+  'dealer' | 'bidAmount' | 'bidderIndex' | 'bidPassed' | 'nest' | 'trump' | 'teamTaken'
+> {
+  return {
+    dealer,
+    bidAmount: 0,
+    bidderIndex: null,
+    bidPassed: [false, false, false, false],
+    nest: [],
+    trump: null,
+    teamTaken: [0, 0],
+  }
+}
 
 export function createTrickMatch(
   names: string[],
@@ -9,8 +30,8 @@ export function createTrickMatch(
   variant: TrickVariant = 'hearts',
   seed = Date.now(),
 ): TrickState {
-  if (variant !== 'hearts') {
-    throw new Error(`${variant} is not playable yet — choose Hearts`)
+  if (variant !== 'hearts' && variant !== 'rooster') {
+    throw new Error(`${variant} is not playable yet — choose Hearts or Rooster`)
   }
   const n = clampTrickPlayerCount(variant, names.length)
   const config = trickConfig(variant, n)
@@ -36,7 +57,7 @@ export function createTrickMatch(
     {
       config,
       players,
-      phase: 'pass',
+      phase: variant === 'rooster' ? 'bid' : 'pass',
       current: 0,
       round: 1,
       passDirection: 'left',
@@ -51,24 +72,24 @@ export function createTrickMatch(
       lastHandNote: null,
       lastHandScores: null,
       lastTrickNote: null,
+      ...emptyRoosterFields(0),
     },
     seed,
   )
 }
 
-function prepareDeck(playerCount: number, seed: number): Card[] {
+function prepareHeartsDeck(playerCount: number, seed: number): Card[] {
   let deck = buildTrickDeck()
   if (playerCount === 3) {
-    // 51 cards → 17 each (drop 2♦).
     deck = deck.filter((c) => !(c.suit === 'D' && c.rank === '2'))
   }
   return shuffleSeeded(deck, seed)
 }
 
-function dealHand(state: TrickState, seed: number): TrickState {
+function dealHeartsHand(state: TrickState, seed: number): TrickState {
   const n = state.players.length
   const handSize = heartsHandSize(n)
-  const deck = prepareDeck(n, seed)
+  const deck = prepareHeartsDeck(n, seed)
   const next = cloneTrick(state)
   for (const pl of next.players) {
     pl.hand = []
@@ -83,6 +104,7 @@ function dealHand(state: TrickState, seed: number): TrickState {
   next.lastHandScores = null
   next.lastTrickNote = null
   next.winnerId = null
+  Object.assign(next, emptyRoosterFields(next.dealer))
 
   let stock = deck
   for (let c = 0; c < handSize; c++) {
@@ -106,6 +128,51 @@ function dealHand(state: TrickState, seed: number): TrickState {
     next.log = [`Hand ${next.round} — pass three ${next.passDirection} (${n} players).`]
   }
   return next
+}
+
+function dealRoosterHand(state: TrickState, seed: number): TrickState {
+  const next = cloneTrick(state)
+  for (const pl of next.players) {
+    pl.hand = []
+    pl.takenThisHand = 0
+  }
+  next.tricksTaken = [0, 0, 0, 0]
+  next.trick = []
+  next.heartsBroken = false
+  next.passed = [false, false, false, false]
+  next.passQueue = [null, null, null, null]
+  next.lastHandNote = null
+  next.lastHandScores = null
+  next.lastTrickNote = null
+  next.winnerId = null
+
+  const dealer = next.dealer
+  Object.assign(next, emptyRoosterFields(dealer))
+
+  let stock = shuffleRoosterDeck(seed)
+  for (let c = 0; c < ROOSTER_HAND_SIZE; c++) {
+    for (let p = 0; p < 4; p++) {
+      const card = stock[0]
+      if (!card) break
+      stock = stock.slice(1)
+      next.players[p]!.hand.push(card)
+    }
+  }
+  next.nest = stock.slice(0, ROOSTER_NEST_SIZE)
+  for (const pl of next.players) pl.hand = sortRoosterHand(pl.hand, null)
+
+  next.phase = 'bid'
+  next.current = (dealer + 1) % 4
+  next.trickLeader = next.current
+  next.log = [
+    `Hand ${next.round} — Rooster deal. Nest ${ROOSTER_NEST_SIZE}. Bidding starts left of dealer (${next.players[dealer]!.name}).`,
+  ]
+  return next
+}
+
+function dealHand(state: TrickState, seed: number): TrickState {
+  if (state.config.variant === 'rooster') return dealRoosterHand(state, seed)
+  return dealHeartsHand(state, seed)
 }
 
 /** Prefer 2♣; else lowest club in play; else seat 0. */
@@ -156,11 +223,15 @@ export function findInHand(player: TrickPlayer, id: string) {
 
 export function dealNextTrickRound(prev: TrickState, seed = Date.now()): TrickState {
   const n = prev.players.length
-  const nextDir = nextPassDirection(prev.passDirection, n) as PassDirection
   const base = cloneTrick(prev)
   base.round = prev.round + 1
-  base.passDirection = nextDir
-  base.phase = 'pass'
+  if (prev.config.variant === 'rooster') {
+    base.dealer = (prev.dealer + 1) % 4
+    base.phase = 'bid'
+  } else {
+    base.passDirection = nextPassDirection(prev.passDirection, n) as PassDirection
+    base.phase = 'pass'
+  }
   for (const pl of base.players) {
     pl.hand = []
     pl.takenThisHand = 0
