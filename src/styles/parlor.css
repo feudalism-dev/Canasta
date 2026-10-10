@@ -1853,6 +1853,33 @@ ul {
   margin-top: 0.5rem;
 }
 
+.skippo-face.is-wild {
+  letter-spacing: 0.02em;
+}
+
+.skippo-builders {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.skippo-you-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  align-items: flex-start;
+  margin: 0.75rem 0;
+}
+
+.skippo-discards .rummy-card-row {
+  gap: 0.4rem;
+}
+
+.rummy-hand-slot.is-selected {
+  outline: 2px solid var(--accent, #c9a227);
+  outline-offset: 2px;
+}
+
 /* -- Rummy solo board (compact; uses CardView sizing) -- */
 .rummy-board {
   display: flex;

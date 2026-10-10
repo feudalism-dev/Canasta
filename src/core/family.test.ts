@@ -26,6 +26,13 @@ describe('family lock', () => {
     expect(normalizeFamily('ICHI')).toBe('ichi')
   })
 
+  it('recognizes skippo family', () => {
+    expect(normalizeFamily('skippo')).toBe('skippo')
+    expect(resolveTableFamily('skippo')).toBe('skippo')
+    expect(familyHintPresent('skippo')).toBe(true)
+    expect(normalizeFamily('SKIPPO')).toBe('skippo')
+  })
+
   it('detects whether a real family hint exists', () => {
     expect(familyHintPresent(undefined, '')).toBe(false)
     expect(familyHintPresent('rummy')).toBe(true)

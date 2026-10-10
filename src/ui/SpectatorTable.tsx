@@ -36,7 +36,17 @@ import {
   type IchiPublicBoard,
   type IchiPublicPlayer,
 } from '../core/ichi/publicBoard'
+import {
+  decodeSkippoPublicBoard,
+  idleSkippoPublicBoard,
+  skippoSpectatorStatus,
+  skippoVariantLabel,
+  isSkippoBoardPayload,
+  type SkippoPublicBoard,
+  type SkippoPublicPlayer,
+} from '../core/skippo/publicBoard'
 import { colorLabel, kindLabel } from '../core/ichi/deck'
+import { cardLabel } from '../core/skippo/deck'
 import { passDirectionLabel } from '../core/trick/variants'
 import { isHandAndFoot, variantLabel } from '../core/houseRules'
 import { tableGetBoard, tableStatus } from '../sl/tableApi'
@@ -61,6 +71,36 @@ function rummyPlayerAt(board: RummyPublicBoard, seat: number): RummyPublicPlayer
 
 function trickPlayerAt(board: TrickPublicBoard, seat: number): TrickPublicPlayer | undefined {
   return board.players.find((p) => p.seat === seat)
+}
+
+function skippoPlayerAt(board: SkippoPublicBoard, seat: number): SkippoPublicPlayer | undefined {
+  return board.players.find((p) => p.seat === seat)
+}
+
+function SkippoSeatChip({
+  board,
+  seat,
+  label,
+}: {
+  board: SkippoPublicBoard
+  seat: number
+  label: string
+}) {
+  const p = skippoPlayerAt(board, seat)
+  const isTurn = board.currentSeat === seat
+  return (
+    <div className={`spec-seat${isTurn ? ' is-turn' : ''}`}>
+      <strong>{p?.name || `Seat ${seat + 1}`}</strong>
+      <span className="muted tiny">{label}</span>
+      {p ? (
+        <span className="muted tiny">
+          stock {p.stockCount}
+          {p.stockTop ? ` · ${cardLabel(p.stockTop)}` : ''} · {p.score}
+        </span>
+      ) : null}
+      {isTurn ? <span className="turn-pill">Turn</span> : null}
+    </div>
+  )
 }
 
 function ichiPlayerAt(board: IchiPublicBoard, seat: number): IchiPublicPlayer | undefined {
@@ -264,6 +304,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const [rummyBoard, setRummyBoard] = useState<RummyPublicBoard>(idleRummyPublicBoard)
   const [trickBoard, setTrickBoard] = useState<TrickPublicBoard>(idleTrickPublicBoard)
   const [ichiBoard, setIchiBoard] = useState<IchiPublicBoard>(idleIchiPublicBoard)
+  const [skippoBoard, setSkippoBoard] = useState<SkippoPublicBoard>(idleSkippoPublicBoard)
   const [linkOk, setLinkOk] = useState(true)
   const [family, setFamily] = useState<GameFamily>(() => normalizeFamily(familyHint))
   const rootRef = useRef<HTMLDivElement>(null)
@@ -283,6 +324,17 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     const applyRaw = (raw: string | undefined) => {
       if (!raw || !raw.trim()) return false
       const text = raw.trim()
+      if (isSkippoBoardPayload(text)) {
+        const next = decodeSkippoPublicBoard(text)
+        setSkippoBoard(next)
+        if (next.live) {
+          setBoard(idlePublicBoard())
+          setRummyBoard(idleRummyPublicBoard())
+          setTrickBoard(idleTrickPublicBoard())
+          setIchiBoard(idleIchiPublicBoard())
+        }
+        return true
+      }
       if (isIchiBoardPayload(text)) {
         const next = decodeIchiPublicBoard(text)
         setIchiBoard(next)
@@ -290,6 +342,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setBoard(idlePublicBoard())
           setRummyBoard(idleRummyPublicBoard())
           setTrickBoard(idleTrickPublicBoard())
+          setSkippoBoard(idleSkippoPublicBoard())
         }
         return true
       }
@@ -300,6 +353,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setBoard(idlePublicBoard())
           setRummyBoard(idleRummyPublicBoard())
           setIchiBoard(idleIchiPublicBoard())
+          setSkippoBoard(idleSkippoPublicBoard())
         }
         return true
       }
@@ -310,6 +364,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setBoard(idlePublicBoard())
           setTrickBoard(idleTrickPublicBoard())
           setIchiBoard(idleIchiPublicBoard())
+          setSkippoBoard(idleSkippoPublicBoard())
         }
         return true
       }
@@ -319,6 +374,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         setRummyBoard(idleRummyPublicBoard())
         setTrickBoard(idleTrickPublicBoard())
         setIchiBoard(idleIchiPublicBoard())
+        setSkippoBoard(idleSkippoPublicBoard())
         return true
       }
       if (isIdleBoardPayload(text)) {
@@ -326,6 +382,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         setRummyBoard(idleRummyPublicBoard())
         setTrickBoard(idleTrickPublicBoard())
         setIchiBoard(idleIchiPublicBoard())
+        setSkippoBoard(idleSkippoPublicBoard())
         return true
       }
       return false
@@ -343,6 +400,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setRummyBoard(idleRummyPublicBoard())
           setTrickBoard(idleTrickPublicBoard())
           setIchiBoard(idleIchiPublicBoard())
+          setSkippoBoard(idleSkippoPublicBoard())
           inflight = false
           return
         }
@@ -369,37 +427,45 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const isRummy = family === 'rummy'
   const isTrick = family === 'trick'
   const isIchi = family === 'ichi'
+  const isSkippo = family === 'skippo'
   const rummyLive = isRummy && rummyBoard.live
   const trickLive = isTrick && trickBoard.live
   const ichiLive = isIchi && ichiBoard.live
-  const canastaLive = !isRummy && !isTrick && !isIchi && board.live
+  const skippoLive = isSkippo && skippoBoard.live
+  const canastaLive = !isRummy && !isTrick && !isIchi && !isSkippo && board.live
   const config = spectatorConfig(board)
-  const variant = ichiLive
-    ? ichiVariantLabel(ichiBoard.variant)
-    : trickLive
-      ? trickVariantLabel(trickBoard.variant)
-      : isRummy
-        ? rummyVariantLabel(rummyBoard.variant)
-        : variantLabel(board.variant)
-  const roundLine = ichiLive
-    ? ichiBoard.playTo != null
-      ? `H${ichiBoard.round} · to ${ichiBoard.playTo}`
-      : `H${ichiBoard.round}`
-    : trickLive
-      ? trickBoard.playTo != null
-        ? `H${trickBoard.round} · to ${trickBoard.playTo}`
-        : `H${trickBoard.round}`
-      : isRummy
-        ? rummyBoard.handsPerMatch != null
-          ? `H${rummyBoard.round}/${rummyBoard.handsPerMatch}`
-          : rummyBoard.playTo != null
-            ? `to ${rummyBoard.playTo}`
-            : `H${rummyBoard.round}`
-        : isHandAndFoot(board.variant)
-          ? `R${board.round}/4`
-          : board.playTo
-            ? `to ${board.playTo}`
-            : ''
+  const variant = skippoLive
+    ? skippoVariantLabel(skippoBoard.variant)
+    : ichiLive
+      ? ichiVariantLabel(ichiBoard.variant)
+      : trickLive
+        ? trickVariantLabel(trickBoard.variant)
+        : isRummy
+          ? rummyVariantLabel(rummyBoard.variant)
+          : variantLabel(board.variant)
+  const roundLine = skippoLive
+    ? skippoBoard.playTo != null
+      ? `H${skippoBoard.round} · to ${skippoBoard.playTo}`
+      : `H${skippoBoard.round}`
+    : ichiLive
+      ? ichiBoard.playTo != null
+        ? `H${ichiBoard.round} · to ${ichiBoard.playTo}`
+        : `H${ichiBoard.round}`
+      : trickLive
+        ? trickBoard.playTo != null
+          ? `H${trickBoard.round} · to ${trickBoard.playTo}`
+          : `H${trickBoard.round}`
+        : isRummy
+          ? rummyBoard.handsPerMatch != null
+            ? `H${rummyBoard.round}/${rummyBoard.handsPerMatch}`
+            : rummyBoard.playTo != null
+              ? `to ${rummyBoard.playTo}`
+              : `H${rummyBoard.round}`
+          : isHandAndFoot(board.variant)
+            ? `R${board.round}/4`
+            : board.playTo
+              ? `to ${board.playTo}`
+              : ''
 
   const topCard = rummyLive
     ? rummyBoard.top
@@ -410,9 +476,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
       : null
   const stockCount = rummyLive ? rummyBoard.stock : board.stock
   const discardCount = rummyLive ? rummyBoard.discardCount : board.discardCount
-  const frozen = !rummyLive && !trickLive && !ichiLive && board.frozen
+  const frozen = !rummyLive && !trickLive && !ichiLive && !skippoLive && board.frozen
   const sideways = Boolean(topCard && (isWild(topCard) || frozen))
-  const live = rummyLive || trickLive || ichiLive || canastaLive
+  const live = rummyLive || trickLive || ichiLive || skippoLive || canastaLive
   const trickPalette = trickBoard.variant === 'rooster' ? 'rooster' : 'french'
   const ichiColorCss: Record<string, string> = {
     R: '#c0392b',
@@ -425,13 +491,20 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     <div className={`spectator-root ${live ? 'is-live' : ''}`} ref={rootRef}>
       <div className="table-felt" />
       <div className="table-brass" />
-      {!isRummy && !isTrick && !isIchi ? <TableFlyLayer board={board} rootRef={rootRef} /> : null}
+      {!isRummy && !isTrick && !isIchi && !isSkippo ? (
+        <TableFlyLayer board={board} rootRef={rootRef} />
+      ) : null}
 
       {live ? (
         <>
           <header className="spec-banner">
             <div className="brand-mark">
-              {ichiLive ? (
+              {skippoLive ? (
+                <>
+                  <span>SKIPPO</span>
+                  <small>TABLE TOP · PLAYER 1 VIEW</small>
+                </>
+              ) : ichiLive ? (
                 <>
                   <span>ICHI</span>
                   <small>TABLE TOP · PLAYER 1 VIEW</small>
@@ -454,7 +527,16 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               )}
             </div>
             <div className="score-ticker">
-              {ichiLive ? (
+              {skippoLive ? (
+                <>
+                  <div>
+                    <em>{variant}</em> {roundLine}
+                  </div>
+                  <div>
+                    <em>{skippoBoard.playerCount}p</em> · draw {skippoBoard.drawCount}
+                  </div>
+                </>
+              ) : ichiLive ? (
                 <>
                   <div>
                     <em>{variant}</em> {roundLine}
@@ -517,34 +599,87 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </div>
           </header>
           <p className="spec-turn">
-            {ichiLive
-              ? ichiSpectatorStatus(ichiBoard)
-              : trickLive
-                ? trickSpectatorStatus(trickBoard)
-                : rummyLive
-                  ? rummyPhaseLine(rummyBoard)
-                  : phaseLine(board, family)}
-          </p>
-          {(ichiLive
-            ? ichiBoard.lastMessage
-            : trickLive
-              ? trickBoard.lastMessage
-              : rummyLive
-                ? rummyBoard.lastMessage
-                : board.lastMessage) ? (
-            <p className="spec-msg">
-              {ichiLive
-                ? ichiBoard.lastMessage
+            {skippoLive
+              ? skippoSpectatorStatus(skippoBoard)
+              : ichiLive
+                ? ichiSpectatorStatus(ichiBoard)
                 : trickLive
-                  ? trickBoard.lastMessage
+                  ? trickSpectatorStatus(trickBoard)
                   : rummyLive
-                    ? rummyBoard.lastMessage
-                    : board.lastMessage}
+                    ? rummyPhaseLine(rummyBoard)
+                    : phaseLine(board, family)}
+          </p>
+          {(skippoLive
+            ? skippoBoard.lastMessage
+            : ichiLive
+              ? ichiBoard.lastMessage
+              : trickLive
+                ? trickBoard.lastMessage
+                : rummyLive
+                  ? rummyBoard.lastMessage
+                  : board.lastMessage) ? (
+            <p className="spec-msg">
+              {skippoLive
+                ? skippoBoard.lastMessage
+                : ichiLive
+                  ? ichiBoard.lastMessage
+                  : trickLive
+                    ? trickBoard.lastMessage
+                    : rummyLive
+                      ? rummyBoard.lastMessage
+                      : board.lastMessage}
             </p>
           ) : null}
         </>
       ) : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
+
+      {skippoLive ? (
+        <div className="spec-grid is-trick">
+          <div className="spec-north">
+            <SkippoSeatChip board={skippoBoard} seat={2} label="opposite" />
+          </div>
+          <div className="spec-them" />
+          <div className="spec-west">
+            <SkippoSeatChip board={skippoBoard} seat={3} label="left" />
+          </div>
+          <div className="spec-mid">
+            <div className="spec-trick-center" aria-label="Skippo builders">
+              <span className="pile-label">Builders · draw {skippoBoard.drawCount}</span>
+              <div className="rummy-card-row" style={{ justifyContent: 'center', gap: '0.35rem' }}>
+                {skippoBoard.builders.map((top, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      minWidth: '2.6rem',
+                      height: '3.6rem',
+                      borderRadius: '0.35rem',
+                      background: top ? (top.rank == null ? '#3d2a4a' : '#2a5f6f') : '#1a242c',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
+                    }}
+                  >
+                    {top ? cardLabel(top) : skippoBoard.builderNext[i]}
+                  </div>
+                ))}
+              </div>
+              {skippoBoard.lastMessage ? (
+                <span className="muted tiny">{skippoBoard.lastMessage}</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="spec-east">
+            <SkippoSeatChip board={skippoBoard} seat={1} label="right" />
+          </div>
+          <div className="spec-south">
+            <SkippoSeatChip board={skippoBoard} seat={0} label="this side" />
+          </div>
+        </div>
+      ) : null}
 
       {ichiLive ? (
         <div className="spec-grid is-trick">
@@ -733,7 +868,12 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         </div>
       ) : (
         <div className="spec-parlor">
-          {isIchi ? (
+          {isSkippo ? (
+            <h2 className="spec-parlor-title">
+              SKIPPO
+              <em>parlor</em>
+            </h2>
+          ) : isIchi ? (
             <h2 className="spec-parlor-title">
               ICHI
               <em>parlor</em>
@@ -755,13 +895,15 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </h2>
           )}
           <p>
-            {isIchi
-              ? 'Sit to play · Classic Ichi'
-              : isRummy
-                ? 'Sit to play · free-for-all Rummy'
-                : isTrick
-                  ? 'Sit to play · Hearts, Rooster, Spades…'
-                  : 'Sit to play · partners sit across'}
+            {isSkippo
+              ? 'Sit to play · Classic Skippo'
+              : isIchi
+                ? 'Sit to play · Classic Ichi'
+                : isRummy
+                  ? 'Sit to play · free-for-all Rummy'
+                  : isTrick
+                    ? 'Sit to play · Hearts, Rooster, Spades…'
+                    : 'Sit to play · partners sit across'}
           </p>
         </div>
       )}
