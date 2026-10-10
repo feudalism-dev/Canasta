@@ -49,6 +49,13 @@ function ensureStock(state: IchiState): void {
   state.log.push('Stock reshuffled from discard.')
 }
 
+/** Call Ichi applies to the current one-card streak only — clear when hand leaves 1. */
+export function clearIchiStreak(state: IchiState, playerIndex: number): void {
+  if (state.players[playerIndex]!.hand.length === 1) return
+  state.ichiCalled[playerIndex] = false
+  if (state.ichiPending === playerIndex) state.ichiPending = null
+}
+
 export function drawCards(state: IchiState, playerIndex: number, count: number): IchiCard[] {
   const pl = state.players[playerIndex]!
   const taken: IchiCard[] = []
@@ -61,6 +68,7 @@ export function drawCards(state: IchiState, playerIndex: number, count: number):
     taken.push(c)
   }
   pl.hand = sortIchiHand([...pl.hand, ...taken], side)
+  clearIchiStreak(state, playerIndex)
   return taken
 }
 

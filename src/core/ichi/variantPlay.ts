@@ -433,6 +433,15 @@ export function applyFlip(state: IchiState, move: IchiMove): ApplyResult {
   next.discard.push(card)
   if (col) next.currentColor = col
   next.log.push(`${pl.name} played ${k}${col ?? ''} (${s}).`)
+  if (pl.hand.length === 1) {
+    next.ichiCalled[me] = false
+    next.ichiPending = me
+    if (pl.isComputer) {
+      next.ichiCalled[me] = true
+      next.ichiPending = null
+      next.log.push(`${pl.name} calls Ichi!`)
+    }
+  }
   if (pl.hand.length === 0) {
     scoreShedHand(next, me, s)
     return { ok: true, state: next }

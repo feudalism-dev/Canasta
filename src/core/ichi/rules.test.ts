@@ -75,6 +75,58 @@ describe('Classic Ichi', () => {
     expect(s.players[s.challengeTarget == null ? 1 - me : 0]!.hand.length).toBeGreaterThanOrEqual(7)
   })
 
+  it('requires Call Ichi again after drawing past one card', () => {
+    let s = createIchiMatch(['A', 'B'], [false, false], 'classic', 55)
+    const me = s.current
+    const other = 1 - me
+    s.currentColor = 'R'
+    s.discard = [{ id: 'top', color: 'R', kind: '3' }]
+    s.players[me]!.hand = [
+      { id: 'a', color: 'R', kind: '5' },
+      { id: 'b', color: 'R', kind: '6' },
+    ]
+    s.players[other]!.hand = [
+      { id: 'o1', color: 'Y', kind: '4' },
+      { id: 'o2', color: 'Y', kind: '7' },
+    ]
+    let res = applyIchiMove(s, { t: 'play', cardId: 'a' })
+    expect(res.ok).toBe(true)
+    if (res.ok) s = res.state
+    expect(s.ichiPending).toBe(me)
+    expect(s.ichiCalled[me]).toBe(false)
+    res = applyIchiMove(s, { t: 'callIchi' })
+    expect(res.ok).toBe(true)
+    if (res.ok) s = res.state
+    expect(s.ichiCalled[me]).toBe(true)
+    expect(s.ichiPending).toBeNull()
+    // Opponent plays a +2 so we draw and leave the one-card streak
+    s.current = other
+    s.phase = 'play'
+    s.players[other]!.hand = [{ id: 'd2', color: 'R', kind: 'draw2' }, ...s.players[other]!.hand]
+    res = applyIchiMove(s, { t: 'play', cardId: 'd2' })
+    expect(res.ok).toBe(true)
+    if (res.ok) s = res.state
+    expect(s.players[me]!.hand.length).toBeGreaterThan(1)
+    expect(s.ichiCalled[me]).toBe(false)
+    // Back to us with two cards of matching color — drop to one again
+    s.current = me
+    s.phase = 'play'
+    s.currentColor = 'R'
+    s.discard = [{ id: 'top2', color: 'R', kind: '9' }]
+    s.players[me]!.hand = [
+      { id: 'c', color: 'R', kind: '2' },
+      { id: 'd', color: 'R', kind: '8' },
+    ]
+    res = applyIchiMove(s, { t: 'play', cardId: 'c' })
+    expect(res.ok).toBe(true)
+    if (res.ok) s = res.state
+    expect(s.players[me]!.hand).toHaveLength(1)
+    expect(s.ichiPending).toBe(me)
+    expect(s.ichiCalled[me]).toBe(false)
+    res = applyIchiMove(s, { t: 'callIchi' })
+    expect(res.ok).toBe(true)
+  })
+
   it('scores when a player empties their hand', () => {
     let s = createIchiMatch(['A', 'B'], [false, false], 'classic', 44)
     const me = s.current

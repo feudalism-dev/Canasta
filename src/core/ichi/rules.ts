@@ -256,6 +256,8 @@ function applyClassic(state: IchiState, move: IchiMove): IchiApplyResult {
     if (card.color) next.currentColor = card.color
     next.log.push(`${pl.name} played ${card.kind}${card.color ?? ''}.`)
     if (pl.hand.length === 1) {
+      // Fresh obligation each time you drop to one card (after draws, etc.).
+      next.ichiCalled[me] = false
       next.ichiPending = me
       if (pl.isComputer) {
         next.ichiCalled[me] = true
