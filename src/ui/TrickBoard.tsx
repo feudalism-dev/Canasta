@@ -297,7 +297,7 @@ export function TrickBoard({ yourName, variant, onExit, controller }: Props) {
 
       <div className="trick-current" aria-label="Current trick">
         <span className="pile-label">
-          Trick · {state.trick.length}/4
+          Trick · {state.trick.length}/{state.players.length}
           {state.phase === 'play'
             ? ` · you have ${state.tricksTaken[localIndex] ?? 0} this hand`
             : ''}

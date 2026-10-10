@@ -1324,8 +1324,26 @@ ul {
   gap: 0.08rem;
 }
 
-.spec-grid.is-rummy {
+.spec-grid.is-rummy,
+.spec-grid.is-trick {
   grid-template-rows: auto 0 1fr 0 auto;
+}
+
+.spec-trick-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(0.25 * var(--rem));
+  min-height: calc(6 * var(--rem));
+}
+
+.spec-trick-cards {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: calc(0.35 * var(--rem));
 }
 
 .spec-parlor {

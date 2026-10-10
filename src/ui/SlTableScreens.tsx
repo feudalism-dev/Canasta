@@ -783,7 +783,7 @@ export function SlTableScreens({
           <p className="muted">Rummy how-to comes with the full board polish.</p>
         ) : null}
         {isTrickTable ? (
-          <p className="muted">See Docs/RULES_HEARTS.md — table-top spectator board comes with polish.</p>
+          <p className="muted">See Docs/RULES_HEARTS.md — Furware scores and the table-top MoAP update while you play.</p>
         ) : null}
         {status ? <p className="muted">{status}</p> : null}
         {err ? <p className="error">{err}</p> : null}

@@ -24,8 +24,8 @@ Sister product to Canasta / Rummy. **Same HUD object**, **same GitHub Pages app*
 1. LSL clones + `family` in JSONP — this pass.
 2. Web reads `family=trick` — this pass.
 3. **Hearts** solo + bots (4 players, pass, shoot the moon) — this pass.
-4. Spectator BOARD for trick (later polish).
-5. PeerJS multiplayer for trick (mirror Rummy).
+4. Spectator BOARD for trick (`T1~` payload + Furware) — done with Hearts.
+5. PeerJS multiplayer for trick (mirror Rummy) — done.
 6. **Rooster** — colored 1–14 nest deck, bid, partnerships (next major).
 7. Spades / Euchre as later selector options.
 

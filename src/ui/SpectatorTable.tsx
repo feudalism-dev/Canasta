@@ -18,6 +18,16 @@ import {
   type RummyPublicBoard,
   type RummyPublicPlayer,
 } from '../core/rummy/publicBoard'
+import {
+  decodeTrickPublicBoard,
+  idleTrickPublicBoard,
+  isTrickBoardPayload,
+  trickSpectatorStatus,
+  trickVariantLabel,
+  type TrickPublicBoard,
+  type TrickPublicPlayer,
+} from '../core/trick/publicBoard'
+import { passDirectionLabel } from '../core/trick/variants'
 import { isHandAndFoot, variantLabel } from '../core/houseRules'
 import { tableGetBoard, tableStatus } from '../sl/tableApi'
 import { CardView } from './CardView'
@@ -36,6 +46,10 @@ function playerAt(board: PublicBoard, seat: number): PublicPlayer | undefined {
 }
 
 function rummyPlayerAt(board: RummyPublicBoard, seat: number): RummyPublicPlayer | undefined {
+  return board.players.find((p) => p.seat === seat)
+}
+
+function trickPlayerAt(board: TrickPublicBoard, seat: number): TrickPublicPlayer | undefined {
   return board.players.find((p) => p.seat === seat)
 }
 
@@ -162,9 +176,46 @@ function rummyPhaseLine(board: RummyPublicBoard): string {
   return board.lastMessage || 'Rummy'
 }
 
+function TrickSeatChip({
+  board,
+  seat,
+  label,
+}: {
+  board: TrickPublicBoard
+  seat: number
+  label: string
+}) {
+  const p = trickPlayerAt(board, seat)
+  const vacant = !p
+  const isTurn = board.live && board.currentSeat === seat
+  return (
+    <div className={`spec-seat ${isTurn ? 'is-turn' : ''} ${vacant ? 'is-vacant' : ''}`} data-seat={seat}>
+      <span className="spec-seat-num">
+        Player {seat + 1} · {label}
+      </span>
+      <strong>{vacant ? '—' : p.name}</strong>
+      {vacant ? (
+        <span className="muted tiny">Empty</span>
+      ) : (
+        <>
+          <span>
+            {p.handCount} in hand · {p.score} pts
+          </span>
+          <span className="muted tiny">
+            {p.tricksTaken} trick{p.tricksTaken === 1 ? '' : 's'} · {p.takenThisHand} this hand
+          </span>
+          <em>Seat</em>
+        </>
+      )}
+      {isTurn ? <span className="turn-pill">Turn</span> : null}
+    </div>
+  )
+}
+
 export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const [board, setBoard] = useState<PublicBoard>(idlePublicBoard)
   const [rummyBoard, setRummyBoard] = useState<RummyPublicBoard>(idleRummyPublicBoard)
+  const [trickBoard, setTrickBoard] = useState<TrickPublicBoard>(idleTrickPublicBoard)
   const [linkOk, setLinkOk] = useState(true)
   const [family, setFamily] = useState<GameFamily>(() => normalizeFamily(familyHint))
   const rootRef = useRef<HTMLDivElement>(null)
@@ -184,21 +235,35 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     const applyRaw = (raw: string | undefined) => {
       if (!raw || !raw.trim()) return false
       const text = raw.trim()
+      if (isTrickBoardPayload(text)) {
+        const next = decodeTrickPublicBoard(text)
+        setTrickBoard(next)
+        if (next.live) {
+          setBoard(idlePublicBoard())
+          setRummyBoard(idleRummyPublicBoard())
+        }
+        return true
+      }
       if (isRummyBoardPayload(text)) {
         const next = decodeRummyPublicBoard(text)
         setRummyBoard(next)
-        if (next.live) setBoard(idlePublicBoard())
+        if (next.live) {
+          setBoard(idlePublicBoard())
+          setTrickBoard(idleTrickPublicBoard())
+        }
         return true
       }
       const next = decodePublicBoard(text)
       if (next.live) {
         setBoard(next)
         setRummyBoard(idleRummyPublicBoard())
+        setTrickBoard(idleTrickPublicBoard())
         return true
       }
       if (isIdleBoardPayload(text)) {
         setBoard(idlePublicBoard())
         setRummyBoard(idleRummyPublicBoard())
+        setTrickBoard(idleTrickPublicBoard())
         return true
       }
       return false
@@ -214,6 +279,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         if (st.mode === 'idle' || st.mode === 'resetting') {
           setBoard(idlePublicBoard())
           setRummyBoard(idleRummyPublicBoard())
+          setTrickBoard(idleTrickPublicBoard())
           inflight = false
           return
         }
@@ -238,21 +304,31 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   }, [slCap])
 
   const isRummy = family === 'rummy'
+  const isTrick = family === 'trick'
   const rummyLive = isRummy && rummyBoard.live
-  const canastaLive = !isRummy && board.live
+  const trickLive = isTrick && trickBoard.live
+  const canastaLive = !isRummy && !isTrick && board.live
   const config = spectatorConfig(board)
-  const variant = isRummy ? rummyVariantLabel(rummyBoard.variant) : variantLabel(board.variant)
-  const roundLine = isRummy
-    ? rummyBoard.handsPerMatch != null
-      ? `H${rummyBoard.round}/${rummyBoard.handsPerMatch}`
-      : rummyBoard.playTo != null
-        ? `to ${rummyBoard.playTo}`
-        : `H${rummyBoard.round}`
-    : isHandAndFoot(board.variant)
-      ? `R${board.round}/4`
-      : board.playTo
-        ? `to ${board.playTo}`
-        : ''
+  const variant = trickLive
+    ? trickVariantLabel(trickBoard.variant)
+    : isRummy
+      ? rummyVariantLabel(rummyBoard.variant)
+      : variantLabel(board.variant)
+  const roundLine = trickLive
+    ? trickBoard.playTo != null
+      ? `H${trickBoard.round} · to ${trickBoard.playTo}`
+      : `H${trickBoard.round}`
+    : isRummy
+      ? rummyBoard.handsPerMatch != null
+        ? `H${rummyBoard.round}/${rummyBoard.handsPerMatch}`
+        : rummyBoard.playTo != null
+          ? `to ${rummyBoard.playTo}`
+          : `H${rummyBoard.round}`
+      : isHandAndFoot(board.variant)
+        ? `R${board.round}/4`
+        : board.playTo
+          ? `to ${board.playTo}`
+          : ''
 
   const topCard = rummyLive
     ? rummyBoard.top
@@ -263,23 +339,26 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
       : null
   const stockCount = rummyLive ? rummyBoard.stock : board.stock
   const discardCount = rummyLive ? rummyBoard.discardCount : board.discardCount
-  const frozen = !rummyLive && board.frozen
+  const frozen = !rummyLive && !trickLive && board.frozen
   const sideways = Boolean(topCard && (isWild(topCard) || frozen))
+  const live = rummyLive || trickLive || canastaLive
 
   return (
-    <div
-      className={`spectator-root ${rummyLive || canastaLive ? 'is-live' : ''}`}
-      ref={rootRef}
-    >
+    <div className={`spectator-root ${live ? 'is-live' : ''}`} ref={rootRef}>
       <div className="table-felt" />
       <div className="table-brass" />
-      {!isRummy ? <TableFlyLayer board={board} rootRef={rootRef} /> : null}
+      {!isRummy && !isTrick ? <TableFlyLayer board={board} rootRef={rootRef} /> : null}
 
-      {rummyLive || canastaLive ? (
+      {live ? (
         <>
           <header className="spec-banner">
             <div className="brand-mark">
-              {isRummy ? (
+              {trickLive ? (
+                <>
+                  <span>{trickVariantLabel(trickBoard.variant).toUpperCase()}</span>
+                  <small>TABLE TOP · PLAYER 1 VIEW</small>
+                </>
+              ) : isRummy ? (
                 <>
                   <span>RUMMY</span>
                   <small>TABLE TOP · PLAYER 1 VIEW</small>
@@ -292,7 +371,22 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               )}
             </div>
             <div className="score-ticker">
-              {rummyLive ? (
+              {trickLive ? (
+                <>
+                  <div>
+                    <em>{variant}</em> {roundLine}
+                  </div>
+                  <div>
+                    <em>{trickBoard.playerCount}p</em>{' '}
+                    {trickBoard.heartsBroken ? 'hearts broken' : 'hearts locked'}
+                  </div>
+                  {trickBoard.phase === 'pass' ? (
+                    <div>
+                      <em>pass</em> {passDirectionLabel(trickBoard.passDirection)}
+                    </div>
+                  ) : null}
+                </>
+              ) : rummyLive ? (
                 <>
                   <div>
                     <em>{variant}</em> {roundLine}
@@ -320,16 +414,78 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </div>
           </header>
           <p className="spec-turn">
-            {rummyLive ? rummyPhaseLine(rummyBoard) : phaseLine(board, family)}
+            {trickLive
+              ? trickSpectatorStatus(trickBoard)
+              : rummyLive
+                ? rummyPhaseLine(rummyBoard)
+                : phaseLine(board, family)}
           </p>
-          {(rummyLive ? rummyBoard.lastMessage : board.lastMessage) ? (
-            <p className="spec-msg">{rummyLive ? rummyBoard.lastMessage : board.lastMessage}</p>
+          {(trickLive
+            ? trickBoard.lastMessage
+            : rummyLive
+              ? rummyBoard.lastMessage
+              : board.lastMessage) ? (
+            <p className="spec-msg">
+              {trickLive
+                ? trickBoard.lastMessage
+                : rummyLive
+                  ? rummyBoard.lastMessage
+                  : board.lastMessage}
+            </p>
           ) : null}
         </>
       ) : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
 
-      {rummyLive ? (
+      {trickLive ? (
+        <div className="spec-grid is-trick">
+          <div className="spec-north">
+            <TrickSeatChip board={trickBoard} seat={2} label="opposite" />
+          </div>
+          <div className="spec-them" />
+          <div className="spec-west">
+            <TrickSeatChip board={trickBoard} seat={3} label="left" />
+          </div>
+          <div className="spec-mid">
+            <div className="spec-trick-center" aria-label="Current trick">
+              <span className="pile-label">
+                {trickBoard.phase === 'pass'
+                  ? `Pass ${passDirectionLabel(trickBoard.passDirection)}`
+                  : trickBoard.phase === 'roundEnd' || trickBoard.phase === 'matchEnd'
+                    ? 'Trick clear'
+                    : `Trick · ${trickBoard.trick.length}/${trickBoard.playerCount}`}
+              </span>
+              {trickBoard.trick.length > 0 ? (
+                <div className="spec-trick-cards">
+                  {trickBoard.trick.map((t) => {
+                    const who = trickPlayerAt(trickBoard, t.seat)
+                    return (
+                      <div key={`${t.seat}-${t.card.id}`} className="trick-play">
+                        <CardView card={t.card} size="lg" />
+                        <span className="muted tiny">{who?.name ?? `P${t.seat + 1}`}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="pile-empty">
+                  {trickBoard.phase === 'pass' ? 'Selecting cards…' : 'Waiting for lead'}
+                </div>
+              )}
+              {trickBoard.lastTrickNote ? (
+                <span className="muted tiny">{trickBoard.lastTrickNote}</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="spec-east">
+            <TrickSeatChip board={trickBoard} seat={1} label="right" />
+          </div>
+          <div className="spec-us" />
+          <div className="spec-south">
+            <TrickSeatChip board={trickBoard} seat={0} label="this side" />
+          </div>
+        </div>
+      ) : rummyLive ? (
         <div className="spec-grid is-rummy">
           <div className="spec-north">
             <RummySeatChip board={rummyBoard} seat={2} label="opposite" />
@@ -424,9 +580,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               RUMMY
               <em>parlor</em>
             </h2>
-          ) : family === 'trick' ? (
+          ) : isTrick ? (
             <h2 className="spec-parlor-title">
-              TRICK
+              HEARTS
               <em>parlor</em>
             </h2>
           ) : (
@@ -438,8 +594,8 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           <p>
             {isRummy
               ? 'Sit to play · free-for-all Rummy'
-              : family === 'trick'
-                ? 'Sit to play · Hearts & Rooster'
+              : isTrick
+                ? 'Sit to play · Hearts (Rooster soon)'
                 : 'Sit to play · partners sit across'}
           </p>
         </div>

@@ -84,4 +84,12 @@ At match end, `Canasta_Scores.lsl` **llShout**s (100 m, channel `-18475021`) `CN
 
 HTTP `action=board` GET is answered by **Http** from the stored snapshot. Host/solo writes it via `BOARD` chunks. Table reset sends `BCLR|` so the snapshot clears. Status JSONP also includes `board`.
 
+Board payload prefixes (same Http store; the MoAP page picks a decoder by prefix):
+
+| Prefix | Family |
+|--------|--------|
+| `1~` | Canasta / Hand & Foot |
+| `R1~` | Rummy |
+| `T1~` | Trick (Hearts) — face-up trick, scores, hand counts; never hole cards |
+
 Start payload (`91002`): `solo|nPlayers|humanSeat|uid0|uid1|uid2|uid3|name0|name1|name2|name3` or `match|uid0|uid1|uid2|uid3|name0|name1|name2|name3`. Names are the last four fields. Table sends the HTTP-IN URL to Display on `91005`.

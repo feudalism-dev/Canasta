@@ -48,6 +48,7 @@ import {
 import { isSeatedBrowserSession, isTableHudSession, readSlBootstrap, readWebNameHint } from './sl/bootstrap'
 import { emitDisplayPipes, emitPublicBoard } from './sl/displaySync'
 import { emitRummyDisplay, resetRummyDisplaySync } from './sl/rummyDisplaySync'
+import { emitTrickDisplay, resetTrickDisplaySync } from './sl/trickDisplaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 import { playYourTurnBell } from './ui/sfx'
 
@@ -339,6 +340,14 @@ function AppInner() {
     emitRummyDisplay(rummyState, slBoot.slCap, slBoot.uid, slBoot.seat)
   }, [tick, rummyLocal, rummyPeer, slBoot, tableHud])
 
+  useEffect(() => {
+    const trickState = trickLocal?.state ?? trickPeer?.state
+    if (!trickState || !tableHud || !slBoot?.slCap) return
+    const isEmitter = Boolean(trickLocal) || trickPeer?.isHost === true
+    if (!isEmitter) return
+    emitTrickDisplay(trickState, slBoot.slCap, slBoot.uid, slBoot.seat)
+  }, [tick, trickLocal, trickPeer, slBoot, tableHud])
+
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
     if (local) {
@@ -406,6 +415,7 @@ function AppInner() {
       }
       const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
       const ctrl = startTrickSolo(name, trickPlayerCount, trickVariant, humanSeat)
+      resetTrickDisplaySync()
       setLocal(null)
       setPeer(null)
       setRummyPeer(null)
@@ -632,6 +642,7 @@ function AppInner() {
               variant: trickVariant,
               playerCount: trickPlayerCount,
             })
+            resetTrickDisplaySync()
             setTrickPeer(session)
             setPeer(null)
             setLocal(null)
