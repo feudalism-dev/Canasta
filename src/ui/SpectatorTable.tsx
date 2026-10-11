@@ -286,7 +286,13 @@ function phaseLine(board: PublicBoard, family: GameFamily): string {
   if (board.phase === 'awaitingGoOutConsent') return `${who} asked to go out — waiting on partner`
   if (board.phase === 'roundEnd') return 'Hand over — scoring'
   if (board.phase === 'matchEnd') return 'Match over'
-  return board.lastMessage || (family === 'rummy' ? 'Rummy' : 'Canasta')
+  if (board.lastMessage) return board.lastMessage
+  if (family === 'phaseit') return 'Phase It'
+  if (family === 'skippo') return 'Skippo'
+  if (family === 'ichi') return 'Ichi'
+  if (family === 'trick') return 'Trick'
+  if (family === 'rummy') return 'Rummy'
+  return 'Canasta'
 }
 
 function rummyPhaseLine(board: RummyPublicBoard): string {
@@ -1006,7 +1012,12 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         </div>
       ) : (
         <div className="spec-parlor">
-          {isSkippo ? (
+          {isPhaseit ? (
+            <h2 className="spec-parlor-title">
+              PHASE IT
+              <em>parlor</em>
+            </h2>
+          ) : isSkippo ? (
             <h2 className="spec-parlor-title">
               SKIPPO
               <em>parlor</em>
@@ -1033,15 +1044,17 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </h2>
           )}
           <p>
-            {isSkippo
-              ? 'Sit to play · Classic Skippo'
-              : isIchi
-                ? 'Sit to play · Classic Ichi'
-                : isRummy
-                  ? 'Sit to play · free-for-all Rummy'
-                  : isTrick
-                    ? 'Sit to play · Hearts, Rooster, Spades…'
-                    : 'Sit to play · partners sit across'}
+            {isPhaseit
+              ? 'Sit to play · Classic Phase It'
+              : isSkippo
+                ? 'Sit to play · Classic Skippo'
+                : isIchi
+                  ? 'Sit to play · Classic Ichi'
+                  : isRummy
+                    ? 'Sit to play · free-for-all Rummy'
+                    : isTrick
+                      ? 'Sit to play · Hearts, Rooster, Spades…'
+                      : 'Sit to play · partners sit across'}
           </p>
         </div>
       )}
