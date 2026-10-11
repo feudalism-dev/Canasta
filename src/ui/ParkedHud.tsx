@@ -26,6 +26,8 @@ export function ParkedHud({ boot }: { boot: SlBootstrap }) {
                     ? ' (Skippo)'
                     : boot.family === 'phaseit'
                       ? ' (Phase It)'
+                    : boot.family === 'yotsy'
+                      ? ' (Yotsy)'
                     : boot.family === 'canasta'
                       ? ' (Hand &amp; Foot / Canasta)'
                       : ''}

@@ -41,6 +41,13 @@ describe('family lock', () => {
     expect(normalizeFamily('phase-it')).toBe('phaseit')
   })
 
+  it('recognizes yotsy family', () => {
+    expect(normalizeFamily('yotsy')).toBe('yotsy')
+    expect(resolveTableFamily('yotsy')).toBe('yotsy')
+    expect(familyHintPresent('yotsy')).toBe(true)
+    expect(normalizeFamily('yahtzee')).toBe('yotsy')
+  })
+
   it('detects whether a real family hint exists', () => {
     expect(familyHintPresent(undefined, '')).toBe(false)
     expect(familyHintPresent('rummy')).toBe(true)

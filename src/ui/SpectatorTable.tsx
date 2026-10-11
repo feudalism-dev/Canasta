@@ -54,6 +54,15 @@ import {
   type PhaseItPublicBoard,
   type PhaseItPublicPlayer,
 } from '../core/phaseit/publicBoard'
+import {
+  decodeYotsyPublicBoard,
+  idleYotsyPublicBoard,
+  yotsySpectatorStatus,
+  yotsyVariantLabel,
+  isYotsyBoardPayload,
+  type YotsyPublicBoard,
+  type YotsyPublicPlayer,
+} from '../core/yotsy/publicBoard'
 import { colorLabel, kindLabel } from '../core/ichi/deck'
 import { cardLabel } from '../core/skippo/deck'
 import { cardLabel as phaseItCardLabel } from '../core/phaseit/deck'
@@ -89,6 +98,22 @@ function skippoPlayerAt(board: SkippoPublicBoard, seat: number): SkippoPublicPla
 
 function phaseitPlayerAt(board: PhaseItPublicBoard, seat: number): PhaseItPublicPlayer | undefined {
   return board.players.find((p) => p.seat === seat)
+}
+
+function yotsyPlayerAt(board: YotsyPublicBoard, seat: number): YotsyPublicPlayer | undefined {
+  return board.players.find((p) => p.seat === seat)
+}
+
+function YotsySeatChip({ board, seat, label }: { board: YotsyPublicBoard; seat: number; label: string }) {
+  const p = yotsyPlayerAt(board, seat)
+  const isTurn = board.currentSeat === seat
+  return (
+    <div className={`spec-seat${isTurn ? ' is-turn' : ''}`}>
+      <strong>{p?.name || `Seat ${seat + 1}`}</strong>
+      <span className="muted tiny">{label}</span>
+      {p ? <span className="muted tiny">{p.total} · {p.turnsDone}/13</span> : null}
+    </div>
+  )
 }
 
 function PhaseItSeatChip({
@@ -350,6 +375,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const [ichiBoard, setIchiBoard] = useState<IchiPublicBoard>(idleIchiPublicBoard)
   const [skippoBoard, setSkippoBoard] = useState<SkippoPublicBoard>(idleSkippoPublicBoard)
   const [phaseitBoard, setPhaseitBoard] = useState<PhaseItPublicBoard>(idlePhaseItPublicBoard)
+  const [yotsyBoard, setYotsyBoard] = useState<YotsyPublicBoard>(idleYotsyPublicBoard)
   const [linkOk, setLinkOk] = useState(true)
   const [family, setFamily] = useState<GameFamily>(() => normalizeFamily(familyHint))
   const rootRef = useRef<HTMLDivElement>(null)
@@ -369,6 +395,19 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     const applyRaw = (raw: string | undefined) => {
       if (!raw || !raw.trim()) return false
       const text = raw.trim()
+      if (isYotsyBoardPayload(text)) {
+        const next = decodeYotsyPublicBoard(text)
+        setYotsyBoard(next)
+        if (next.live) {
+          setBoard(idlePublicBoard())
+          setRummyBoard(idleRummyPublicBoard())
+          setTrickBoard(idleTrickPublicBoard())
+          setIchiBoard(idleIchiPublicBoard())
+          setSkippoBoard(idleSkippoPublicBoard())
+          setPhaseitBoard(idlePhaseItPublicBoard())
+        }
+        return true
+      }
       if (isPhaseItBoardPayload(text)) {
         const next = decodePhaseItPublicBoard(text)
         setPhaseitBoard(next)
@@ -378,6 +417,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setTrickBoard(idleTrickPublicBoard())
           setIchiBoard(idleIchiPublicBoard())
           setSkippoBoard(idleSkippoPublicBoard())
+          setYotsyBoard(idleYotsyPublicBoard())
         }
         return true
       }
@@ -390,6 +430,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setTrickBoard(idleTrickPublicBoard())
           setIchiBoard(idleIchiPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
+          setYotsyBoard(idleYotsyPublicBoard())
         }
         return true
       }
@@ -436,6 +477,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         setIchiBoard(idleIchiPublicBoard())
         setSkippoBoard(idleSkippoPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
+          setYotsyBoard(idleYotsyPublicBoard())
         return true
       }
       if (isIdleBoardPayload(text)) {
@@ -445,6 +487,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         setIchiBoard(idleIchiPublicBoard())
         setSkippoBoard(idleSkippoPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
+          setYotsyBoard(idleYotsyPublicBoard())
         return true
       }
       return false
@@ -464,6 +507,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setIchiBoard(idleIchiPublicBoard())
           setSkippoBoard(idleSkippoPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
+          setYotsyBoard(idleYotsyPublicBoard())
           inflight = false
           return
         }
@@ -492,14 +536,18 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const isIchi = family === 'ichi'
   const isSkippo = family === 'skippo'
   const isPhaseit = family === 'phaseit'
+  const isYotsy = family === 'yotsy'
   const rummyLive = isRummy && rummyBoard.live
   const trickLive = isTrick && trickBoard.live
   const ichiLive = isIchi && ichiBoard.live
   const skippoLive = isSkippo && skippoBoard.live
   const phaseitLive = isPhaseit && phaseitBoard.live
-  const canastaLive = !isRummy && !isTrick && !isIchi && !isSkippo && !isPhaseit && board.live
+  const yotsyLive = isYotsy && yotsyBoard.live
+  const canastaLive = !isRummy && !isTrick && !isIchi && !isSkippo && !isPhaseit && !isYotsy && board.live
   const config = spectatorConfig(board)
-  const variant = phaseitLive
+  const variant = yotsyLive
+    ? yotsyVariantLabel(yotsyBoard.variant)
+    : phaseitLive
     ? phaseItVariantLabel(phaseitBoard.variant)
     : skippoLive
     ? skippoVariantLabel(skippoBoard.variant)
@@ -510,7 +558,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         : isRummy
           ? rummyVariantLabel(rummyBoard.variant)
           : variantLabel(board.variant)
-  const roundLine = phaseitLive
+  const roundLine = yotsyLive
+    ? `T${yotsyBoard.round}`
+    : phaseitLive
     ? `H${phaseitBoard.round}`
     : skippoLive
     ? skippoBoard.playTo != null
@@ -545,9 +595,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
       : null
   const stockCount = rummyLive ? rummyBoard.stock : board.stock
   const discardCount = rummyLive ? rummyBoard.discardCount : board.discardCount
-  const frozen = !rummyLive && !trickLive && !ichiLive && !skippoLive && !phaseitLive && board.frozen
+  const frozen = !rummyLive && !trickLive && !ichiLive && !skippoLive && !phaseitLive && !yotsyLive && board.frozen
   const sideways = Boolean(topCard && (isWild(topCard) || frozen))
-  const live = rummyLive || trickLive || ichiLive || skippoLive || phaseitLive || canastaLive
+  const live = rummyLive || trickLive || ichiLive || skippoLive || phaseitLive || yotsyLive || canastaLive
   const trickPalette = trickBoard.variant === 'rooster' ? 'rooster' : 'french'
   const ichiColorCss: Record<string, string> = {
     R: '#c0392b',
@@ -560,7 +610,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     <div className={`spectator-root ${live ? 'is-live' : ''}`} ref={rootRef}>
       <div className="table-felt" />
       <div className="table-brass" />
-      {!isRummy && !isTrick && !isIchi && !isSkippo && !isPhaseit ? (
+      {!isRummy && !isTrick && !isIchi && !isSkippo && !isPhaseit && !isYotsy ? (
         <TableFlyLayer board={board} rootRef={rootRef} />
       ) : null}
 
@@ -568,7 +618,12 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         <>
           <header className="spec-banner">
             <div className="brand-mark">
-              {phaseitLive ? (
+              {yotsyLive ? (
+                <>
+                  <span>YOTSY</span>
+                  <small>TABLE TOP · PLAYER 1 VIEW</small>
+                </>
+              ) : phaseitLive ? (
                 <>
                   <span>PHASE IT</span>
                   <small>TABLE TOP · PLAYER 1 VIEW</small>
@@ -601,7 +656,16 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               )}
             </div>
             <div className="score-ticker">
-              {phaseitLive ? (
+              {yotsyLive ? (
+                <>
+                  <div>
+                    <em>{variant}</em> {roundLine}
+                  </div>
+                  <div>
+                    <em>{yotsyBoard.playerCount}p</em> · {yotsyBoard.rollsLeft} rolls
+                  </div>
+                </>
+              ) : phaseitLive ? (
                 <>
                   <div>
                     <em>{variant}</em> {roundLine}
@@ -682,7 +746,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </div>
           </header>
           <p className="spec-turn">
-            {phaseitLive
+            {yotsyLive
+              ? yotsySpectatorStatus(yotsyBoard)
+              : phaseitLive
               ? phaseItSpectatorStatus(phaseitBoard)
               : skippoLive
               ? skippoSpectatorStatus(skippoBoard)
@@ -694,7 +760,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                     ? rummyPhaseLine(rummyBoard)
                     : phaseLine(board, family)}
           </p>
-          {(phaseitLive
+          {(yotsyLive
+            ? yotsyBoard.lastMessage
+            : phaseitLive
             ? phaseitBoard.lastMessage
             : skippoLive
             ? skippoBoard.lastMessage
@@ -706,7 +774,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                   ? rummyBoard.lastMessage
                   : board.lastMessage) ? (
             <p className="spec-msg">
-              {phaseitLive
+              {yotsyLive
+                ? yotsyBoard.lastMessage
+                : phaseitLive
                 ? phaseitBoard.lastMessage
                 : skippoLive
                 ? skippoBoard.lastMessage
@@ -722,6 +792,50 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         </>
       ) : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
+
+      {yotsyLive ? (
+        <div className="spec-grid is-trick">
+          <div className="spec-north">
+            <YotsySeatChip board={yotsyBoard} seat={2} label="opposite" />
+          </div>
+          <div className="spec-them" />
+          <div className="spec-west">
+            <YotsySeatChip board={yotsyBoard} seat={3} label="left" />
+          </div>
+          <div className="spec-mid">
+            <div className="spec-trick-center" aria-label="Yotsy dice">
+              <span className="pile-label">Dice · {yotsyBoard.rollsLeft} rolls left</span>
+              <div className="rummy-card-row" style={{ justifyContent: 'center', gap: '0.35rem' }}>
+                {(yotsyBoard.dice.length ? yotsyBoard.dice : [0, 0, 0, 0, 0]).map((v, i) => (
+                  <div
+                    key={i}
+                    className="yotsy-die"
+                    style={{
+                      width: '2.4rem',
+                      height: '2.4rem',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontWeight: 800,
+                      fontSize: '1.1rem',
+                    }}
+                  >
+                    {v || '·'}
+                  </div>
+                ))}
+              </div>
+              {yotsyBoard.lastMessage ? (
+                <span className="muted tiny">{yotsyBoard.lastMessage}</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="spec-east">
+            <YotsySeatChip board={yotsyBoard} seat={1} label="right" />
+          </div>
+          <div className="spec-south">
+            <YotsySeatChip board={yotsyBoard} seat={0} label="this side" />
+          </div>
+        </div>
+      ) : null}
 
       {phaseitLive ? (
         <div className="spec-grid is-trick">
@@ -1012,7 +1126,12 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         </div>
       ) : (
         <div className="spec-parlor">
-          {isPhaseit ? (
+          {isYotsy ? (
+            <h2 className="spec-parlor-title">
+              YOTSY
+              <em>parlor</em>
+            </h2>
+          ) : isPhaseit ? (
             <h2 className="spec-parlor-title">
               PHASE IT
               <em>parlor</em>
@@ -1044,17 +1163,19 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </h2>
           )}
           <p>
-            {isPhaseit
-              ? 'Sit to play · Classic Phase It'
-              : isSkippo
-                ? 'Sit to play · Classic Skippo'
-                : isIchi
-                  ? 'Sit to play · Classic Ichi'
-                  : isRummy
-                    ? 'Sit to play · free-for-all Rummy'
-                    : isTrick
-                      ? 'Sit to play · Hearts, Rooster, Spades…'
-                      : 'Sit to play · partners sit across'}
+            {isYotsy
+              ? 'Sit to play · Classic Yotsy'
+              : isPhaseit
+                ? 'Sit to play · Classic Phase It'
+                : isSkippo
+                  ? 'Sit to play · Classic Skippo'
+                  : isIchi
+                    ? 'Sit to play · Classic Ichi'
+                    : isRummy
+                      ? 'Sit to play · free-for-all Rummy'
+                      : isTrick
+                        ? 'Sit to play · Hearts, Rooster, Spades…'
+                        : 'Sit to play · partners sit across'}
           </p>
         </div>
       )}

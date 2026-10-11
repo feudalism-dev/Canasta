@@ -13,6 +13,7 @@ import { TrickBoard } from './ui/TrickBoard'
 import { IchiBoard } from './ui/IchiBoard'
 import { SkippoBoard } from './ui/SkippoBoard'
 import { PhaseItBoard } from './ui/PhaseItBoard'
+import { YotsyBoard } from './ui/YotsyBoard'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { ParkedHud } from './ui/ParkedHud'
 import { Scoreboard } from './ui/Scoreboard'
@@ -23,6 +24,7 @@ import type { TrickVariant } from './core/trick/types'
 import type { IchiVariant } from './core/ichi/types'
 import type { SkippoVariant } from './core/skippo/types'
 import type { PhaseItVariant } from './core/phaseit/types'
+import type { YotsyVariant } from './core/yotsy/types'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
 import { resumeSolo, startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
@@ -57,11 +59,17 @@ import {
   joinPhaseItPeerRoom,
   type PhaseItPeerSession,
 } from './net/phaseitPeerSession'
+import {
+  createYotsyPeerHost,
+  joinYotsyPeerRoom,
+  type YotsyPeerSession,
+} from './net/yotsyPeerSession'
 import { startRummySolo, type RummyLocalSession } from './ui/rummyLocalSession'
 import { startTrickSolo, type TrickLocalSession } from './ui/trickLocalSession'
 import { startIchiSolo, type IchiLocalSession } from './ui/ichiLocalSession'
 import { startSkippoSolo, type SkippoLocalSession } from './ui/skippoLocalSession'
 import { startPhaseItSolo, type PhaseItLocalSession } from './ui/phaseitLocalSession'
+import { startYotsySolo, type YotsyLocalSession } from './ui/yotsyLocalSession'
 import {
   clearMatchResume,
   loadMatchResume,
@@ -76,6 +84,7 @@ import { emitTrickDisplay, resetTrickDisplaySync } from './sl/trickDisplaySync'
 import { syncIchiDisplay, resetIchiDisplaySync } from './sl/ichiDisplaySync'
 import { syncSkippoDisplay, resetSkippoDisplaySync } from './sl/skippoDisplaySync'
 import { syncPhaseItDisplay, resetPhaseItDisplaySync } from './sl/phaseitDisplaySync'
+import { syncYotsyDisplay, resetYotsyDisplaySync } from './sl/yotsyDisplaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 import { playYourTurnBell } from './ui/sfx'
 
@@ -106,10 +115,11 @@ function AppInner() {
   const urlPlayIchi = urlPlay === 'ichi'
   const urlPlaySkippo = urlPlay === 'skippo'
   const urlPlayPhaseIt = urlPlay === 'phaseit'
+  const urlPlayYotsy = urlPlay === 'yotsy'
   const [screen, setScreen] = useState<Screen>(
     tableHud || seatedBrowser
       ? 'sl'
-      : urlPlayRummy || urlPlayHearts || urlPlayIchi || urlPlaySkippo || urlPlayPhaseIt
+      : urlPlayRummy || urlPlayHearts || urlPlayIchi || urlPlaySkippo || urlPlayPhaseIt || urlPlayYotsy
         ? 'game'
         : 'menu',
   )
@@ -150,6 +160,11 @@ function AppInner() {
   const [phaseitPlay, setPhaseitPlay] = useState(urlPlayPhaseIt)
   const [phaseitLocal, setPhaseitLocal] = useState<PhaseItLocalSession | null>(null)
   const [phaseitPeer, setPhaseitPeer] = useState<PhaseItPeerSession | null>(null)
+  const [yotsyVariant, setYotsyVariant] = useState<YotsyVariant>('classic')
+  const [yotsyPlayerCount, setYotsyPlayerCount] = useState(2)
+  const [yotsyPlay, setYotsyPlay] = useState(urlPlayYotsy)
+  const [yotsyLocal, setYotsyLocal] = useState<YotsyLocalSession | null>(null)
+  const [yotsyPeer, setYotsyPeer] = useState<YotsyPeerSession | null>(null)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
@@ -266,13 +281,15 @@ function AppInner() {
     const ichiUi = family === 'ichi' || ichiPlay || Boolean(ichiLocal) || Boolean(ichiPeer)
     const skippoUi = family === 'skippo' || skippoPlay || Boolean(skippoLocal) || Boolean(skippoPeer)
     const phaseitUi = family === 'phaseit' || phaseitPlay || Boolean(phaseitLocal) || Boolean(phaseitPeer)
-    const hideCanastaChrome = rummyUi || trickUi || ichiUi || skippoUi || phaseitUi
+    const yotsyUi = family === 'yotsy' || yotsyPlay || Boolean(yotsyLocal) || Boolean(yotsyPeer)
+    const hideCanastaChrome = rummyUi || trickUi || ichiUi || skippoUi || phaseitUi || yotsyUi
     return (
       <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
         <AppChrome
           slBoot={tableHud || seatedBrowser || slBoot?.parked ? slBoot : null}
           parked={Boolean(slBoot?.parked)}
           roomCode={
+            yotsyPeer?.roomCode ||
             phaseitPeer?.roomCode ||
             skippoPeer?.roomCode ||
             ichiPeer?.roomCode ||
@@ -348,7 +365,9 @@ function AppInner() {
         skippoLocal ||
         skippoPeer?.state ||
         phaseitLocal ||
-        phaseitPeer?.state) &&
+        phaseitPeer?.state ||
+        yotsyLocal ||
+        yotsyPeer?.state) &&
       screen === 'sl'
     )
       setScreen('game')
@@ -364,6 +383,8 @@ function AppInner() {
     skippoPeer?.state,
     phaseitLocal,
     phaseitPeer?.state,
+    yotsyLocal,
+    yotsyPeer?.state,
     screen,
     tick,
   ])
@@ -443,6 +464,22 @@ function AppInner() {
   }, [phaseitPeer, tick])
 
   useEffect(() => {
+    if (!yotsyLocal) return
+    return yotsyLocal.onChange(() => setTick((t) => t + 1))
+  }, [yotsyLocal])
+
+  useEffect(() => {
+    if (!yotsyPeer) return
+    return yotsyPeer.onChange(() => setTick((t) => t + 1))
+  }, [yotsyPeer])
+
+  useEffect(() => {
+    if (!yotsyPeer || yotsyPeer.isHost) return
+    setYotsyVariant(yotsyPeer.variant)
+    setYotsyPlayerCount(yotsyPeer.playerCount)
+  }, [yotsyPeer, tick])
+
+  useEffect(() => {
     if (!state?.lastMessage) return
     setStatus(state.lastMessage)
     if (state.lastMessage !== lastToast.current) {
@@ -513,6 +550,14 @@ function AppInner() {
     syncPhaseItDisplay(phaseitState, slBoot.slCap, slBoot.uid, slBoot.seat)
   }, [tick, phaseitLocal, phaseitPeer, slBoot, tableHud])
 
+  useEffect(() => {
+    const yotsyState = yotsyLocal?.state ?? yotsyPeer?.state
+    if (!yotsyState || !tableHud || !slBoot?.slCap) return
+    const isEmitter = Boolean(yotsyLocal) || yotsyPeer?.isHost === true
+    if (!isEmitter) return
+    syncYotsyDisplay(yotsyState, slBoot.slCap, slBoot.uid, slBoot.seat)
+  }, [tick, yotsyLocal, yotsyPeer, slBoot, tableHud])
+
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
     if (local) {
@@ -549,6 +594,46 @@ function AppInner() {
     skippoPeer?.destroy()
     phaseitLocal?.destroy()
     phaseitPeer?.destroy()
+    yotsyLocal?.destroy()
+    yotsyPeer?.destroy()
+    if (family === 'yotsy') {
+      if (tableHud && slBoot?.slCap) {
+        try {
+          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, yotsyPlayerCount)
+        } catch (e) {
+          push(e instanceof Error ? e.message : 'Could not claim table')
+        }
+      }
+      const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
+      const ctrl = startYotsySolo(name, yotsyPlayerCount, yotsyVariant, humanSeat)
+      resetYotsyDisplaySync()
+      setLocal(null)
+      setPeer(null)
+      setRummyPeer(null)
+      setRummyLocal(null)
+      setTrickPeer(null)
+      setTrickLocal(null)
+      setIchiPeer(null)
+      setIchiLocal(null)
+      setSkippoPeer(null)
+      setSkippoLocal(null)
+      setPhaseitPeer(null)
+      setPhaseitLocal(null)
+      setYotsyPeer(null)
+      setYotsyLocal(ctrl)
+      setRummyPlay(false)
+      setTrickPlay(false)
+      setIchiPlay(false)
+      setSkippoPlay(false)
+      setPhaseitPlay(false)
+      setYotsyPlay(false)
+      slMatchKind.current = tableHud ? 'solo' : 'none'
+      setScreen('game')
+      push(
+        `Yotsy solo — ${yotsyPlayerCount} player${yotsyPlayerCount > 1 ? 's' : ''} (you + ${Math.max(0, yotsyPlayerCount - 1)} bot${yotsyPlayerCount > 2 ? 's' : ''}).`,
+      )
+      return
+    }
     if (family === 'phaseit') {
       if (tableHud && slBoot?.slCap) {
         try {
@@ -572,11 +657,14 @@ function AppInner() {
       setSkippoLocal(null)
       setPhaseitPeer(null)
       setPhaseitLocal(ctrl)
+      setYotsyPeer(null)
+      setYotsyLocal(null)
       setRummyPlay(false)
       setTrickPlay(false)
       setIchiPlay(false)
       setSkippoPlay(false)
       setPhaseitPlay(false)
+      setYotsyPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       push(
@@ -612,6 +700,7 @@ function AppInner() {
       setIchiPlay(false)
       setSkippoPlay(false)
       setPhaseitPlay(false)
+      setYotsyPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       push(
@@ -647,6 +736,7 @@ function AppInner() {
       setIchiPlay(false)
       setSkippoPlay(false)
       setPhaseitPlay(false)
+      setYotsyPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       push(
@@ -677,6 +767,7 @@ function AppInner() {
       setIchiPlay(false)
       setSkippoPlay(false)
       setPhaseitPlay(false)
+      setYotsyPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       push(`Rummy solo — ${rummyPlayerCount} players (you + ${rummyPlayerCount - 1} bot${rummyPlayerCount > 2 ? 's' : ''}).`)
@@ -713,6 +804,7 @@ function AppInner() {
       setIchiPlay(false)
       setSkippoPlay(false)
       setPhaseitPlay(false)
+      setYotsyPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       const labels: Record<string, string> = {
@@ -780,6 +872,8 @@ function AppInner() {
     skippoPeer?.destroy()
     phaseitLocal?.destroy()
     phaseitPeer?.destroy()
+    yotsyLocal?.destroy()
+    yotsyPeer?.destroy()
     setPeer(null)
     setLocal(null)
     setRummyPeer(null)
@@ -792,6 +886,8 @@ function AppInner() {
     setSkippoPeer(null)
     setPhaseitLocal(null)
     setPhaseitPeer(null)
+    setYotsyLocal(null)
+    setYotsyPeer(null)
     setRummyPlay(false)
     setTrickPlay(false)
     setIchiPlay(false)
@@ -895,7 +991,9 @@ function AppInner() {
     !skippoLocal &&
     !skippoPeer?.state &&
     !phaseitLocal &&
-    !phaseitPeer?.state
+    !phaseitPeer?.state &&
+    !yotsyLocal &&
+    !yotsyPeer?.state
   ) {
     return wrap(
       <SlTableScreens
@@ -952,6 +1050,7 @@ function AppInner() {
             family !== 'ichi' &&
             family !== 'skippo' &&
             family !== 'phaseit' &&
+            family !== 'yotsy' &&
             loadMatchResume({ uid: slBoot.uid, seat: slBoot.seat, tableId: slBoot.tableId }),
         )}
         ichiVariant={ichiVariant}
@@ -989,6 +1088,16 @@ function AppInner() {
           setPhaseitPlayerCount(n)
           phaseitPeer?.setPlayerCount(n)
         }}
+        yotsyVariant={yotsyVariant}
+        onYotsyVariant={(v) => {
+          setYotsyVariant(v)
+          yotsyPeer?.setVariant(v)
+        }}
+        yotsyPlayerCount={yotsyPlayerCount}
+        onYotsyPlayerCount={(n) => {
+          setYotsyPlayerCount(n)
+          yotsyPeer?.setPlayerCount(n)
+        }}
         onCreatedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
@@ -997,6 +1106,33 @@ function AppInner() {
           ichiPeer?.destroy()
           skippoPeer?.destroy()
           phaseitPeer?.destroy()
+          yotsyPeer?.destroy()
+          if (family === 'yotsy') {
+            const session = await createYotsyPeerHost(name, {
+              roomCode,
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+              variant: yotsyVariant,
+              playerCount: yotsyPlayerCount,
+            })
+            resetYotsyDisplaySync()
+            setYotsyPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
+            setYotsyLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'phaseit') {
             const session = await createPhaseItPeerHost(name, {
               roomCode,
@@ -1128,6 +1264,29 @@ function AppInner() {
           ichiPeer?.destroy()
           skippoPeer?.destroy()
           phaseitPeer?.destroy()
+          yotsyPeer?.destroy()
+          if (family === 'yotsy') {
+            const session = await joinYotsyPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setYotsyPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
+            setYotsyLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'phaseit') {
             const session = await joinPhaseItPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -1233,7 +1392,9 @@ function AppInner() {
           const occupants = (tableStatus?.roster || [])
             .filter((r) => r.seat >= 0 && r.joined)
             .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid, joined: true }))
-          if (family === 'phaseit') {
+          if (family === 'yotsy') {
+            yotsyPeer?.startMatch(occupants)
+          } else if (family === 'phaseit') {
             phaseitPeer?.startMatch(occupants)
           } else if (family === 'skippo') {
             skippoPeer?.startMatch(occupants)
@@ -1255,12 +1416,14 @@ function AppInner() {
           ichiPeer?.destroy()
           skippoPeer?.destroy()
           phaseitPeer?.destroy()
+          yotsyPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
           setIchiPeer(null)
           setSkippoPeer(null)
           setPhaseitPeer(null)
+          setYotsyPeer(null)
           slMatchKind.current = 'none'
         }}
         onDetachPeer={() => {
@@ -1270,16 +1433,18 @@ function AppInner() {
           ichiPeer?.destroy()
           skippoPeer?.destroy()
           phaseitPeer?.destroy()
+          yotsyPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
           setIchiPeer(null)
           setSkippoPeer(null)
           setPhaseitPeer(null)
+          setYotsyPeer(null)
           slMatchKind.current = 'none'
         }}
         peerHasState={Boolean(
-          peer?.state || rummyPeer?.state || trickPeer?.state || ichiPeer?.state || skippoPeer?.state || phaseitPeer?.state,
+          peer?.state || rummyPeer?.state || trickPeer?.state || ichiPeer?.state || skippoPeer?.state || phaseitPeer?.state || yotsyPeer?.state,
         )}
         onRejoinPeer={async (roomCode) => {
           peer?.destroy()
@@ -1289,6 +1454,29 @@ function AppInner() {
           ichiPeer?.destroy()
           skippoPeer?.destroy()
           phaseitPeer?.destroy()
+          yotsyPeer?.destroy()
+          if (family === 'yotsy') {
+            const session = await joinYotsyPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setYotsyPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
+            setYotsyLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'phaseit') {
             const session = await joinPhaseItPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -1391,9 +1579,10 @@ function AppInner() {
           peer?.roomCode
         }
         peerSeats={
-          phaseitPeer?.seats || skippoPeer?.seats || ichiPeer?.seats || trickPeer?.seats || rummyPeer?.seats || peer?.seats
+          yotsyPeer?.seats || phaseitPeer?.seats || skippoPeer?.seats || ichiPeer?.seats || trickPeer?.seats || rummyPeer?.seats || peer?.seats
         }
         isPeerHost={
+          yotsyPeer?.isHost ??
           phaseitPeer?.isHost ??
           skippoPeer?.isHost ??
           ichiPeer?.isHost ??
@@ -1402,6 +1591,7 @@ function AppInner() {
           peer?.isHost
         }
         onPeerReadyToggle={(ready) => {
+          yotsyPeer?.setReady(ready)
           phaseitPeer?.setReady(ready)
           skippoPeer?.setReady(ready)
           ichiPeer?.setReady(ready)
@@ -1415,6 +1605,30 @@ function AppInner() {
           writeCoachTips(on)
           setCoachTips(on)
         }}
+      />,
+    )
+  }
+
+  if (yotsyLocal || yotsyPeer?.state || yotsyPlay) {
+    const ctrl = yotsyLocal || yotsyPeer
+    return wrap(
+      <YotsyBoard
+        yourName={name}
+        variant={yotsyVariant}
+        playerCount={yotsyPlayerCount}
+        controller={
+          ctrl?.state
+            ? {
+                state: ctrl.state,
+                localIndex: ctrl.localIndex,
+                aiThinking: ctrl.aiThinking,
+                submit: (m) => ctrl.submit(m),
+                newMatch: yotsyLocal ? () => yotsyLocal.newMatch() : undefined,
+                onChange: (cb) => ctrl.onChange(cb),
+              }
+            : null
+        }
+        onExit={() => void leaveToMenu(true)}
       />,
     )
   }
