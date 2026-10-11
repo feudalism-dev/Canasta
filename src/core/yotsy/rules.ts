@@ -1,5 +1,5 @@
-import { categoryLabel } from './categories'
-import { rollDice, valuesOf, isYahtzee } from './dice'
+import { categoryLabel, fiveKindCategory } from './categories'
+import { isYahtzee, rollDice, valuesOf } from './dice'
 import { openCategories, playerTotal, scoreWithJoker } from './score'
 import { advanceAfterScore, cloneYotsy, currentPlayer } from './state'
 import type { YotsyMove, YotsyState } from './types'
@@ -13,6 +13,7 @@ export function applyYotsyMove(state: YotsyState, move: YotsyMove): YotsyApplyRe
   const next = cloneYotsy(state)
   const me = next.current
   const pl = next.players[me]!
+  const variant = next.config.variant
 
   if (move.t === 'toggleHold') {
     if (!next.hasRolled) return { ok: false, error: 'Roll first' }
@@ -25,7 +26,6 @@ export function applyYotsyMove(state: YotsyState, move: YotsyMove): YotsyApplyRe
 
   if (move.t === 'roll') {
     if (next.rollsLeft <= 0) return { ok: false, error: 'No rolls left' }
-    // First roll: nothing held; later rolls keep held faces
     if (!next.hasRolled) {
       for (const d of next.dice) d.held = false
     }
@@ -39,23 +39,24 @@ export function applyYotsyMove(state: YotsyState, move: YotsyMove): YotsyApplyRe
 
   if (move.t === 'score') {
     if (!next.hasRolled) return { ok: false, error: 'Roll at least once' }
-    const open = openCategories(pl.card)
+    const open = openCategories(pl.card, variant)
     if (!open.includes(move.category)) return { ok: false, error: 'Box already filled' }
     const vals = valuesOf(next.dice)
-    const pts = scoreWithJoker(vals, move.category, pl.card)
-
-    // Bonus Yahtzee: already scored 50 in Yahtzee, rolled another
-    if (pl.card.yahtzee === 50 && isYahtzee(vals) && move.category !== 'yahtzee') {
-      pl.yahtzeeBonuses += 100
-    }
-
+    const five = fiveKindCategory(variant)
+    const fiveWasFilled = (pl.card[five] ?? 0) > 0
+    const pts = scoreWithJoker(vals, move.category, pl.card, variant)
     pl.card[move.category] = pts
     pl.turnsDone += 1
-    const note = `${pl.name} scores ${categoryLabel(move.category)} for ${pts}${
-      pl.yahtzeeBonuses && pl.card.yahtzee === 50 && isYahtzee(vals) && move.category !== 'yahtzee'
-        ? ' (+100 Yotsy bonus)'
-        : ''
-    }. Total ${playerTotal(pl)}.`
+
+    let bonusNote = ''
+    if (fiveWasFilled && isYahtzee(vals) && move.category !== five) {
+      const bonus = variant === 'kismet' ? 50 : 100
+      pl.yahtzeeBonuses += bonus
+      bonusNote =
+        variant === 'kismet' ? ` (+${bonus} Kismet bonus)` : ` (+${bonus} Yotsy bonus)`
+    }
+
+    const note = `${pl.name} scores ${categoryLabel(move.category)} for ${pts}${bonusNote}. Total ${playerTotal(pl, variant)}.`
     next.lastScoreNote = note
     next.log.push(note)
     next.lastMessage = note

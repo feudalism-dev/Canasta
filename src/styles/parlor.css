@@ -1985,6 +1985,44 @@ ul {
   box-shadow: 0 1px 1px rgba(255, 255, 255, 0.25);
 }
 
+/* Kismet colored pips: 1/6 black, 2/5 red, 3/4 green */
+.yotsy-pip.is-on.is-black {
+  background: radial-gradient(circle at 35% 30%, #2a2a2a, #0a0a0a 70%);
+}
+.yotsy-pip.is-on.is-red {
+  background: radial-gradient(circle at 35% 30%, #e04545, #8b1515 70%);
+}
+.yotsy-pip.is-on.is-green {
+  background: radial-gradient(circle at 35% 30%, #3cb86a, #1a6b38 70%);
+}
+
+.yotsy-die.is-spec {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: grid;
+  place-items: center;
+}
+
+.yotsy-die-num {
+  font-weight: 800;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.yotsy-die.is-red .yotsy-die-num {
+  color: #b01e1e;
+}
+.yotsy-die.is-green .yotsy-die-num {
+  color: #1a7a3c;
+}
+.yotsy-die.is-black .yotsy-die-num {
+  color: #121212;
+}
+
+.spec-yotsy-dice {
+  margin: 0.35rem 0;
+}
+
 .yotsy-roll-btn {
   min-width: 10rem;
   font-size: 1.05rem;

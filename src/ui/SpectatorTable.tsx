@@ -63,6 +63,8 @@ import {
   type YotsyPublicBoard,
   type YotsyPublicPlayer,
 } from '../core/yotsy/publicBoard'
+import { dieColor } from '../core/yotsy/dice'
+import { turnsNeeded } from '../core/yotsy/categories'
 import { colorLabel, kindLabel } from '../core/ichi/deck'
 import { cardLabel } from '../core/skippo/deck'
 import { cardLabel as phaseItCardLabel } from '../core/phaseit/deck'
@@ -107,11 +109,16 @@ function yotsyPlayerAt(board: YotsyPublicBoard, seat: number): YotsyPublicPlayer
 function YotsySeatChip({ board, seat, label }: { board: YotsyPublicBoard; seat: number; label: string }) {
   const p = yotsyPlayerAt(board, seat)
   const isTurn = board.currentSeat === seat
+  const boxes = turnsNeeded(board.variant)
   return (
     <div className={`spec-seat${isTurn ? ' is-turn' : ''}`}>
       <strong>{p?.name || `Seat ${seat + 1}`}</strong>
       <span className="muted tiny">{label}</span>
-      {p ? <span className="muted tiny">{p.total} · {p.turnsDone}/13</span> : null}
+      {p ? (
+        <span className="muted tiny">
+          {p.total} · {p.turnsDone}/{boxes}
+        </span>
+      ) : null}
     </div>
   )
 }
@@ -804,24 +811,23 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           </div>
           <div className="spec-mid">
             <div className="spec-trick-center" aria-label="Yotsy dice">
-              <span className="pile-label">Dice · {yotsyBoard.rollsLeft} rolls left</span>
-              <div className="rummy-card-row" style={{ justifyContent: 'center', gap: '0.35rem' }}>
-                {(yotsyBoard.dice.length ? yotsyBoard.dice : [0, 0, 0, 0, 0]).map((v, i) => (
-                  <div
-                    key={i}
-                    className="yotsy-die"
-                    style={{
-                      width: '2.4rem',
-                      height: '2.4rem',
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontWeight: 800,
-                      fontSize: '1.1rem',
-                    }}
-                  >
-                    {v || '·'}
-                  </div>
-                ))}
+              <span className="pile-label">
+                {yotsyVariantLabel(yotsyBoard.variant)} · {yotsyBoard.rollsLeft} rolls left
+              </span>
+              <div className="yotsy-dice-row spec-yotsy-dice">
+                {(yotsyBoard.dice.length ? yotsyBoard.dice : [0, 0, 0, 0, 0]).map((v, i) => {
+                  const color =
+                    yotsyBoard.variant === 'kismet' && v > 0 ? dieColor(v) : null
+                  return (
+                    <div
+                      key={i}
+                      className={`yotsy-die is-spec${color ? ` is-${color}` : ''}`}
+                      aria-label={v ? `Die ${v}${color ? `, ${color}` : ''}` : 'Empty'}
+                    >
+                      <span className="yotsy-die-num">{v || '·'}</span>
+                    </div>
+                  )
+                })}
               </div>
               {yotsyBoard.lastMessage ? (
                 <span className="muted tiny">{yotsyBoard.lastMessage}</span>
@@ -1164,7 +1170,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           )}
           <p>
             {isYotsy
-              ? 'Sit to play · Classic Yotsy'
+              ? 'Sit to play · Classic Yotsy or Kismet'
               : isPhaseit
                 ? 'Sit to play · Classic Phase It'
                 : isSkippo

@@ -4,7 +4,7 @@ import { COMPUTER_NAMES } from '../core/tableSeating'
 import { applyYotsyMove } from '../core/yotsy/rules'
 import { createYotsyMatch, withPhysicalSeats } from '../core/yotsy/state'
 import type { YotsyMove, YotsyState, YotsyVariant } from '../core/yotsy/types'
-import { clampYotsyPlayerCount } from '../core/yotsy/variants'
+import { clampYotsyPlayerCount, normalizeYotsyVariant } from '../core/yotsy/variants'
 import type { Occupant } from '../core/tableSeating'
 import { MATCH_RESUME_GRACE_MS } from './matchResume'
 
@@ -192,7 +192,7 @@ function buildYotsySession(
     : []
   let state: YotsyState | null = null
   let status = isHost ? `Room ${code}` : 'Joining…'
-  let variant: YotsyVariant = opts?.variant || 'classic'
+  let variant: YotsyVariant = normalizeYotsyVariant(opts?.variant || 'classic')
   let playerCount = clampYotsyPlayerCount(opts?.playerCount || 4)
   let aiThinking = false
   let cancelled = false
@@ -291,7 +291,7 @@ function buildYotsySession(
     }
     if (msg.t === 'lobby') {
       seats = msg.seats
-      variant = msg.variant
+      variant = normalizeYotsyVariant(msg.variant)
       playerCount = msg.playerCount
       status = `Room ${msg.roomCode}`
       notify()
@@ -303,7 +303,7 @@ function buildYotsySession(
       return
     }
     if (msg.t === 'variant' && isHost) {
-      variant = msg.variant
+      variant = normalizeYotsyVariant(msg.variant)
       playerCount = clampYotsyPlayerCount(playerCount)
       syncLobby()
       return
@@ -414,7 +414,7 @@ function buildYotsySession(
     },
     setVariant: (v) => {
       if (!isHost) return
-      variant = v
+      variant = normalizeYotsyVariant(v)
       playerCount = clampYotsyPlayerCount(playerCount)
       syncLobby()
     },

@@ -1,3 +1,4 @@
+import { turnsNeeded } from './categories'
 import { freshDice, rollDice } from './dice'
 import { playerTotal } from './score'
 import { yotsyConfig, yotsyVariantLabel } from './variants'
@@ -51,7 +52,8 @@ export function createYotsyMatch(
 
   const label = yotsyVariantLabel(variant)
   const cur = players[0]!
-  state.log = [`${label} — ${cur.name} starts.`]
+  const boxes = turnsNeeded(variant)
+  state.log = [`${label} — ${n} players · ${boxes} boxes. ${cur.name} starts.`]
   state.lastMessage = state.log[0]!
   void seed
   return state
@@ -68,20 +70,22 @@ export function beginTurn(state: YotsyState): void {
 
 /** Advance to next player; end match if all cards complete. */
 export function advanceAfterScore(state: YotsyState): void {
-  const allDone = state.players.every((p) => p.turnsDone >= 13)
+  const need = turnsNeeded(state.config.variant)
+  const allDone = state.players.every((p) => p.turnsDone >= need)
   if (allDone) {
     state.phase = 'matchEnd'
-    const ranked = [...state.players].sort((a, b) => playerTotal(b) - playerTotal(a))
+    const ranked = [...state.players].sort(
+      (a, b) => playerTotal(b, state.config.variant) - playerTotal(a, state.config.variant),
+    )
     const champ = ranked[0]!
     state.winnerId = champ.id
-    state.lastMessage = `${champ.name} wins with ${playerTotal(champ)} points!`
+    state.lastMessage = `${champ.name} wins with ${playerTotal(champ, state.config.variant)} points!`
     state.log.push(state.lastMessage)
     return
   }
-  // Next player who still has turns
   let next = (state.current + 1) % state.players.length
   for (let i = 0; i < state.players.length; i++) {
-    if (state.players[next]!.turnsDone < 13) break
+    if (state.players[next]!.turnsDone < need) break
     next = (next + 1) % state.players.length
   }
   state.current = next

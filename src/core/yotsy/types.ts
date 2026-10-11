@@ -1,10 +1,13 @@
-/** Yotsy — dice parlor family (Yahtzee-style). */
+/** Yotsy — dice parlor family (Yahtzee-style + Kismet). */
 
-export type YotsyVariant = 'classic' | 'dismet'
+export type YotsyVariant = 'classic' | 'kismet'
 
 export type YotsyPhase = 'play' | 'matchEnd'
 
-/** Classic scorecard categories (13 boxes). */
+/** Die pip color (Kismet): 1/6 black, 2/5 red, 3/4 green. */
+export type YotsyDieColor = 'black' | 'red' | 'green'
+
+/** Classic + Kismet scorecard categories. */
 export type YotsyCategory =
   | 'ones'
   | 'twos'
@@ -19,6 +22,13 @@ export type YotsyCategory =
   | 'largeStraight'
   | 'yahtzee'
   | 'chance'
+  /** Kismet-only */
+  | 'twoPairColor'
+  | 'straight'
+  | 'flush'
+  | 'fullHouseColor'
+  | 'yarborough'
+  | 'kismet'
 
 export type YotsyDie = {
   id: string
@@ -35,9 +45,9 @@ export type YotsyPlayer = {
   seat: number
   isComputer: boolean
   card: YotsyScorecard
-  /** Extra Yahtzee bonuses (+100 each) after the Yahtzee box is 50. */
+  /** Extra Yotsy/Kismet bonuses after the five-of-a-kind box is filled. */
   yahtzeeBonuses: number
-  /** Turns completed (max 13). */
+  /** Turns completed (max = boxes for variant). */
   turnsDone: number
 }
 

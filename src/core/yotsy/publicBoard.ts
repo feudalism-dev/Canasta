@@ -1,6 +1,6 @@
 import { playerTotal } from './score'
 import type { YotsyPhase, YotsyState, YotsyVariant } from './types'
-import { yotsyVariantLabel } from './variants'
+import { normalizeYotsyVariant, yotsyVariantLabel } from './variants'
 
 export type YotsyPublicPlayer = {
   name: string
@@ -44,6 +44,16 @@ function parsePhase(ch: string): YotsyPhase | 'idle' {
   return 'idle'
 }
 
+function variantWire(v: YotsyVariant): string {
+  return v === 'kismet' ? 'k' : 'c'
+}
+
+function parseVariantWire(ch: string): YotsyVariant {
+  // Legacy stub used `d` for Dismet → Kismet
+  if (ch === 'k' || ch === 'd') return 'kismet'
+  return 'classic'
+}
+
 export function idleYotsyPublicBoard(): YotsyPublicBoard {
   return {
     live: false,
@@ -62,9 +72,10 @@ export function idleYotsyPublicBoard(): YotsyPublicBoard {
 export function yotsyPublicBoardFromState(state: YotsyState): YotsyPublicBoard {
   const cur = state.players[state.current]
   const turnSeat = state.phase === 'matchEnd' || !cur ? -1 : cur.seat
+  const variant = normalizeYotsyVariant(state.config.variant)
   return {
     live: state.phase !== 'matchEnd',
-    variant: state.config.variant,
+    variant,
     playerCount: state.config.playerCount,
     round: state.round,
     phase: state.phase,
@@ -74,7 +85,7 @@ export function yotsyPublicBoardFromState(state: YotsyState): YotsyPublicBoard {
     players: state.players.map((p) => ({
       name: clipName(p.name),
       seat: p.seat,
-      total: playerTotal(p),
+      total: playerTotal(p, variant),
       turnsDone: p.turnsDone,
     })),
     lastMessage: clipMsg(state.lastMessage || state.lastScoreNote || state.log[state.log.length - 1] || ''),
@@ -86,11 +97,10 @@ export function encodeYotsyPublicBoard(board: YotsyPublicBoard): string {
   if (!board.live) return 'Y1~0~'
   const turn = board.currentSeat < 0 ? '-' : String(board.currentSeat)
   const dice = board.dice.length ? board.dice.join(',') : '-'
-  const variantCh = board.variant === 'dismet' ? 'd' : 'c'
   const head = [
     'Y1',
     '1',
-    variantCh,
+    variantWire(board.variant),
     String(board.playerCount),
     String(board.round),
     phaseCode(board.phase),
@@ -137,7 +147,7 @@ export function decodeYotsyPublicBoard(raw: string): YotsyPublicBoard {
 
   return {
     live: true,
-    variant: head[2] === 'd' ? 'dismet' : 'classic',
+    variant: parseVariantWire(head[2] || 'c'),
     playerCount: Number(head[3]) || players.length || 2,
     round: Number(head[4]) || 1,
     phase: parsePhase(head[5] || 'i'),

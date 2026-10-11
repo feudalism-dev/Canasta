@@ -23,8 +23,9 @@ export function yotsyNamesPipe(state: YotsyState): string[] {
 
 export function yotsyScoresPipe(state: YotsyState): number[] {
   const out = [0, 0, 0, 0]
+  const variant = state.config.variant
   for (const p of state.players) {
-    if (p.seat >= 0 && p.seat < 4) out[p.seat] = playerTotal(p)
+    if (p.seat >= 0 && p.seat < 4) out[p.seat] = playerTotal(p, variant)
   }
   return out
 }

@@ -2,7 +2,7 @@
 
 Sister product to Canasta / Rummy / Trick / Ichi / Skippo / Phase It. **Same HUD object**, **same GitHub Pages app**, **creator-locked** via separate LSL scripts (`family=yotsy`).
 
-Brand name **Yotsy** (Yahtzee-style dice parlor; not a commercial trademark). Animated rolling dice on the HUD.
+Brand name **Yotsy** (Yahtzee-style dice parlor; not a commercial trademark). Animated rolling dice on the HUD. **Kismet** is the colored-number sister variant.
 
 ## Families (do not mix)
 
@@ -14,7 +14,7 @@ Brand name **Yotsy** (Yahtzee-style dice parlor; not a commercial trademark). An
 | **ichi** | Classic, Eights, Twin Piles, Switch, Palace, Flip | Match color/number |
 | **skippo** | Classic, Short, Partners, Jump-In | Stock + builders 1–12 |
 | **phaseit** | Classic Phase It | 10 phases · sets / runs / color |
-| **yotsy** (this work) | Classic Yotsy, Dismet (later) | Five dice · 13 boxes |
+| **yotsy** (this work) | Classic Yotsy, Kismet | Five dice · 13 / 15 boxes |
 
 ## Creator lock
 
@@ -24,19 +24,21 @@ Brand name **Yotsy** (Yahtzee-style dice parlor; not a commercial trademark). An
 
 ## Build order
 
-1. LSL clones + `family` in JSONP — this pass.
-2. Web reads `family=yotsy` — this pass.
-3. **Classic Yotsy** solo + bots (1–4) — this pass.
-4. Spectator BOARD (`Y1~`) + Furware — this pass.
-5. PeerJS multiplayer — this pass.
-6. **Dismet** (colored numbers) — later.
+1. LSL clones + `family` in JSONP — done.
+2. Web reads `family=yotsy` — done.
+3. **Classic Yotsy** solo + bots (1–4) — done.
+4. Spectator BOARD (`Y1~`) + Furware — done.
+5. PeerJS multiplayer — done.
+6. **Kismet** (colored numbers, flush, tiered bonus) — this pass.
 
 ## Variants (selector)
 
 | Id | Status | Notes |
 |----|--------|--------|
 | `classic` | ready | 5 dice, 3 rolls, 13 boxes, upper bonus 35, Yotsy bonuses +100 |
-| `dismet` | stub | Colored-number variant — coming soon |
+| `kismet` | ready | Colored pips, 15 boxes, flush / same-color pairs, upper 35/55/75, Kismet bonuses +50 |
+
+Legacy stub id `dismet` normalizes to `kismet`.
 
 See `RULES_YOTSY.md`.
 
@@ -44,3 +46,4 @@ See `RULES_YOTSY.md`.
 
 - Peer ids: `yotsy-<room>-host`.
 - Free-for-all; empty chairs in the chosen 1–4 seats are bots.
+- Spectator MoAP shows dice, seats, and totals for observers.

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { pumpYotsyBots } from '../ai/yotsyBot'
-import { LOWER_CATEGORIES, UPPER_CATEGORIES, categoryLabel } from '../core/yotsy/categories'
+import { lowerCategories, turnsNeeded, UPPER_CATEGORIES, categoryLabel } from '../core/yotsy/categories'
+import { dieColor } from '../core/yotsy/dice'
 import { applyYotsyMove } from '../core/yotsy/rules'
 import {
   lowerSubtotal,
@@ -44,19 +45,33 @@ function DieFace({
   die,
   rolling,
   interactive,
+  colored,
   onClick,
 }: {
   die: YotsyDie
   rolling?: boolean
   interactive?: boolean
+  colored?: boolean
   onClick?: () => void
 }) {
   const pips = PIP_MAP[die.value] ?? [4]
-  const cls = `yotsy-die${die.held ? ' is-held' : ''}${rolling && !die.held ? ' is-rolling' : ''}${interactive ? ' is-clickable' : ''}`
+  const color = colored ? dieColor(die.value) : null
+  const cls = [
+    'yotsy-die',
+    die.held ? 'is-held' : '',
+    rolling && !die.held ? 'is-rolling' : '',
+    interactive ? 'is-clickable' : '',
+    color ? `is-${color}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
   const body = (
     <span className="yotsy-die-face" aria-hidden>
       {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-        <span key={i} className={`yotsy-pip${pips.includes(i) ? ' is-on' : ''}`} />
+        <span
+          key={i}
+          className={`yotsy-pip${pips.includes(i) ? ' is-on' : ''}${color ? ` is-${color}` : ''}`}
+        />
       ))}
     </span>
   )
@@ -66,7 +81,7 @@ function DieFace({
         type="button"
         className={cls}
         onClick={onClick}
-        aria-label={`Die ${die.value}${die.held ? ', held' : ''}`}
+        aria-label={`Die ${die.value}${color ? `, ${color}` : ''}${die.held ? ', held' : ''}`}
         disabled={!interactive}
       >
         {body}
@@ -74,7 +89,7 @@ function DieFace({
     )
   }
   return (
-    <div className={cls} aria-label={`Die ${die.value}`}>
+    <div className={cls} aria-label={`Die ${die.value}${color ? `, ${color}` : ''}`}>
       {body}
     </div>
   )
@@ -137,6 +152,10 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
   const matchOver = state?.phase === 'matchEnd'
   const yourTurn = state != null && state.current === localIndex && state.phase === 'play'
   const actingName = state?.players[state.current]?.name ?? 'Someone'
+  const gameVariant = state?.config.variant ?? variant
+  const boxes = turnsNeeded(gameVariant)
+  const colored = gameVariant === 'kismet'
+  const lower = lowerCategories(gameVariant)
 
   const play = (move: YotsyMove) => {
     setErr('')
@@ -184,11 +203,11 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
     if (!state || !you || !yourTurn || !state.hasRolled) return null
     const vals = state.dice.map((d) => d.value)
     const map = new Map<YotsyCategory, number>()
-    for (const c of openCategories(you.card)) {
-      map.set(c, scoreWithJoker(vals, c, you.card))
+    for (const c of openCategories(you.card, gameVariant)) {
+      map.set(c, scoreWithJoker(vals, c, you.card, gameVariant))
     }
     return map
-  }, [state, you, yourTurn, tick])
+  }, [state, you, yourTurn, tick, gameVariant])
 
   if (!state || !you) {
     return (
@@ -204,9 +223,14 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
   const status =
     thinking && !yourTurn
       ? `${actingName} is thinking…`
-      : state.lastMessage || yotsyTip(state.config.variant)
-  const ranked = [...state.players].sort((a, b) => playerTotal(b) - playerTotal(a))
+      : state.lastMessage || yotsyTip(gameVariant)
+  const ranked = [...state.players].sort(
+    (a, b) => playerTotal(b, gameVariant) - playerTotal(a, gameVariant),
+  )
   const leaderId = ranked[0]?.id
+  const bonusLabel =
+    gameVariant === 'kismet' ? 'Bonus (63/71/78)' : 'Bonus (63+)'
+  const fiveBonusLabel = gameVariant === 'kismet' ? 'Kismet bonus' : 'Yotsy bonus'
 
   const renderCardCol = (cats: YotsyCategory[], title: string) => (
     <div className="yotsy-card-col">
@@ -238,23 +262,23 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
             <strong>{upperSubtotal(you.card)}</strong>
           </div>
           <div className="yotsy-box is-meta">
-            <span>Bonus (63+)</span>
-            <strong>{upperBonus(you.card)}</strong>
+            <span>{bonusLabel}</span>
+            <strong>{upperBonus(you.card, gameVariant)}</strong>
           </div>
         </>
       ) : (
         <>
           <div className="yotsy-box is-meta">
             <span>Lower</span>
-            <strong>{lowerSubtotal(you.card)}</strong>
+            <strong>{lowerSubtotal(you.card, gameVariant)}</strong>
           </div>
           <div className="yotsy-box is-meta">
-            <span>Yotsy bonus</span>
+            <span>{fiveBonusLabel}</span>
             <strong>{you.yahtzeeBonuses}</strong>
           </div>
           <div className="yotsy-box is-meta is-total">
             <span>Total</span>
-            <strong>{playerTotal(you)}</strong>
+            <strong>{playerTotal(you, gameVariant)}</strong>
           </div>
         </>
       )}
@@ -269,10 +293,12 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
         </button>
         <div>
           <h2>
-            {yotsyVariantLabel(state.config.variant)} · {state.players.length} players
+            {yotsyVariantLabel(gameVariant)} · {state.players.length} players
           </h2>
-          <p className="muted">Turn {Math.min(13, you.turnsDone + (yourTurn ? 1 : 0))} of 13</p>
-          <p className="rummy-tip">{yotsyTip(state.config.variant)}</p>
+          <p className="muted">
+            Turn {Math.min(boxes, you.turnsDone + (yourTurn ? 1 : 0))} of {boxes}
+          </p>
+          <p className="rummy-tip">{yotsyTip(gameVariant)}</p>
         </div>
       </header>
 
@@ -311,9 +337,9 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
                 {pi === localIndex ? ' (you)' : ''}
                 {isWinner ? ' — wins' : isLeader && !matchOver ? ' · lead' : ''}
               </span>
-              <span className="rummy-score-total">{playerTotal(p)}</span>
+              <span className="rummy-score-total">{playerTotal(p, gameVariant)}</span>
               <span className="rummy-score-delta">
-                {p.turnsDone}/13 boxes
+                {p.turnsDone}/{boxes} boxes
                 {isTheirTurn ? (pi === localIndex ? ' · YOUR TURN' : ' · THEIR TURN') : ''}
               </span>
             </div>
@@ -325,7 +351,7 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
         <div className="rummy-hand-end">
           <p className="rummy-hand-end-note">
             {state.players.find((p) => p.id === state.winnerId)?.name ?? 'Someone'} wins with{' '}
-            {playerTotal(state.players.find((p) => p.id === state.winnerId)!)} points.
+            {playerTotal(state.players.find((p) => p.id === state.winnerId)!, gameVariant)} points.
           </p>
           {controller?.newMatch ? (
             <button type="button" className="btn primary" onClick={() => controller.newMatch?.()}>
@@ -342,6 +368,7 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
               key={d.id}
               die={d}
               rolling={rolling}
+              colored={colored}
               interactive={yourTurn && state.hasRolled && state.rollsLeft > 0 && !rolling}
               onClick={
                 yourTurn && state.hasRolled && state.rollsLeft > 0 && !rolling
@@ -364,13 +391,15 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
           ) : null}
         </div>
         <p className="muted tiny rummy-hand-hint">
-          Tap a die to hold it (gold rim). Roll up to three times, then tap a score box.
+          {colored
+            ? '1/6 black · 2/5 red · 3/4 green. Tap to hold, roll up to three times, then score.'
+            : 'Tap a die to hold it (gold rim). Roll up to three times, then tap a score box.'}
         </p>
       </div>
 
       <div className="yotsy-scorecard" aria-label="Your scorecard">
         {renderCardCol(UPPER_CATEGORIES, 'Upper')}
-        {renderCardCol(LOWER_CATEGORIES, 'Lower')}
+        {renderCardCol(lower, 'Lower')}
       </div>
     </div>
   )

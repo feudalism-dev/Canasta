@@ -18,19 +18,30 @@ export function yotsyVariantOptions(): { value: YotsyVariant; label: string; rea
       ready: true,
     },
     {
-      value: 'dismet',
-      label: 'Dismet — colored numbers (coming soon)',
-      ready: false,
+      value: 'kismet',
+      label: 'Kismet — colored pips, flush & bonus tiers',
+      ready: true,
     },
   ]
 }
 
 export function yotsyVariantLabel(v: YotsyVariant): string {
-  if (v === 'dismet') return 'Dismet'
+  if (v === 'kismet') return 'Kismet'
   return 'Classic Yotsy'
 }
 
 export function yotsyTip(v: YotsyVariant): string {
-  if (v === 'dismet') return 'Colored-number Dismet — coming soon.'
+  if (v === 'kismet') {
+    return 'Colored dice (1/6 black, 2/5 red, 3/4 green). Flush, same-color pairs, and tiered upper bonuses.'
+  }
   return 'Roll up to three times, hold keepers, then score a box. Highest total after 13 turns wins.'
+}
+
+/** Normalize legacy stub id `dismet` → kismet. */
+export function normalizeYotsyVariant(raw: unknown): YotsyVariant {
+  const s = String(raw || '')
+    .trim()
+    .toLowerCase()
+  if (s === 'kismet' || s === 'dismet') return 'kismet'
+  return 'classic'
 }

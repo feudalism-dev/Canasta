@@ -1,4 +1,4 @@
-import { UPPER_CATEGORIES } from '../core/yotsy/categories'
+import { UPPER_CATEGORIES, fiveKindCategory } from '../core/yotsy/categories'
 import { isYahtzee, valuesOf } from '../core/yotsy/dice'
 import { applyYotsyMove } from '../core/yotsy/rules'
 import { openCategories, scoreWithJoker } from '../core/yotsy/score'
@@ -7,18 +7,18 @@ import type { YotsyCategory, YotsyMove, YotsyState } from '../core/yotsy/types'
 
 function bestScore(state: YotsyState): { category: YotsyCategory; pts: number } | null {
   const pl = currentPlayer(state)
+  const variant = state.config.variant
   const vals = valuesOf(state.dice)
-  const open = openCategories(pl.card)
+  const open = openCategories(pl.card, variant)
   if (!open.length) return null
   let best: { category: YotsyCategory; pts: number } | null = null
   for (const c of open) {
-    const pts = scoreWithJoker(vals, c, pl.card)
-    // Prefer real scores; avoid scratching high-value boxes when something scores
+    const pts = scoreWithJoker(vals, c, pl.card, variant)
     if (!best || pts > best.pts) best = { category: c, pts }
   }
-  // If best is 0, scratch chance or lowest upper preference
   if (best && best.pts === 0) {
-    if (open.includes('chance')) return { category: 'chance', pts: 0 }
+    const scratch = variant === 'kismet' ? 'yarborough' : 'chance'
+    if (open.includes(scratch)) return { category: scratch, pts: 0 }
     const upperOpen = UPPER_CATEGORIES.filter((c) => open.includes(c))
     if (upperOpen.length) return { category: upperOpen[upperOpen.length - 1]!, pts: 0 }
   }
@@ -30,7 +30,6 @@ function shouldKeepRolling(state: YotsyState): boolean {
   const vals = valuesOf(state.dice)
   if (isYahtzee(vals)) return false
   const best = bestScore(state)
-  // Keep rolling if current best is weak and we have rolls
   if (!best) return false
   if (best.pts >= 25) return false
   if (best.pts >= 15 && state.rollsLeft === 1) return false
@@ -48,6 +47,12 @@ function holdForTarget(state: YotsyState): YotsyMove[] {
       bestN = counts[f]!
       target = f
     }
+  }
+  // Prefer holding toward an open five-kind / high face if close
+  const five = fiveKindCategory(state.config.variant)
+  const pl = currentPlayer(state)
+  if (bestN >= 3 && pl.card[five] == null) {
+    /* keep of-a-kind target */
   }
   const moves: YotsyMove[] = []
   for (const d of state.dice) {
