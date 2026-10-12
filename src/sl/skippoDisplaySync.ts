@@ -73,7 +73,7 @@ async function flush(state: SkippoState, slCap: string, uid: string, seat: numbe
 
   if (state.phase === 'matchEnd') {
     try {
-      await tableEvent(slCap, uid, seat, 'GAME_OVER|1|0|NONE|0|k')
+      await tableEvent(slCap, uid, seat, 'GAME_OVER|1|0|NONE|0|o')
     } catch {
       /* ignore */
     }

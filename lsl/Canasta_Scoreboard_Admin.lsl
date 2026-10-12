@@ -40,6 +40,12 @@ string gameLabel(string game)
     if (game == "h") return "Hand&Foot";
     if (game == "s") return "Samba";
     if (game == "b") return "Bolivia";
+    if (game == "r") return "Rummy";
+    if (game == "t") return "Rooster";
+    if (game == "i") return "Ichi";
+    if (game == "o") return "Skippo";
+    if (game == "p") return "Phase It";
+    if (game == "y") return "Yotsy";
     return "Canasta";
 }
 
@@ -107,14 +113,24 @@ integer showRoot(key av)
     btns += ["Refresh net", "Cancel"];
     string who = "Owner";
     if (isSuper(av)) who = "Super-user";
-    return openDlg(av, 1, "Canasta scores (" + who + ")\nLocal=parlor LSD. Network=Experience (super only).", btns);
+    return openDlg(av, 1, "Parlor scores (" + who + ")\nLocal=parlor LSD. Network=Experience (super only).", btns);
 }
 
 integer showGame(key av)
 {
     string scope = "This parlor";
     if (gScope == "N") scope = "Network";
-    return openDlg(av, 2, scope + " — game", ["Canasta", "Hand & Foot", "Samba", "Bolivia", "Back", "Cancel"]);
+    // llDialog max 12 buttons — page 1 of games
+    return openDlg(av, 2, scope + " — game",
+        ["Canasta", "Hand & Foot", "Samba", "Bolivia", "Rummy", "Rooster", "More…", "Back", "Cancel"]);
+}
+
+integer showGameMore(key av)
+{
+    string scope = "This parlor";
+    if (gScope == "N") scope = "Network";
+    return openDlg(av, 6, scope + " — more games",
+        ["Ichi", "Skippo", "Phase It", "Yotsy", "Back", "Cancel"]);
 }
 
 integer showPeriod(key av)
@@ -195,16 +211,33 @@ integer handleDlg(key av, string msg)
     if (gDlgMode == 2)
     {
         if (msg == "Back") return showRoot(av);
+        if (msg == "More…") return showGameMore(av);
         if (msg == "Canasta") gGame = "c";
         else if (msg == "Hand & Foot") gGame = "h";
         else if (msg == "Samba") gGame = "s";
         else if (msg == "Bolivia") gGame = "b";
+        else if (msg == "Rummy") gGame = "r";
+        else if (msg == "Rooster") gGame = "t";
         else return showGame(av);
+        return showPeriod(av);
+    }
+    if (gDlgMode == 6)
+    {
+        if (msg == "Back") return showGame(av);
+        if (msg == "Ichi") gGame = "i";
+        else if (msg == "Skippo") gGame = "o";
+        else if (msg == "Phase It") gGame = "p";
+        else if (msg == "Yotsy") gGame = "y";
+        else return showGameMore(av);
         return showPeriod(av);
     }
     if (gDlgMode == 3)
     {
-        if (msg == "Back") return showGame(av);
+        if (msg == "Back")
+        {
+            if (gGame == "i" || gGame == "o" || gGame == "p" || gGame == "y") return showGameMore(av);
+            return showGame(av);
+        }
         if (msg == "Weekly") gPeriod = "w";
         else if (msg == "Monthly") gPeriod = "m";
         else if (msg == "Lifetime") gPeriod = "l";

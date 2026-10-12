@@ -162,9 +162,25 @@ appendBundleJson(integer isLocal, string game)
     gJson += "}";
 }
 
+integer knownGame(string game)
+{
+    // c/h/s/b Canasta family · r Rummy · t Rooster · i Ichi · o Skippo · p Phase It · y Yotsy
+    if (game == "c") return TRUE;
+    if (game == "h") return TRUE;
+    if (game == "s") return TRUE;
+    if (game == "b") return TRUE;
+    if (game == "r") return TRUE;
+    if (game == "t") return TRUE;
+    if (game == "i") return TRUE;
+    if (game == "o") return TRUE;
+    if (game == "p") return TRUE;
+    if (game == "y") return TRUE;
+    return FALSE;
+}
+
 buildGameJson(string game)
 {
-    if (game != "c" && game != "h" && game != "s" && game != "b") game = "c";
+    if (!knownGame(game)) game = "c";
     rotateLocal();
     gJson = "{\"ok\":true,\"week\":\"" + weekId() + "\",\"month\":\"" + monthId()
         + "\",\"game\":\"" + game + "\",\"local\":{\"" + game + "\":";

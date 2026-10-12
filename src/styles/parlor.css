@@ -1588,6 +1588,25 @@ ul {
   flex: 1 1 42%;
 }
 
+.scoreboard-game-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.35rem 0 0.15rem;
+  position: relative;
+  z-index: 1;
+}
+
+.scoreboard-game-select select {
+  font: inherit;
+  color: var(--cream);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(201, 162, 39, 0.4);
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  letter-spacing: 0.04em;
+}
+
 .scoreboard-tabs button {
   flex: 1;
   font: inherit;

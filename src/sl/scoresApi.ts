@@ -12,15 +12,15 @@ export type ScoreBundle = {
   l: ScoreRow[]
 }
 
-/** c = classic Canasta, h = Hand & Foot, s = Samba, b = Bolivia */
-export type ScoreGame = 'c' | 'h' | 's' | 'b'
+/**
+ * One-letter boards (must match Canasta_Scoreboard_Http knownGame):
+ * c/h/s/b Canasta family · r Rummy · t Rooster · i Ichi · o Skippo · p Phase It · y Yotsy
+ */
+export type ScoreGame = 'c' | 'h' | 's' | 'b' | 'r' | 't' | 'i' | 'o' | 'p' | 'y'
 
-export type ScoreGames = {
-  c: ScoreBundle
-  h: ScoreBundle
-  s: ScoreBundle
-  b: ScoreBundle
-}
+export const SCORE_GAMES: ScoreGame[] = ['c', 'h', 's', 'b', 'r', 't', 'i', 'o', 'p', 'y']
+
+export type ScoreGames = Record<ScoreGame, ScoreBundle>
 
 export type ScorePayload = {
   ok: boolean
@@ -52,7 +52,9 @@ function emptyBundle(): ScoreBundle {
 }
 
 function emptyGames(): ScoreGames {
-  return { c: emptyBundle(), h: emptyBundle(), s: emptyBundle(), b: emptyBundle() }
+  const out = {} as ScoreGames
+  for (const g of SCORE_GAMES) out[g] = emptyBundle()
+  return out
 }
 
 function asBundle(raw: unknown): ScoreBundle {
@@ -65,16 +67,42 @@ function asBundle(raw: unknown): ScoreBundle {
   }
 }
 
+export function isScoreGame(raw: unknown): raw is ScoreGame {
+  return typeof raw === 'string' && (SCORE_GAMES as string[]).includes(raw)
+}
+
+export function scoreGameLabel(g: ScoreGame): string {
+  switch (g) {
+    case 'h':
+      return 'Hand & Foot'
+    case 's':
+      return 'Samba'
+    case 'b':
+      return 'Bolivia'
+    case 'r':
+      return 'Rummy'
+    case 't':
+      return 'Rooster'
+    case 'i':
+      return 'Ichi'
+    case 'o':
+      return 'Skippo'
+    case 'p':
+      return 'Phase It'
+    case 'y':
+      return 'Yotsy'
+    default:
+      return 'Canasta'
+  }
+}
+
 /** Full empty boards (initial UI state). */
 export function normalizeGames(raw: unknown): ScoreGames {
   if (!raw || typeof raw !== 'object') return emptyGames()
   const o = raw as Record<string, unknown>
-  return {
-    c: asBundle(o.c),
-    h: asBundle(o.h),
-    s: asBundle(o.s),
-    b: asBundle(o.b),
-  }
+  const out = emptyGames()
+  for (const g of SCORE_GAMES) out[g] = asBundle(o[g])
+  return out
 }
 
 /** Merge a one-game payload into existing boards (LSL returns one game per poll). */
@@ -82,9 +110,9 @@ export function mergeGames(base: ScoreGames, patch: unknown): ScoreGames {
   if (!patch || typeof patch !== 'object') return base
   const o = patch as Record<string, unknown>
   const next: ScoreGames = { ...base }
-  ;(['c', 'h', 's', 'b'] as const).forEach((g) => {
+  for (const g of SCORE_GAMES) {
     if (o[g] != null) next[g] = asBundle(o[g])
-  })
+  }
   return next
 }
 

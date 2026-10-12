@@ -83,7 +83,13 @@ integer shoutScore(string game, string uid, string nm, integer sc, key tell)
 integer showRoot(key av)
 {
     return openDlg(av, 1, "Scoreboard test shouter\nShouts CN_SCORE within 100 m.",
-        ["Canasta sample", "H&F sample", "Samba sample", "Bolivia sample", "Me · Canasta", "Me · H&F", "Me · Samba", "Me · Bolivia", "Custom…", "Cancel"]);
+        ["Canasta sample", "H&F sample", "Samba sample", "Bolivia sample", "Rummy sample", "Rooster sample", "More samples…", "Me · Canasta", "Custom…", "Cancel"]);
+}
+
+integer showMore(key av)
+{
+    return openDlg(av, 4, "More sample shouts",
+        ["Ichi sample", "Skippo sample", "Phase It sample", "Yotsy sample", "Back", "Cancel"]);
 }
 
 integer handleDlg(key av, string msg)
@@ -124,31 +130,60 @@ integer handleDlg(key av, string msg)
             closeDlg();
             return TRUE;
         }
+        if (msg == "Rummy sample")
+        {
+            shoutScore("r", "test-rue", "Test Rue", 320, av);
+            shoutScore("r", "test-ray", "Test Ray", 280, av);
+            closeDlg();
+            return TRUE;
+        }
+        if (msg == "Rooster sample")
+        {
+            shoutScore("t", "test-rox", "Test Rox", 210, av);
+            shoutScore("t", "test-rio", "Test Rio", 185, av);
+            closeDlg();
+            return TRUE;
+        }
+        if (msg == "More samples…") return showMore(av);
         if (msg == "Me · Canasta")
         {
             gGame = "c";
             return openText(av, 2, "Your Canasta test score (integer):");
         }
-        if (msg == "Me · H&F")
-        {
-            gGame = "h";
-            return openText(av, 2, "Your Hand & Foot test score (integer):");
-        }
-        if (msg == "Me · Samba")
-        {
-            gGame = "s";
-            return openText(av, 2, "Your Samba test score (integer):");
-        }
-        if (msg == "Me · Bolivia")
-        {
-            gGame = "b";
-            return openText(av, 2, "Your Bolivia test score (integer):");
-        }
         if (msg == "Custom…")
         {
-            return openText(av, 3, "Enter:\ngame|Name|score\nor\ngame|uuid|Name|score\n\ngame = first letter (c, h, s, b…)");
+            return openText(av, 3, "Enter:\ngame|Name|score\nor\ngame|uuid|Name|score\n\ngame = c,h,s,b,r,t,i,o,p,y");
         }
         return showRoot(av);
+    }
+    if (gDlgMode == 4)
+    {
+        if (msg == "Back") return showRoot(av);
+        if (msg == "Ichi sample")
+        {
+            shoutScore("i", "test-ivy", "Test Ivy", 420, av);
+            closeDlg();
+            return TRUE;
+        }
+        if (msg == "Skippo sample")
+        {
+            shoutScore("o", "test-sky", "Test Sky", 375, av);
+            closeDlg();
+            return TRUE;
+        }
+        if (msg == "Phase It sample")
+        {
+            shoutScore("p", "test-pip", "Test Pip", 95, av);
+            closeDlg();
+            return TRUE;
+        }
+        if (msg == "Yotsy sample")
+        {
+            shoutScore("y", "test-yew", "Test Yew", 268, av);
+            closeDlg();
+            return TRUE;
+        }
+        return showMore(av);
     }
     if (gDlgMode == 2)
     {

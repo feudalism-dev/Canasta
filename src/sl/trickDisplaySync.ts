@@ -74,7 +74,7 @@ async function flush(state: TrickState, slCap: string, uid: string, seat: number
 
   if (state.phase === 'matchEnd') {
     try {
-      await tableEvent(slCap, uid, seat, 'GAME_OVER|1|0|NONE|0|h')
+      await tableEvent(slCap, uid, seat, 'GAME_OVER|1|0|NONE|0|t')
     } catch {
       /* ignore */
     }

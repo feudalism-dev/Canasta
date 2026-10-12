@@ -4,6 +4,8 @@ import {
   mergeGames,
   normalizeGames,
   refreshScores,
+  SCORE_GAMES,
+  scoreGameLabel,
   type ScoreGame,
   type ScoreGames,
   type ScoreRow,
@@ -30,13 +32,6 @@ function periodLabel(period: Period): string {
   if (period === 'w') return 'Weekly'
   if (period === 'm') return 'Monthly'
   return 'Lifetime'
-}
-
-function gameLabel(tab: ScoreGame): string {
-  if (tab === 'h') return 'Hand & Foot'
-  if (tab === 's') return 'Samba'
-  if (tab === 'b') return 'Bolivia'
-  return 'Canasta'
 }
 
 function formatScore(n: number): string {
@@ -147,27 +142,27 @@ export function Scoreboard({ slCap }: Props) {
       <div className="scoreboard-panel">
         <div className="table-felt" />
         <header className="scoreboard-head">
-          <p className="brand-kicker">Canasta parlor</p>
+          <p className="brand-kicker">Parlor high scores</p>
           <h1>High scores</h1>
           <p className="scoreboard-sub">
-            {gameLabel(game)} · {scopeLabel} · {periodLabel(period)} · {sub}
+            {scoreGameLabel(game)} · {scopeLabel} · {periodLabel(period)} · {sub}
             {showingCache ? ` · cached ${cacheAgeLabel(cachedAt)}` : ''}
           </p>
         </header>
-        <div className="scoreboard-tabs scoreboard-tabs-games" role="tablist" aria-label="Game">
-          <button type="button" className={game === 'c' ? 'is-on' : ''} onClick={() => setGame('c')}>
-            Canasta
-          </button>
-          <button type="button" className={game === 'h' ? 'is-on' : ''} onClick={() => setGame('h')}>
-            Hand &amp; Foot
-          </button>
-          <button type="button" className={game === 's' ? 'is-on' : ''} onClick={() => setGame('s')}>
-            Samba
-          </button>
-          <button type="button" className={game === 'b' ? 'is-on' : ''} onClick={() => setGame('b')}>
-            Bolivia
-          </button>
-        </div>
+        <label className="scoreboard-game-select">
+          <span className="muted tiny">Game</span>
+          <select
+            value={game}
+            aria-label="Game"
+            onChange={(e) => setGame(e.target.value as ScoreGame)}
+          >
+            {SCORE_GAMES.map((g) => (
+              <option key={g} value={g}>
+                {scoreGameLabel(g)}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="scoreboard-tabs" role="tablist" aria-label="Scoreboard range">
           <button type="button" className={scope === 'local' ? 'is-on' : ''} onClick={() => setScope('local')}>
             This parlor

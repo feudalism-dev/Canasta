@@ -1,35 +1,44 @@
-# Canasta scoreboard (MOAP)
+# Parlor scoreboard (MOAP)
 
-A wall panel near the table. It **hears** finished games, stores high scores, and draws the list on **media** (same GitHub Pages app as the HUD). No Furware letters. Tabs are on the page.
+A wall panel near the tables. It **hears** finished games, stores high scores, and draws the list on **media** (same GitHub Pages app as the HUD). No Furware letters. Game / range / period controls are on the page.
 
 ## What it stores
 
-Each seated **human**’s team score at **match end** (not after every hand). Computers are skipped. If you already have an entry, only a **higher** score replaces it. Top **10** per board.
+Each seated **human**’s score at **match end** (not after every hand). Computers are skipped. If you already have an entry, only a **higher** score replaces it. Top **10** per board.
 
-**Canasta**, **Hand & Foot**, **Samba**, and **Bolivia** are stored separately (different score scales). The page has a game tab for each.
+Boards are **separate** by one-letter game code (different score scales must not mix).
+
+| Code | Board |
+|------|--------|
+| `c` | Classic Canasta |
+| `h` | Hand & Foot |
+| `s` | Samba |
+| `b` | Bolivia |
+| `r` | Rummy |
+| `t` | Rooster family (Hearts, Rooster, Spades, Euchre, Oh Hell) |
+| `i` | Ichi |
+| `o` | Skippo |
+| `p` | Phase It |
+| `y` | Yotsy |
 
 | Board | Where | Window |
 |--------|--------|---------|
 | This parlor · Weekly / Monthly / Lifetime | Linkset Data on the scoreboard prim | Calendar week (Mon-aligned Unix week) / calendar month / forever |
 | Network · Weekly / Monthly / Lifetime | Experience Key-Value | Same windows, shared by every scoreboard compiled with that Experience |
 
-Experience keys are `cn.sc.c.*` (Canasta), `cn.sc.h.*` (Hand & Foot), `cn.sc.s.*` (Samba), and `cn.sc.b.*` (Bolivia). Older unscoped `cn.sc.w.*` / `cn.sc.m.*` / `cn.sc.l` keys are still **read as a fallback** into the Canasta Network boards when the scoped Canasta key is empty. New writes always use the scoped keys.
+Experience keys are `cn.sc.<code>.*` (e.g. `cn.sc.t.w.…` for Rooster weekly). Older unscoped `cn.sc.w.*` / `cn.sc.m.*` / `cn.sc.l` keys are still **read as a fallback** into the Canasta Network boards when the scoped Canasta key is empty. New writes always use the scoped keys.
 
 ## Table side (shout)
 
-Drop `lsl/Canasta_Scores.lsl` in the **game table** linkset (root is fine). Compile **Mono**. The scoreboard is a **separate, unlinked** object. At `GAME_OVER` the table **`llShout`s** (100 m) one line per seated human:
+Drop the matching `*_Scores.lsl` in each **game table** linkset (root is fine). Compile **Mono**. The scoreboard is a **separate, unlinked** object. At `GAME_OVER` the table **`llShout`s** (100 m) one line per seated human:
 
 ```
-CN_SCORE|c|<avatar-uuid>|Bandor Tyrell|8441
+CN_SCORE|t|<avatar-uuid>|Bandor Tyrell|8441
 ```
 
-on channel **`-18475021`**. Game code is a **one-letter** token from the HUD’s `GAME_OVER|…|<code>` pipe (`c` Canasta, `h` Hand & Foot, `s` Samba, `b` Bolivia). `Canasta_Scores.lsl` passes that letter through (first `a–z` / `0–9` character; empty → `c`) so future games do not need another table compile. Same channel is hard-coded in the scoreboard script. Place the panel within shout range of the table.
+on channel **`-18475021`**. Game code is a **one-letter** token from the HUD’s `GAME_OVER|…|<code>` pipe. Scores scripts pass that letter through (first `a–z` / `0–9` character; empty → the family default). Same channel is hard-coded in the scoreboard script. Place the panel within shout range of the tables.
 
-**Samba / Bolivia:** the table shouts `s` / `b`. The scoreboard records those on their own boards (`cn.sc.s.*` / `cn.sc.b.*`) so they never mix with Classic or Hand & Foot. The MoAP page has live Samba and Bolivia tabs.
-
-**Update both objects** if you already sold a copy: drop the new Scores script in the **table**, and the new core script in the **scoreboard**. An old scoreboard maps unknown letters to Canasta and would mix Samba scores into Classic.
-
-Recompile order on the table is still Display → Http → Table; Scores can compile anytime.
+**Update the wall scoreboard** (Core + Http + Admin) when adding new letters. An old Http script maps unknown letters to Canasta and would mix scores.
 
 ## Scoreboard object (3-prim linkset)
 
@@ -49,7 +58,7 @@ HTTP-IN and MoAP live in the thin **Http** script so JSONP has enough Mono heap.
 4. Touch the **gear** (owner or super-user) for admin menus — not the MoAP screen.
 5. After editing scripts: drop/reset **both** Core and Http on the frame (Http owns the URL the MoAP page calls).
 
-The MoAP page has tabs for **Canasta** / **Hand & Foot** / **Samba** / **Bolivia**, **This parlor** / **Network**, and **Weekly** / **Monthly** / **Lifetime**. Spectators use the screen; admins use the gear. Network numbers refresh from Experience every few seconds.
+The MoAP page has a **game dropdown**, plus **This parlor** / **Network**, and **Weekly** / **Monthly** / **Lifetime**. Spectators use the screen; admins use the gear. Network numbers refresh from Experience every few seconds.
 
 Bump `public/asset-rev.txt` when Pages deploys so MoAP reloads **without** recompiling scripts. Script `PAGE_ASSET_REV` values are fallbacks only.
 
@@ -65,11 +74,11 @@ The MoAP page **caches** the last successful parlor/network snapshot in the view
 | **Object owner** | Clear / remove / set | Refresh cache only — no writes |
 | Everyone else | No menu | No menu |
 
-Menus: Local or Network → game → period (or all periods) → Clear board / Remove player / Set score. Set score text box: `Name|score` or `uuid|Name|score`. Admin set/remove bypasses the normal “keep higher only” rule.
+Menus: Local or Network → game (two pages) → period (or all periods) → Clear board / Remove player / Set score. Set score text box: `Name|score` or `uuid|Name|score`. Admin set/remove bypasses the normal “keep higher only” rule.
 
 ## Test shouter
 
-Drop `lsl/Canasta_Score_Test.lsl` on any nearby prim (owner or super-user). Touch for sample Canasta / Hand & Foot shouts, “me” scores, or a custom `game|Name|score` line. Stay within **100 m** of the scoreboard. Remove the prim when you are done testing.
+Drop `lsl/Canasta_Score_Test.lsl` on any nearby prim (owner or super-user). Touch for sample shouts, “me” scores, or a custom `game|Name|score` line. Stay within **100 m** of the scoreboard. Remove the prim when you are done testing.
 
 ## Placement
 

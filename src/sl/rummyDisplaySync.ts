@@ -75,16 +75,9 @@ async function flush(state: RummyState, slCap: string, uid: string, seat: number
   }
 
   if (state.phase === 'matchEnd') {
-    const game =
-      state.config.variant === 'gin' || state.config.variant === 'oklahoma'
-        ? 'g'
-        : state.config.variant === 'rummy500'
-          ? 'f'
-          : state.config.variant === 'kalooki'
-            ? 'k'
-            : 'r'
+    // Family board `r` — variants share one scoreboard column for now
     try {
-      await tableEvent(slCap, uid, seat, `GAME_OVER|1|0|NONE|0|${game}`)
+      await tableEvent(slCap, uid, seat, 'GAME_OVER|1|0|NONE|0|r')
     } catch {
       /* ignore */
     }

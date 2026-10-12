@@ -1,6 +1,6 @@
 import { mergeGames, normalizeGames, type ScoreGames } from '../sl/scoresApi'
 
-const KEY = 'canasta.scoreboard.cache.v1'
+const KEY = 'canasta.scoreboard.cache.v2'
 
 export type ScoreboardCache = {
   savedAt: number

@@ -15,7 +15,7 @@ list gName = [];
 list gAv = [];
 integer gPlayers = 4;
 list gScore = [];
-string gGame = "r";
+string gGame = "i";
 
 string cleanName(string s)
 {
@@ -29,7 +29,7 @@ string cleanName(string s)
 
 string normGame(string g)
 {
-    // First a–z / 0–9 character (passthrough). Empty / junk → Canasta.
+    // First a–z / 0–9 character (passthrough). Empty / junk → Ichi.
     g = llToLower(llStringTrim(g, STRING_TRIM));
     integer i;
     integer n = llStringLength(g);
@@ -39,7 +39,7 @@ string normGame(string g)
         string ch = llGetSubString(g, i, i);
         if (llSubStringIndex(ok, ch) >= 0) return ch;
     }
-    return "r";
+    return "i";
 }
 
 integer clearState()
@@ -48,7 +48,7 @@ integer clearState()
     gAv = [NULL_KEY, NULL_KEY, NULL_KEY, NULL_KEY];
     gPlayers = 4;
     gScore = [0, 0, 0, 0];
-    gGame = "r";
+    gGame = "i";
     return TRUE;
 }
 
