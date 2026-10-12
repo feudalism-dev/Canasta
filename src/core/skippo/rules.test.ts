@@ -93,6 +93,29 @@ describe('Classic Skippo', () => {
     expect(s.players[s.current]!.hand.length).toBeGreaterThanOrEqual(5)
     expect(s.players[me]!.discards[0]).toHaveLength(1)
   })
+
+  it('refills hand to 5 when emptied by playing (not discarding)', () => {
+    let s = createSkippoMatch(['A', 'B'], [false, false], 'classic', 17)
+    const me = s.current
+    s.filled = true
+    s.builders[0]!.next = 1
+    s.players[me]!.hand = [{ id: 'only', rank: 1 }]
+    s.draw = [
+      { id: 'd1', rank: 2 },
+      { id: 'd2', rank: 3 },
+      { id: 'd3', rank: 4 },
+      { id: 'd4', rank: 5 },
+      { id: 'd5', rank: 6 },
+    ]
+    const res = applySkippoMove(s, { t: 'play', source: 'hand', cardId: 'only', builder: 0 })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    s = res.state
+    expect(s.phase).toBe('play')
+    expect(s.current).toBe(me)
+    expect(s.players[me]!.hand).toHaveLength(5)
+    expect(s.players[me]!.hand.map((c) => c.id).sort()).toEqual(['d1', 'd2', 'd3', 'd4', 'd5'])
+  })
 })
 
 describe('Skippo variants', () => {

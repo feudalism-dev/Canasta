@@ -42,7 +42,11 @@ function pickPlay(state: SkippoState): SkippoMove | null {
   const discardPlays = legal.filter((p) => p.source === 'discard')
   if (discardPlays.length) return toMove(discardPlays[0]!, 'play')
 
+  // Hand empty with no stock/discard plays: rules should have mid-turn refilled;
+  // if still empty, discard is impossible — return null so pump stops cleanly
+  // (applySkippoMove also auto-passes when draw is exhausted).
   if (!pl.hand.length) return null
+
   const ranked = [...pl.hand].sort((a, b) => {
     const wa = a.rank == null ? 100 : a.rank
     const wb = b.rank == null ? 100 : b.rank

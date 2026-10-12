@@ -62,7 +62,7 @@ export function skippoTip(v: SkippoVariant): string {
   if (v === 'jumpin') {
     return 'Classic play, plus: off-turn you may jump in with an exact rank (no wilds) onto a builder.'
   }
-  return 'Refill to 5, play onto builders (1→12), then discard one. Empty your stock to win the hand. Skippo cards are wild.'
+  return 'Refill to 5, play onto builders (1→12). Empty your hand mid-turn → draw 5 more. Discard one to end. Empty stock to win.'
 }
 
 /** Partner player index by physical seat (across the table). */

@@ -200,6 +200,18 @@ export function applySkippoMove(state: SkippoState, move: SkippoMove): SkippoApp
     )
     next.lastMessage = next.log[next.log.length - 1]!
     if (maybeWin(next, me)) return { ok: true, state: next }
+    // Skip-Bo: empty the hand by playing (not discarding) → draw back up to 5 and continue
+    if (pl.hand.length === 0) {
+      refillHand(next, me)
+      if (pl.hand.length > 0) {
+        next.log.push(`${pl.name} draws back up to 5.`)
+        next.lastMessage = next.log[next.log.length - 1]!
+      } else if (legalPlays(next, me).length === 0) {
+        // Draw pile exhausted and nothing left to play — pass the turn
+        next.log.push(`${pl.name} cannot draw or play — turn passes.`)
+        advanceTurn(next)
+      }
+    }
     return { ok: true, state: next }
   }
 

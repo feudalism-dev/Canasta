@@ -18,7 +18,8 @@ Sequencing parlor games using numbered cards **1–12** and wild **Skippo** card
 2. Play any legal cards from your **hand**, **stock top**, or **discard tops** onto builders.
 3. A builder accepts the next number in order (**1 → 12**). Skippo wilds count as whatever number is needed.
 4. Completing **12** clears that builder (cards go to recycle).
-5. End your turn by **discarding one hand card** onto one of your discard piles (unless you already emptied your stock and won).
+5. If you **empty your hand by playing** (not by discarding), immediately draw back up to **5** and keep playing. You may do this repeatedly.
+6. End your turn by **discarding one hand card** onto one of your discard piles (unless you already emptied your stock and won). Discarding your last hand card does **not** trigger a refill.
 
 ### Winning
 
