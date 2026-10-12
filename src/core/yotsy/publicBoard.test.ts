@@ -44,4 +44,16 @@ describe('yotsy public board', () => {
     const legacy = wire.replace('~k~', '~d~')
     expect(decodeYotsyPublicBoard(legacy).variant).toBe('kismet')
   })
+
+  it('encodes yacht and generala wire chars', () => {
+    const yacht = createYotsyMatch(['A', 'B'], [false, true], 'yacht')
+    const yw = encodeYotsyPublicBoard(yotsyPublicBoardFromState(yacht))
+    expect(yw.includes('~y~')).toBe(true)
+    expect(decodeYotsyPublicBoard(yw).variant).toBe('yacht')
+
+    const gen = createYotsyMatch(['A', 'B'], [false, true], 'generala')
+    const gw = encodeYotsyPublicBoard(yotsyPublicBoardFromState(gen))
+    expect(gw.includes('~g~')).toBe(true)
+    expect(decodeYotsyPublicBoard(gw).variant).toBe('generala')
+  })
 })

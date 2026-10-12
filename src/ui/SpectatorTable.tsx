@@ -1170,7 +1170,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           )}
           <p>
             {isYotsy
-              ? 'Sit to play · Classic Yotsy or Kismet'
+              ? 'Sit to play · Yotsy, Yacht, Generala, Kismet'
               : isPhaseit
                 ? 'Sit to play · Classic Phase It'
                 : isSkippo

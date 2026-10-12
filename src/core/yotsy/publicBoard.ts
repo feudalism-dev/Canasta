@@ -45,12 +45,17 @@ function parsePhase(ch: string): YotsyPhase | 'idle' {
 }
 
 function variantWire(v: YotsyVariant): string {
-  return v === 'kismet' ? 'k' : 'c'
+  if (v === 'kismet') return 'k'
+  if (v === 'yacht') return 'y'
+  if (v === 'generala') return 'g'
+  return 'c'
 }
 
 function parseVariantWire(ch: string): YotsyVariant {
   // Legacy stub used `d` for Dismet → Kismet
   if (ch === 'k' || ch === 'd') return 'kismet'
+  if (ch === 'y') return 'yacht'
+  if (ch === 'g') return 'generala'
   return 'classic'
 }
 

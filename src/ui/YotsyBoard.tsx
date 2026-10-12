@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { pumpYotsyBots } from '../ai/yotsyBot'
-import { lowerCategories, turnsNeeded, UPPER_CATEGORIES, categoryLabel } from '../core/yotsy/categories'
+import {
+  hasFiveKindBonus,
+  hasUpperBonus,
+  lowerCategories,
+  turnsNeeded,
+  UPPER_CATEGORIES,
+  categoryLabel,
+} from '../core/yotsy/categories'
 import { dieColor } from '../core/yotsy/dice'
 import { applyYotsyMove } from '../core/yotsy/rules'
 import {
@@ -202,9 +209,10 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
   const previews = useMemo(() => {
     if (!state || !you || !yourTurn || !state.hasRolled) return null
     const vals = state.dice.map((d) => d.value)
+    const served = state.rollsLeft === 2
     const map = new Map<YotsyCategory, number>()
     for (const c of openCategories(you.card, gameVariant)) {
-      map.set(c, scoreWithJoker(vals, c, you.card, gameVariant))
+      map.set(c, scoreWithJoker(vals, c, you.card, gameVariant, { served }))
     }
     return map
   }, [state, you, yourTurn, tick, gameVariant])
@@ -228,6 +236,8 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
     (a, b) => playerTotal(b, gameVariant) - playerTotal(a, gameVariant),
   )
   const leaderId = ranked[0]?.id
+  const showUpperBonus = hasUpperBonus(gameVariant)
+  const showFiveBonus = hasFiveKindBonus(gameVariant)
   const bonusLabel =
     gameVariant === 'kismet' ? 'Bonus (63/71/78)' : 'Bonus (63+)'
   const fiveBonusLabel = gameVariant === 'kismet' ? 'Kismet bonus' : 'Yotsy bonus'
@@ -248,7 +258,7 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
             disabled={!canScore}
             onClick={() => play({ t: 'score', category: c })}
           >
-            <span>{categoryLabel(c)}</span>
+            <span>{categoryLabel(c, gameVariant)}</span>
             <strong>
               {filled != null ? filled : preview != null && yourTurn ? preview : '—'}
             </strong>
@@ -261,10 +271,12 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
             <span>Subtotal</span>
             <strong>{upperSubtotal(you.card)}</strong>
           </div>
-          <div className="yotsy-box is-meta">
-            <span>{bonusLabel}</span>
-            <strong>{upperBonus(you.card, gameVariant)}</strong>
-          </div>
+          {showUpperBonus ? (
+            <div className="yotsy-box is-meta">
+              <span>{bonusLabel}</span>
+              <strong>{upperBonus(you.card, gameVariant)}</strong>
+            </div>
+          ) : null}
         </>
       ) : (
         <>
@@ -272,10 +284,12 @@ export function YotsyBoard({ yourName, variant, playerCount = 2, onExit, control
             <span>Lower</span>
             <strong>{lowerSubtotal(you.card, gameVariant)}</strong>
           </div>
-          <div className="yotsy-box is-meta">
-            <span>{fiveBonusLabel}</span>
-            <strong>{you.yahtzeeBonuses}</strong>
-          </div>
+          {showFiveBonus ? (
+            <div className="yotsy-box is-meta">
+              <span>{fiveBonusLabel}</span>
+              <strong>{you.yahtzeeBonuses}</strong>
+            </div>
+          ) : null}
           <div className="yotsy-box is-meta is-total">
             <span>Total</span>
             <strong>{playerTotal(you, gameVariant)}</strong>

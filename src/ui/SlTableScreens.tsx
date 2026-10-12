@@ -589,8 +589,14 @@ export function SlTableScreens({
             </label>
             <p className="muted">
               {yotsyPlayerCount} seats · five dice ·{' '}
-              {yotsyVariant === 'kismet' ? '15 boxes (Kismet)' : '13 boxes'}. Empty chairs become
-              bots.
+              {yotsyVariant === 'kismet'
+                ? '15 boxes (Kismet)'
+                : yotsyVariant === 'yacht'
+                  ? '12 boxes (Yacht)'
+                  : yotsyVariant === 'generala'
+                    ? '11 boxes (Generala)'
+                    : '13 boxes'}
+              . Empty chairs become bots.
             </p>
           </>
         ) : null}
@@ -732,7 +738,8 @@ export function SlTableScreens({
               (isSkippoTable &&
                 !['classic', 'short', 'partners', 'jumpin'].includes(skippoVariant)) ||
               (isPhaseitTable && !['classic'].includes(phaseitVariant)) ||
-              (isYotsyTable && !['classic', 'kismet'].includes(yotsyVariant))
+              (isYotsyTable &&
+                !['classic', 'kismet', 'yacht', 'generala'].includes(yotsyVariant))
             }
             onClick={async () => {
               setBusy(true)

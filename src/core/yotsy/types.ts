@@ -1,13 +1,13 @@
-/** Yotsy — dice parlor family (Yahtzee-style + Kismet). */
+/** Yotsy — dice parlor family (Yahtzee-style + Kismet / Yacht / Generala). */
 
-export type YotsyVariant = 'classic' | 'kismet'
+export type YotsyVariant = 'classic' | 'kismet' | 'yacht' | 'generala'
 
 export type YotsyPhase = 'play' | 'matchEnd'
 
 /** Die pip color (Kismet): 1/6 black, 2/5 red, 3/4 green. */
 export type YotsyDieColor = 'black' | 'red' | 'green'
 
-/** Classic + Kismet scorecard categories. */
+/** Classic + variant scorecard categories. */
 export type YotsyCategory =
   | 'ones'
   | 'twos'
@@ -29,6 +29,9 @@ export type YotsyCategory =
   | 'fullHouseColor'
   | 'yarborough'
   | 'kismet'
+  /** Generala-only */
+  | 'generala'
+  | 'doubleGenerala'
 
 export type YotsyDie = {
   id: string
@@ -45,7 +48,7 @@ export type YotsyPlayer = {
   seat: number
   isComputer: boolean
   card: YotsyScorecard
-  /** Extra Yotsy/Kismet bonuses after the five-of-a-kind box is filled. */
+  /** Extra five-of-a-kind bonuses (Classic / Kismet). */
   yahtzeeBonuses: number
   /** Turns completed (max = boxes for variant). */
   turnsDone: number
@@ -77,5 +80,10 @@ export type YotsyState = {
 
 export type YotsyMove =
   | { t: 'toggleHold'; dieId: string }
-  | { t: 'roll' }
+  | { t: 'roll'; seed?: number }
   | { t: 'score'; category: YotsyCategory }
+
+export type YotsyScoreOpts = {
+  /** Generala: combination made on the first roll of the turn (+5 / servida). */
+  served?: boolean
+}

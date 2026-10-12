@@ -7,7 +7,7 @@ import {
 } from './score'
 import { applyYotsyMove } from './rules'
 import { createYotsyMatch } from './state'
-import { hasTwoPairSameColor, isFlush } from './dice'
+import { freshDice, hasTwoPairSameColor, isFlush, isYahtzee, rollDice, valuesOf } from './dice'
 import { turnsNeeded } from './categories'
 
 describe('yotsy scoring', () => {
@@ -58,6 +58,50 @@ describe('kismet scoring', () => {
   it('needs 15 turns', () => {
     expect(turnsNeeded('kismet')).toBe(15)
     expect(turnsNeeded('classic')).toBe(13)
+  })
+})
+
+describe('yacht scoring', () => {
+  it('uses 1938 boxes and no upper bonus', () => {
+    expect(turnsNeeded('yacht')).toBe(12)
+    expect(upperBonus({ ones: 5, twos: 10, threes: 15, fours: 20, fives: 25, sixes: 30 }, 'yacht')).toBe(0)
+    expect(scoreCategory([6, 6, 6, 5, 5], 'fullHouse', 'yacht')).toBe(28)
+    expect(scoreCategory([6, 6, 6, 6, 6], 'fullHouse', 'yacht')).toBe(0)
+    expect(scoreCategory([3, 3, 3, 3, 6], 'fourKind', 'yacht')).toBe(12)
+    expect(scoreCategory([1, 2, 3, 4, 5], 'smallStraight', 'yacht')).toBe(30)
+    expect(scoreCategory([1, 2, 3, 4, 6], 'smallStraight', 'yacht')).toBe(0)
+    expect(scoreCategory([2, 3, 4, 5, 6], 'largeStraight', 'yacht')).toBe(30)
+    expect(scoreCategory([6, 6, 6, 6, 6], 'yahtzee', 'yacht')).toBe(50)
+  })
+})
+
+describe('generala scoring', () => {
+  it('applies fixed scores and servido bonus', () => {
+    expect(turnsNeeded('generala')).toBe(11)
+    expect(scoreCategory([1, 2, 3, 4, 5], 'straight', 'generala')).toBe(20)
+    expect(scoreCategory([1, 2, 3, 4, 5], 'straight', 'generala', { served: true })).toBe(25)
+    expect(scoreCategory([2, 2, 2, 5, 5], 'fullHouse', 'generala')).toBe(30)
+    expect(scoreCategory([2, 2, 2, 2, 1], 'fourKind', 'generala', { served: true })).toBe(45)
+    expect(scoreCategory([4, 4, 4, 4, 4], 'generala', 'generala')).toBe(60)
+    expect(scoreWithJoker([4, 4, 4, 4, 4], 'doubleGenerala', {}, 'generala')).toBe(0)
+    expect(scoreWithJoker([4, 4, 4, 4, 4], 'doubleGenerala', { generala: 60 }, 'generala')).toBe(100)
+  })
+
+  it('generala servida wins on first-roll fiveoak', () => {
+    let seed = -1
+    for (let s = 0; s < 50000; s++) {
+      if (isYahtzee(valuesOf(rollDice(freshDice(), s)))) {
+        seed = s
+        break
+      }
+    }
+    expect(seed).toBeGreaterThanOrEqual(0)
+    const state = createYotsyMatch(['You', 'Bot'], [false, true], 'generala')
+    const roll = applyYotsyMove(state, { t: 'roll', seed })
+    expect(roll.ok).toBe(true)
+    if (!roll.ok) return
+    expect(roll.state.phase).toBe('matchEnd')
+    expect(roll.state.winnerId).toBe(state.players[0]!.id)
   })
 })
 

@@ -31,8 +31,30 @@ export const KISMET_LOWER: YotsyCategory[] = [
   'kismet',
 ]
 
+/** Yacht (1938): 12 boxes — no 3oak, no upper bonus. */
+export const YACHT_LOWER: YotsyCategory[] = [
+  'fullHouse',
+  'fourKind',
+  'smallStraight',
+  'largeStraight',
+  'chance',
+  'yahtzee',
+]
+
+/** Generala: escalera, full, póker, generala, doble. */
+export const GENERALA_LOWER: YotsyCategory[] = [
+  'straight',
+  'fullHouse',
+  'fourKind',
+  'generala',
+  'doubleGenerala',
+]
+
 export function lowerCategories(variant: YotsyVariant): YotsyCategory[] {
-  return variant === 'kismet' ? KISMET_LOWER : CLASSIC_LOWER
+  if (variant === 'kismet') return KISMET_LOWER
+  if (variant === 'yacht') return YACHT_LOWER
+  if (variant === 'generala') return GENERALA_LOWER
+  return CLASSIC_LOWER
 }
 
 export function allCategories(variant: YotsyVariant): YotsyCategory[] {
@@ -49,7 +71,20 @@ export function turnsNeeded(variant: YotsyVariant): number {
   return allCategories(variant).length
 }
 
-export function categoryLabel(c: YotsyCategory): string {
+export function categoryLabel(c: YotsyCategory, variant: YotsyVariant = 'classic'): string {
+  if (variant === 'yacht') {
+    if (c === 'smallStraight') return 'Little Straight'
+    if (c === 'largeStraight') return 'Big Straight'
+    if (c === 'chance') return 'Choice'
+    if (c === 'yahtzee') return 'YACHT'
+  }
+  if (variant === 'generala') {
+    if (c === 'straight') return 'Escalera'
+    if (c === 'fullHouse') return 'Full'
+    if (c === 'fourKind') return 'Póker'
+    if (c === 'generala') return 'GENERALA'
+    if (c === 'doubleGenerala') return 'Doble Generala'
+  }
   switch (c) {
     case 'ones':
       return 'Aces'
@@ -89,6 +124,10 @@ export function categoryLabel(c: YotsyCategory): string {
       return 'Yarborough'
     case 'kismet':
       return 'KISMET'
+    case 'generala':
+      return 'GENERALA'
+    case 'doubleGenerala':
+      return 'Doble Generala'
   }
 }
 
@@ -108,5 +147,17 @@ export function isUpper(c: YotsyCategory): boolean {
 
 /** Five-of-a-kind box for the variant. */
 export function fiveKindCategory(variant: YotsyVariant): YotsyCategory {
-  return variant === 'kismet' ? 'kismet' : 'yahtzee'
+  if (variant === 'kismet') return 'kismet'
+  if (variant === 'generala') return 'generala'
+  return 'yahtzee'
+}
+
+/** Classic / Kismet track upper-section bonuses; Yacht / Generala do not. */
+export function hasUpperBonus(variant: YotsyVariant): boolean {
+  return variant === 'classic' || variant === 'kismet'
+}
+
+/** Classic / Kismet award extra chips for later five-of-a-kinds. */
+export function hasFiveKindBonus(variant: YotsyVariant): boolean {
+  return variant === 'classic' || variant === 'kismet'
 }

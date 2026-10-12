@@ -1,6 +1,6 @@
 # Yotsy family — rules
 
-Dice parlor: **Classic Yotsy** and **Kismet**. 1–4 players (empty chairs become bots). Highest grand total after every score box is filled wins.
+Dice parlor variants sharing five dice and up to three rolls per turn. 1–4 players (empty chairs become bots). Highest grand total after every score box is filled wins — except **Generala servida**, which can end the match early.
 
 ## Shared play
 
@@ -29,7 +29,40 @@ If upper subtotal reaches **63**, add a **35** bonus.
 
 ### Yotsy bonus
 
-If the YOTSY box already shows a positive score and you roll another five-of-a-kind, you get **+100** and may place the dice in another open box. Upper of that face scores normally; lower boxes may be used as **jokers** (Full House 25, straights 30/40, etc.).
+If the YOTSY box already shows a positive score and you roll another five-of-a-kind, you get **+100** and may place the dice in another open box (jokers on lower boxes).
+
+---
+
+## Yacht (12 boxes)
+
+1938 ancestor of Yahtzee. **No upper bonus**, no three-of-a-kind, no extra five-of-a-kind chips.
+
+| Box | Score |
+|-----|--------|
+| Aces–Sixes | Sum of that face |
+| Full House | Sum of all dice (exact 3+2; five alike does **not** count) |
+| Four of a Kind | Sum of the **four** matching dice only |
+| Little Straight | 30 for exactly 1-2-3-4-5 |
+| Big Straight | 30 for exactly 2-3-4-5-6 |
+| Choice | Sum of all dice |
+| YACHT | 50 (five of a kind) |
+
+---
+
+## Generala (11 boxes)
+
+Latin American scorecard. Combinations made on the **first roll** of a turn are *servido* (+5 on Escalera / Full / Póker).
+
+| Box | Built | Servido |
+|-----|-------|---------|
+| Aces–Sixes | Sum of that face | same |
+| Escalera (1–5 or 2–6) | 20 | 25 |
+| Full | 30 | 35 |
+| Póker (4 alike) | 40 | 45 |
+| GENERALA (5 alike) | 60 | **instant win** if the Generala box is still open |
+| Doble Generala | 100 (only after Generala already has points) | 100 |
+
+**Generala servida:** five-of-a-kind on your first roll while Generala is open ends the match — you win immediately, regardless of scores.
 
 ---
 
@@ -45,36 +78,30 @@ Colored pips (fixed by face):
 
 ### Upper section
 
-Same Aces–Sixes as Classic. Tiered bonus on upper subtotal:
+Same Aces–Sixes. Tiered bonus: **35 / 55 / 75** at subtotals **63 / 71 / 78**.
 
-| Subtotal | Bonus |
-|----------|--------|
-| 63+ | 35 |
-| 71+ | 55 |
-| 78+ | 75 |
-
-### Lower section (Kismet)
+### Lower section
 
 | Box | Score |
 |-----|--------|
-| 2 Pair Same Color | Sum of dice if two pairs share a color (or better) |
+| 2 Pair Same Color | Sum if two pairs share a color (or better) |
 | 3 of a Kind | Sum if ≥3 alike |
 | Straight | 30 (sequence of 5) |
 | Flush | 35 (all five same color) |
 | Full House | Sum + 15 |
-| FH Same Color | Sum + 20 (full house + flush) |
+| FH Same Color | Sum + 20 |
 | 4 of a Kind | Sum + 25 |
 | Yarborough | Sum of all dice |
 | KISMET | Sum + 50 (five of a kind) |
 
 ### Kismet bonus
 
-If the KISMET box already shows a positive score and you roll another five-of-a-kind, you get **+50** and may joker into another open box (straight 30, flush 35, full house sum+15, etc.).
+After KISMET is filled with a positive score, further five-of-a-kinds award **+50** and may joker into other open boxes.
 
 ---
 
 ## Match end
 
-After each player fills all boxes (13 Classic / 15 Kismet), highest grand total wins (upper + bonus + lower + five-of-a-kind bonuses).
+After each player fills all boxes (13 / 12 / 11 / 15), highest grand total wins — unless Generala servida ended it early.
 
 Observers see live dice and scores on the table-top MoAP (`Y1~` board pipe).

@@ -11,14 +11,22 @@ function bestScore(state: YotsyState): { category: YotsyCategory; pts: number } 
   const vals = valuesOf(state.dice)
   const open = openCategories(pl.card, variant)
   if (!open.length) return null
+  const served = state.rollsLeft === 2
   let best: { category: YotsyCategory; pts: number } | null = null
   for (const c of open) {
-    const pts = scoreWithJoker(vals, c, pl.card, variant)
+    const pts = scoreWithJoker(vals, c, pl.card, variant, { served })
     if (!best || pts > best.pts) best = { category: c, pts }
   }
   if (best && best.pts === 0) {
-    const scratch = variant === 'kismet' ? 'yarborough' : 'chance'
-    if (open.includes(scratch)) return { category: scratch, pts: 0 }
+    const scratchPrefs: YotsyCategory[] =
+      variant === 'kismet'
+        ? ['yarborough']
+        : variant === 'generala'
+          ? ['doubleGenerala', 'ones']
+          : ['chance']
+    for (const s of scratchPrefs) {
+      if (open.includes(s)) return { category: s, pts: 0 }
+    }
     const upperOpen = UPPER_CATEGORIES.filter((c) => open.includes(c))
     if (upperOpen.length) return { category: upperOpen[upperOpen.length - 1]!, pts: 0 }
   }

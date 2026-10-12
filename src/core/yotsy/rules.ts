@@ -1,4 +1,4 @@
-import { categoryLabel, fiveKindCategory } from './categories'
+import { categoryLabel, fiveKindCategory, hasFiveKindBonus } from './categories'
 import { isYahtzee, rollDice, valuesOf } from './dice'
 import { openCategories, playerTotal, scoreWithJoker } from './score'
 import { advanceAfterScore, cloneYotsy, currentPlayer } from './state'
@@ -29,10 +29,27 @@ export function applyYotsyMove(state: YotsyState, move: YotsyMove): YotsyApplyRe
     if (!next.hasRolled) {
       for (const d of next.dice) d.held = false
     }
-    next.dice = rollDice(next.dice, Date.now() % 1e9)
+    next.dice = rollDice(next.dice, move.seed ?? Date.now() % 1e9)
     next.rollsLeft -= 1
     next.hasRolled = true
     next.log.push(`${pl.name} rolls.`)
+
+    // Generala servida: five-of-a-kind on the first roll while Generala is still open → instant win
+    if (
+      variant === 'generala' &&
+      next.rollsLeft === 2 &&
+      isYahtzee(valuesOf(next.dice)) &&
+      pl.card.generala == null
+    ) {
+      next.phase = 'matchEnd'
+      next.winnerId = pl.id
+      const msg = `${pl.name} — Generala servida! Wins the match!`
+      next.lastMessage = msg
+      next.lastScoreNote = msg
+      next.log.push(msg)
+      return { ok: true, state: next }
+    }
+
     next.lastMessage = `${pl.name} rolled — ${next.rollsLeft} roll${next.rollsLeft === 1 ? '' : 's'} left.`
     return { ok: true, state: next }
   }
@@ -44,19 +61,30 @@ export function applyYotsyMove(state: YotsyState, move: YotsyMove): YotsyApplyRe
     const vals = valuesOf(next.dice)
     const five = fiveKindCategory(variant)
     const fiveWasFilled = (pl.card[five] ?? 0) > 0
-    const pts = scoreWithJoker(vals, move.category, pl.card, variant)
+    // Served = scored after exactly one roll (started with 3, now 2 left)
+    const served = next.rollsLeft === 2
+    const pts = scoreWithJoker(vals, move.category, pl.card, variant, { served })
     pl.card[move.category] = pts
     pl.turnsDone += 1
 
     let bonusNote = ''
-    if (fiveWasFilled && isYahtzee(vals) && move.category !== five) {
+    if (
+      hasFiveKindBonus(variant) &&
+      fiveWasFilled &&
+      isYahtzee(vals) &&
+      move.category !== five
+    ) {
       const bonus = variant === 'kismet' ? 50 : 100
       pl.yahtzeeBonuses += bonus
       bonusNote =
         variant === 'kismet' ? ` (+${bonus} Kismet bonus)` : ` (+${bonus} Yotsy bonus)`
+    } else if (variant === 'generala' && served && pts > 0) {
+      if (move.category === 'straight' || move.category === 'fullHouse' || move.category === 'fourKind') {
+        bonusNote = ' (servido)'
+      }
     }
 
-    const note = `${pl.name} scores ${categoryLabel(move.category)} for ${pts}${bonusNote}. Total ${playerTotal(pl, variant)}.`
+    const note = `${pl.name} scores ${categoryLabel(move.category, variant)} for ${pts}${bonusNote}. Total ${playerTotal(pl, variant)}.`
     next.lastScoreNote = note
     next.log.push(note)
     next.lastMessage = note
