@@ -361,7 +361,7 @@ export function SlTableScreens({
             : isRummyTable
               ? 'Rummy'
               : isTrickTable
-                ? 'Trick'
+                ? 'Rooster'
                 : isIchiTable
                   ? 'Ichi'
                   : isSkippoTable
@@ -377,7 +377,7 @@ export function SlTableScreens({
         ) : isRummyTable ? (
           <p className="muted">This table is locked to the Rummy family (creator SKU).</p>
         ) : isTrickTable ? (
-          <p className="muted">This table is locked to the Trick family (Hearts, Rooster, …).</p>
+          <p className="muted">This table is locked to the Rooster family (Rooster, Hearts, Spades…).</p>
         ) : isIchiTable ? (
           <p className="muted">This table is locked to the Ichi family (creator SKU).</p>
         ) : isSkippoTable ? (

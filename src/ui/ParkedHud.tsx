@@ -19,7 +19,7 @@ export function ParkedHud({ boot }: { boot: SlBootstrap }) {
             {boot.family === 'rummy'
               ? ' (Rummy)'
               : boot.family === 'trick'
-                ? ' (Trick)'
+                ? ' (Rooster)'
                 : boot.family === 'ichi'
                   ? ' (Ichi)'
                   : boot.family === 'skippo'

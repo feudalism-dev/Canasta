@@ -191,7 +191,7 @@ function buildTrickSession(
     : []
   let state: TrickState | null = null
   let status = isHost ? `Room ${code}` : 'Joining…'
-  let variant: TrickVariant = opts?.variant || 'hearts'
+  let variant: TrickVariant = opts?.variant || 'rooster'
   let playerCount = clampTrickPlayerCount(variant, opts?.playerCount || 4)
   let aiThinking = false
   let cancelled = false

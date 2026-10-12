@@ -281,7 +281,7 @@ export function trickVariantLabel(v: TrickVariant): string {
 }
 
 export function trickSpectatorStatus(board: TrickPublicBoard): string {
-  if (!board.live) return 'Trick parlor open — waiting for a deal'
+  if (!board.live) return 'Rooster parlor open — waiting for a deal'
   const who = (() => {
     const p = board.players.find((x) => x.seat === board.currentSeat)
     if (p?.name) return `${p.name} (Player ${board.currentSeat + 1})`

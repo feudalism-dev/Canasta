@@ -40,7 +40,7 @@ export function trickSoloRoster(name: string, playerCount: number) {
 export function startTrickSolo(
   name: string,
   playerCount: number,
-  variant: TrickVariant = 'hearts',
+  variant: TrickVariant = 'rooster',
   humanSeat = 0,
 ): TrickLocalSession {
   const n = clampTrickPlayerCount(variant, playerCount)

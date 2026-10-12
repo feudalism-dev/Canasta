@@ -51,8 +51,8 @@ export function trickConfig(variant: TrickVariant, playerCount = 4): TrickConfig
 
 export function trickVariantOptions(): { value: TrickVariant; label: string; ready: boolean }[] {
   return [
-    { value: 'hearts', label: 'Hearts — avoid points, to 100 (lowest wins)', ready: true },
     { value: 'rooster', label: 'Rooster — partnership nest & trump (to 300)', ready: true },
+    { value: 'hearts', label: 'Hearts — avoid points, to 100 (lowest wins)', ready: true },
     { value: 'spades', label: 'Spades — bid tricks, nil & bags (to 500)', ready: true },
     { value: 'euchre', label: 'Euchre — short deck trump (to 10)', ready: true },
     { value: 'ohhell', label: 'Oh Hell — bid exact tricks (to 50)', ready: true },

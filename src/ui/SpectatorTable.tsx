@@ -322,7 +322,7 @@ function phaseLine(board: PublicBoard, family: GameFamily): string {
   if (family === 'phaseit') return 'Phase It'
   if (family === 'skippo') return 'Skippo'
   if (family === 'ichi') return 'Ichi'
-  if (family === 'trick') return 'Trick'
+  if (family === 'trick') return 'Rooster'
   if (family === 'rummy') return 'Rummy'
   return 'Canasta'
 }
@@ -1159,7 +1159,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </h2>
           ) : isTrick ? (
             <h2 className="spec-parlor-title">
-              TRICK
+              ROOSTER
               <em>parlor</em>
             </h2>
           ) : (
@@ -1180,7 +1180,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                     : isRummy
                       ? 'Sit to play · free-for-all Rummy'
                       : isTrick
-                        ? 'Sit to play · Hearts, Rooster, Spades…'
+                        ? 'Sit to play · Rooster, Hearts, Spades…'
                         : 'Sit to play · partners sit across'}
           </p>
         </div>

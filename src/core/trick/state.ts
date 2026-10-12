@@ -49,10 +49,10 @@ function emptyExtra(dealer = 0, n = 4): Pick<
 export function createTrickMatch(
   names: string[],
   computers: boolean[],
-  variant: TrickVariant = 'hearts',
+  variant: TrickVariant = 'rooster',
   seed = Date.now(),
 ): TrickState {
-  const playable: TrickVariant[] = ['hearts', 'rooster', 'spades', 'euchre', 'ohhell']
+  const playable: TrickVariant[] = ['rooster', 'hearts', 'spades', 'euchre', 'ohhell']
   if (!playable.includes(variant)) {
     throw new Error(`${variant} is not playable yet`)
   }

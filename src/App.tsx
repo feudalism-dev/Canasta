@@ -140,7 +140,7 @@ function AppInner() {
   const [rummyPlay, setRummyPlay] = useState(urlPlayRummy)
   const [rummyLocal, setRummyLocal] = useState<RummyLocalSession | null>(null)
   const [rummyPeer, setRummyPeer] = useState<RummyPeerSession | null>(null)
-  const [trickVariant, setTrickVariant] = useState<TrickVariant>('hearts')
+  const [trickVariant, setTrickVariant] = useState<TrickVariant>('rooster')
   const [trickPlayerCount, setTrickPlayerCount] = useState(4)
   const [trickPlay, setTrickPlay] = useState(urlPlayHearts)
   const [trickLocal, setTrickLocal] = useState<TrickLocalSession | null>(null)

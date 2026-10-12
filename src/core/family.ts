@@ -56,7 +56,7 @@ export function familyHintPresent(...hints: unknown[]): boolean {
 
 export function familyLabel(family: GameFamily): string {
   if (family === 'rummy') return 'Rummy'
-  if (family === 'trick') return 'Trick'
+  if (family === 'trick') return 'Rooster'
   if (family === 'ichi') return 'Ichi'
   if (family === 'skippo') return 'Skippo'
   if (family === 'phaseit') return 'Phase It'
