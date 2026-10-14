@@ -965,7 +965,7 @@ export function SlTableScreens({
                       const room = (st.roomCode || table?.roomCode || '').toUpperCase()
                       if (!room) throw new Error('No room code')
                       setStatus('Opening browser match… HUD will park.')
-                      await openMatchInBrowser(boot, room, st.token)
+                      await openMatchInBrowser(boot, room, st.token, family)
                     } catch (e) {
                       setErr(e instanceof Error ? e.message : 'Mint failed')
                     } finally {

@@ -8,6 +8,8 @@ import { readSfxEnabled, writeSfxEnabled } from './sfxPref'
 
 type Props = {
   slBoot: SlBootstrap | null
+  /** Current table/app family — required so Solo in Browser opens the right game. */
+  family?: string
   parked?: boolean
   roomCode?: string
   onStatus?: (msg: string) => void
@@ -24,6 +26,7 @@ type Props = {
 
 export function AppChrome({
   slBoot,
+  family,
   parked,
   roomCode,
   onStatus,
@@ -151,7 +154,7 @@ export function AppChrome({
               type="button"
               className="chrome-browser-btn"
               onClick={() => {
-                void openSeatedBrowser(slBoot!, roomCode).then((how) => {
+                void openSeatedBrowser(slBoot!, roomCode, family || slBoot?.family).then((how) => {
                   onStatus?.(
                     how === 'opened'
                       ? 'Opened a solo game in your browser. Use “Play match in browser” in the lobby for multiplayer.'

@@ -287,6 +287,7 @@ function AppInner() {
       <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
         <AppChrome
           slBoot={tableHud || seatedBrowser || slBoot?.parked ? slBoot : null}
+          family={family}
           parked={Boolean(slBoot?.parked)}
           roomCode={
             yotsyPeer?.roomCode ||
