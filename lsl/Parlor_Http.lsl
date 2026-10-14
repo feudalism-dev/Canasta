@@ -13,7 +13,8 @@ integer DISPLAY_CMD_FAMILY = 91007;
 float CAP_RETRY_SEC = 6.0;
 integer MAX_SEATS = 4;
 integer BROWSER_TOKEN_TTL = 600;
-integer ENT_STALE_SEC = 900;
+/** Soft cache only — sit/enter force a fresh Experience read. */
+integer ENT_STALE_SEC = 45;
 integer ENT_IDLE_SEC = 3600;
 string LSD_FAM = "cn.fam";
 string LSD_ENT = "cn.ent";
@@ -497,6 +498,8 @@ handleHttp(key id, string query)
 
     if (action == "" || action == "status")
     {
+        // Pick up registrations done while seated (Register HUD → Experience).
+        if (statusIsIdle()) requestEntitlements(FALSE);
         sendJsonp(id, cb, statusOut(gLastStatus));
         return;
     }
@@ -650,8 +653,9 @@ default
         }
         if (llGetSubString(str, 0, 7) == "ENTNEED|")
         {
-            integer force = FALSE;
-            if (llGetSubString(str, 8, -1) == "1") force = TRUE;
+            // Table sit/enter always forces; "|0" keeps soft cache for rare callers.
+            integer force = TRUE;
+            if (llGetSubString(str, 8, -1) == "0") force = FALSE;
             requestEntitlements(force);
             return;
         }

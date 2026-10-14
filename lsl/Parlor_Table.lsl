@@ -414,7 +414,8 @@ integer onSit(key av, integer seat)
     gSeatName = llListReplaceList(gSeatName, [nm], seat, seat);
     gActive = llListReplaceList(gActive, [FALSE], seat, seat);
     if (gCapUrl == "") llMessageLinked(LINK_THIS, HTTP_CMD, "NEEDCAP", NULL_KEY);
-    if (gMode == MODE_IDLE) llMessageLinked(LINK_THIS, HTTP_CMD, "ENTNEED|", NULL_KEY);
+    // Force Experience re-read so a just-worn Register HUD is visible.
+    if (gMode == MODE_IDLE) llMessageLinked(LINK_THIS, HTTP_CMD, "ENTNEED|1", NULL_KEY);
     rezHudFor(av, seat);
     llRegionSayTo(av, 0, "Parlor: HUD attaching…");
     pushStatus();
@@ -574,7 +575,7 @@ handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, s
         }
         if (pname != "") gSeatName = llListReplaceList(gSeatName, [pname], seat, seat);
         gActive = llListReplaceList(gActive, [TRUE], seat, seat);
-        if (gMode == MODE_IDLE) llMessageLinked(LINK_THIS, HTTP_CMD, "ENTNEED|", NULL_KEY);
+        if (gMode == MODE_IDLE) llMessageLinked(LINK_THIS, HTTP_CMD, "ENTNEED|1", NULL_KEY);
         okReq(httpId, cb);
         return;
     }
