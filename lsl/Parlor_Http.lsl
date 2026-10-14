@@ -1,23 +1,22 @@
-// Parlor Hub — HTTP-IN JSONP front door (runtime family from Parlor_Table).
-// Drop in the SAME prim as Parlor_Table.lsl. Compile: Mono.
+// Parlor Hub — HTTP-IN JSONP + owner entitlements (Experience).
+// Drop in the SAME prim as Parlor_Table.lsl. Compile: Mono + Experience.
+// Entitlements live here so Parlor_Table stays under the Mono bytecode limit.
 // See Docs/PLAN_PARLOR_HUB.md
-// Owns spectator board snapshot + guest browser mint tokens (keeps Table under Mono heap).
 //
 // Http ↔ Table: HTTP_CMD = 92001
-//   Http → Table: REQ|httpId|cb|action|uid|seat|name|players|p
-//   Http → Table: CAP|url
-//   Http → Table: BGATE|op|uid|seatHint   (mint/claim gate)
-//   Table → Http: RESP|cb|json   (id = http request key)
-//   Table → Http: STATUS|json
-//   Table → Http: BOARD|i|n|chunk
-//   Table → Http: BCLR|
-//   Table → Http: BCLEAR| or BCLEAR|seat
-//   Table → Http: BGATEOK|op|seat|roomCode  /  BGATEFAIL|err
+//   Http → Table: REQ|…  CAP|  BGATE|  FAMSET|<family>
+//   Table → Http: RESP|  STATUS|  BOARD|  BCLR|  BCLEAR|  BGATEOK|  BGATEFAIL|  ENTNEED|
 
 integer HTTP_CMD = 92001;
+integer DISPLAY_CMD_FAMILY = 91007;
 float CAP_RETRY_SEC = 6.0;
 integer MAX_SEATS = 4;
 integer BROWSER_TOKEN_TTL = 600;
+integer ENT_STALE_SEC = 900;
+integer ENT_IDLE_SEC = 3600;
+string LSD_FAM = "cn.fam";
+string LSD_ENT = "cn.ent";
+string XP_PREFIX = "cn.ent.";
 
 string gCapUrl = "";
 integer gCapRetry = 0;
@@ -36,11 +35,95 @@ string gPendOp = "";
 key gPendUid = NULL_KEY;
 string gPendToken = "";
 
+string gEnt = "";
+integer gEntFetchedAt = 0;
+key gEntReq = NULL_KEY;
+
+integer tableChannel()
+{
+    return (integer)("0x" + llGetSubString((string)llGetKey(), 0, 7)) * -1;
+}
+
 string jsonEscape(string s)
 {
     s = llDumpList2String(llParseStringKeepNulls(s, ["\\"], []), "\\\\");
     s = llDumpList2String(llParseStringKeepNulls(s, ["\""], []), "\\\"");
     return llDumpList2String(llParseStringKeepNulls(s, ["\n"], []), "\\n");
+}
+
+string normFamily(string raw)
+{
+    raw = llToLower(llStringTrim(raw, STRING_TRIM));
+    if (raw == "canasta") return "canasta";
+    if (raw == "rummy") return "rummy";
+    if (raw == "trick") return "trick";
+    if (raw == "ichi") return "ichi";
+    if (raw == "skippo") return "skippo";
+    if (raw == "phaseit" || raw == "phase_it" || raw == "phase-it") return "phaseit";
+    if (raw == "yotsy" || raw == "yahtzee") return "yotsy";
+    return "";
+}
+
+string packedBody(string packed)
+{
+    if (llGetSubString(packed, 0, 1) == "v1")
+    {
+        if (llStringLength(packed) > 3) return llGetSubString(packed, 3, -1);
+        return "";
+    }
+    return packed;
+}
+
+integer familyOwned(string fam)
+{
+    if (fam == "") return FALSE;
+    list parts = llParseString2List(gEnt, [","], []);
+    integer i;
+    integer n = llGetListLength(parts);
+    for (i = 0; i < n; i++)
+    {
+        if (llList2String(parts, i) == fam) return TRUE;
+    }
+    return FALSE;
+}
+
+integer hasExperience()
+{
+    return (llGetListLength(llGetExperienceDetails(NULL_KEY)) > 0);
+}
+
+broadcastFamily(string fam)
+{
+    llLinksetDataWrite(LSD_FAM, fam);
+    llMessageLinked(LINK_SET, DISPLAY_CMD_FAMILY, fam, NULL_KEY);
+    llRegionSay(tableChannel(), "CN_FAMILY|" + (string)llGetKey() + "|" + fam);
+    llMessageLinked(LINK_THIS, HTTP_CMD, "FAMSET|" + fam, NULL_KEY);
+}
+
+applyEntCache(string packed)
+{
+    gEnt = packedBody(packed);
+    llLinksetDataWrite(LSD_ENT, gEnt);
+    gEntFetchedAt = llGetUnixTime();
+    string fam = normFamily(llLinksetDataRead(LSD_FAM));
+    if (fam != "" && !familyOwned(fam))
+    {
+        broadcastFamily("");
+    }
+}
+
+requestEntitlements(integer force)
+{
+    integer now = llGetUnixTime();
+    if (!force && gEntFetchedAt > 0 && (now - gEntFetchedAt) < ENT_STALE_SEC) return;
+    if (gEntReq != NULL_KEY) return;
+    if (!hasExperience())
+    {
+        gEnt = llLinksetDataRead(LSD_ENT);
+        gEntFetchedAt = now;
+        return;
+    }
+    gEntReq = llReadKeyValue(XP_PREFIX + (string)llGetOwner());
 }
 
 string withBoard(string status)
@@ -63,10 +146,68 @@ string withHouse(string status)
         + "\",\"house\":\"" + jsonEscape(packed) + "\"}";
 }
 
+string withHub(string status)
+{
+    integer n = llStringLength(status);
+    if (n < 2) return status;
+    if (llGetSubString(status, n - 1, n - 1) != "}") return status;
+    string fam = llLinksetDataRead(LSD_FAM);
+    string ent = gEnt;
+    if (ent == "") ent = llLinksetDataRead(LSD_ENT);
+    return llGetSubString(status, 0, n - 2)
+        + ",\"hub\":true"
+        + ",\"family\":\"" + jsonEscape(fam)
+        + "\",\"entitlements\":\"" + jsonEscape(ent) + "\"}";
+}
+
 string statusOut(string status)
 {
-    // Parlor_Table already embeds hub/family/entitlements in STATUS JSON.
-    return withHouse(withBoard(status));
+    return withHub(withHouse(withBoard(status)));
+}
+
+integer statusIsIdle()
+{
+    return (llSubStringIndex(gLastStatus, "\"mode\":\"idle\"") >= 0);
+}
+
+integer statusHasUid(string uid)
+{
+    if (uid == "") return FALSE;
+    return (llSubStringIndex(gLastStatus, "\"uid\":\"" + uid + "\"") >= 0);
+}
+
+handleSetFamily(key id, string cb, string uid, string p)
+{
+    if (!statusIsIdle())
+    {
+        sendJsonp(id, cb, statusOut("{\"ok\":false,\"error\":\"table busy\"}"));
+        return;
+    }
+    if (!statusHasUid(uid))
+    {
+        sendJsonp(id, cb, statusOut("{\"ok\":false,\"error\":\"not seated\"}"));
+        return;
+    }
+    if (p == "" || p == "none" || p == "-")
+    {
+        broadcastFamily("");
+        sendJsonp(id, cb, statusOut(gLastStatus));
+        return;
+    }
+    string want = normFamily(p);
+    if (want == "")
+    {
+        sendJsonp(id, cb, statusOut("{\"ok\":false,\"error\":\"bad family\"}"));
+        return;
+    }
+    if (gEnt == "") gEnt = llLinksetDataRead(LSD_ENT);
+    if (!familyOwned(want))
+    {
+        sendJsonp(id, cb, statusOut("{\"ok\":false,\"error\":\"not entitled\"}"));
+        return;
+    }
+    broadcastFamily(want);
+    sendJsonp(id, cb, statusOut(gLastStatus));
 }
 
 list parseQuery(string qs)
@@ -300,6 +441,31 @@ handleHttp(key id, string query)
         return;
     }
 
+    if (action == "set_family")
+    {
+        handleSetFamily(id, cb, uid, p);
+        return;
+    }
+
+    if (action == "refresh_entitlements")
+    {
+        if (gPendHttp != NULL_KEY)
+        {
+            sendJsonp(id, cb, "{\"ok\":false,\"error\":\"busy\"}");
+            return;
+        }
+        gPendHttp = id;
+        gPendCb = cb;
+        gPendOp = "refresh_ent";
+        requestEntitlements(TRUE);
+        if (gEntReq == NULL_KEY)
+        {
+            sendJsonp(id, cb, statusOut(gLastStatus));
+            clearPend();
+        }
+        return;
+    }
+
     if (action == "mint_browser" || action == "claim_browser")
     {
         if (gPendHttp != NULL_KEY)
@@ -331,7 +497,9 @@ default
     {
         initBrowser();
         clearPend();
+        gEnt = llLinksetDataRead(LSD_ENT);
         requestCap();
+        requestEntitlements(TRUE);
         llSetTimerEvent(CAP_RETRY_SEC);
         llOwnerSay("Parlor HTTP ready. Free=" + (string)llGetFreeMemory());
     }
@@ -344,6 +512,25 @@ default
     changed(integer change)
     {
         if (change & CHANGED_REGION_START) requestCap();
+        if (change & CHANGED_OWNER) llResetScript();
+    }
+
+    dataserver(key query, string data)
+    {
+        if (query != gEntReq) return;
+        gEntReq = NULL_KEY;
+        list res = llCSV2List(data);
+        integer ok = FALSE;
+        if (llGetListLength(res) > 0) ok = (integer)llList2String(res, 0);
+        string payload = "";
+        if (ok && llGetListLength(res) > 1) payload = llList2String(res, 1);
+        if (ok) applyEntCache(payload);
+        else gEntFetchedAt = llGetUnixTime();
+        if (gPendOp == "refresh_ent" && gPendHttp != NULL_KEY)
+        {
+            sendJsonp(gPendHttp, gPendCb, statusOut(gLastStatus));
+            clearPend();
+        }
     }
 
     link_message(integer sender, integer num, string str, key id)
@@ -353,6 +540,13 @@ default
         {
             if (gCapUrl != "") toTable("CAP|" + gCapUrl);
             else requestCap();
+            return;
+        }
+        if (llGetSubString(str, 0, 7) == "ENTNEED|")
+        {
+            integer force = FALSE;
+            if (llGetSubString(str, 8, -1) == "1") force = TRUE;
+            requestEntitlements(force);
             return;
         }
         if (llGetSubString(str, 0, 4) == "RESP|")
@@ -428,5 +622,12 @@ default
     timer()
     {
         if (gCapUrl == "" && gCapRetry < 8) requestCap();
+        if (statusIsIdle() && gEntFetchedAt > 0)
+        {
+            if ((llGetUnixTime() - gEntFetchedAt) >= ENT_IDLE_SEC)
+            {
+                requestEntitlements(TRUE);
+            }
+        }
     }
 }

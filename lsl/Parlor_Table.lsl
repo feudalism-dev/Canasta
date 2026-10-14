@@ -1,7 +1,6 @@
-// Parlor Hub — multi-game table (runtime family from owner entitlements).
-// Pair with Parlor_Http.lsl + Parlor_Display + Parlor_Scores + optional Parlor_Register.
-// Same HUD object name as standalones. Compile: Mono + Experience.
-// See Docs/PLAN_PARLOR_HUB.md
+// Parlor Hub — table controller (roster / HUD / locks).
+// Pair with Parlor_Http.lsl (entitlements + JSONP live there to save Mono bytecode).
+// Compile: Mono (Experience not required on this script). See Docs/PLAN_PARLOR_HUB.md
 
 integer AVSITTER_STAND = 90065;
 integer AVSITTER_SITTER = 90070;
@@ -14,14 +13,9 @@ integer DISPLAY_CMD_RESET = 91003;
 integer DISPLAY_RSP_RESET_DONE = 91004;
 integer DISPLAY_CMD_CAP = 91005;
 integer DISPLAY_CMD_NEED_CAP = 91006;
-integer DISPLAY_CMD_FAMILY = 91007;
 integer HTTP_CMD = 92001;
 
 string LSD_FAM = "cn.fam";
-string LSD_ENT = "cn.ent";
-string XP_PREFIX = "cn.ent.";
-integer ENT_STALE_SEC = 900;
-integer ENT_IDLE_SEC = 3600;
 
 integer MAX_SEATS = 4;
 float STAND_GRACE_SEC = 60.0;
@@ -58,13 +52,8 @@ string gCapUrl = "";
 list gRezQueue = [];
 list gHudReadyQueue = [];
 
-/** Selected family (empty = game picker). */
+/** Selected family from Http/LSD (empty = game picker). */
 string gFamily = "";
-/** Comma-separated owned families from Experience / LSD cache. */
-string gEnt = "";
-integer gEntFetchedAt = 0;
-key gEntReq = NULL_KEY;
-integer gEntPendingSit = FALSE;
 
 integer tableChannel()
 {
@@ -74,86 +63,6 @@ integer tableChannel()
 integer commandChannel(key av)
 {
     return (integer)("0x" + llGetSubString((string)av, -8, -1)) * -1;
-}
-
-string normFamily(string raw)
-{
-    raw = llToLower(llStringTrim(raw, STRING_TRIM));
-    if (raw == "canasta") return "canasta";
-    if (raw == "rummy") return "rummy";
-    if (raw == "trick") return "trick";
-    if (raw == "ichi") return "ichi";
-    if (raw == "skippo") return "skippo";
-    if (raw == "phaseit" || raw == "phase_it" || raw == "phase-it") return "phaseit";
-    if (raw == "yotsy" || raw == "yahtzee") return "yotsy";
-    return "";
-}
-
-string packedBody(string packed)
-{
-    if (llGetSubString(packed, 0, 1) == "v1")
-    {
-        if (llStringLength(packed) > 3) return llGetSubString(packed, 3, -1);
-        return "";
-    }
-    return packed;
-}
-
-integer familyOwned(string fam)
-{
-    if (fam == "") return FALSE;
-    list parts = llParseString2List(gEnt, [","], []);
-    integer i;
-    integer n = llGetListLength(parts);
-    for (i = 0; i < n; i++)
-    {
-        if (llList2String(parts, i) == fam) return TRUE;
-    }
-    return FALSE;
-}
-
-integer hasExperience()
-{
-    return (llGetListLength(llGetExperienceDetails(NULL_KEY)) > 0);
-}
-
-applyEntCache(string packed)
-{
-    gEnt = packedBody(packed);
-    llLinksetDataWrite(LSD_ENT, gEnt);
-    gEntFetchedAt = llGetUnixTime();
-    if (gFamily != "" && !familyOwned(gFamily))
-    {
-        gFamily = "";
-        llLinksetDataWrite(LSD_FAM, "");
-    }
-}
-
-notifyFamily()
-{
-    llLinksetDataWrite(LSD_FAM, gFamily);
-    llMessageLinked(LINK_SET, DISPLAY_CMD_FAMILY, gFamily, NULL_KEY);
-    llRegionSay(tableChannel(), "CN_FAMILY|" + (string)llGetKey() + "|" + gFamily);
-}
-
-loadFamilyFromLsd()
-{
-    gFamily = normFamily(llLinksetDataRead(LSD_FAM));
-    gEnt = llLinksetDataRead(LSD_ENT);
-}
-
-requestEntitlements(integer force)
-{
-    integer now = llGetUnixTime();
-    if (!force && gEntFetchedAt > 0 && (now - gEntFetchedAt) < ENT_STALE_SEC) return;
-    if (gEntReq != NULL_KEY) return;
-    if (!hasExperience())
-    {
-        loadFamilyFromLsd();
-        gEntFetchedAt = now;
-        return;
-    }
-    gEntReq = llReadKeyValue(XP_PREFIX + (string)llGetOwner());
 }
 
 integer initSeats()
@@ -274,12 +183,10 @@ string graceJson()
 
 string statusJson(integer ok, string err)
 {
+    // hub/family/entitlements are injected by Parlor_Http from LSD.
     string j = "{\"ok\":" + llList2String(["false", "true"], ok)
         + ",\"tableId\":\"" + (string)llGetKey()
         + "\",\"mode\":\"" + modeName()
-        + "\",\"hub\":true"
-        + ",\"family\":\"" + jsonEscape(gFamily)
-        + "\",\"entitlements\":\"" + jsonEscape(gEnt)
         + "\",\"activeCount\":" + (string)activeCount()
         + ",\"seatedCount\":" + (string)seatedCount()
         + ",\"roomCode\":\"" + jsonEscape(gRoomCode)
@@ -538,7 +445,7 @@ integer onSit(key av, integer seat)
     gSeatName = llListReplaceList(gSeatName, [nm], seat, seat);
     gActive = llListReplaceList(gActive, [FALSE], seat, seat);
     if (gCapUrl == "") llMessageLinked(LINK_THIS, HTTP_CMD, "NEEDCAP", NULL_KEY);
-    if (gMode == MODE_IDLE) requestEntitlements(FALSE);
+    if (gMode == MODE_IDLE) llMessageLinked(LINK_THIS, HTTP_CMD, "ENTNEED|", NULL_KEY);
     rezHudFor(av, seat);
     llRegionSayTo(av, 0, "Parlor: HUD attaching — pick a game when ready.");
     pushStatus();
@@ -693,50 +600,6 @@ integer emitterOk(key uid)
 
 handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, string pname, integer nPlayers, string payload)
 {
-    if (action == "set_family")
-    {
-        if (gMode != MODE_IDLE)
-        {
-            failReq(httpId, cb, "table busy");
-            return;
-        }
-        if (seatOf(uid) < 0)
-        {
-            failReq(httpId, cb, "not seated");
-            return;
-        }
-        // Web sends p=none (or empty) to return to the game picker.
-        if (payload == "" || payload == "none" || payload == "-")
-        {
-            gFamily = "";
-            notifyFamily();
-            announceAllSeated();
-            okReq(httpId, cb);
-            return;
-        }
-        string want = normFamily(payload);
-        if (want == "")
-        {
-            failReq(httpId, cb, "bad family");
-            return;
-        }
-        if (!familyOwned(want))
-        {
-            failReq(httpId, cb, "not entitled");
-            return;
-        }
-        gFamily = want;
-        notifyFamily();
-        announceAllSeated();
-        okReq(httpId, cb);
-        return;
-    }
-    if (action == "refresh_entitlements")
-    {
-        requestEntitlements(TRUE);
-        okReq(httpId, cb);
-        return;
-    }
     if (action == "enter")
     {
         integer seat = seatOf(uid);
@@ -747,7 +610,7 @@ handleHttpReq(key httpId, string cb, string action, key uid, integer seatHint, s
         }
         if (pname != "") gSeatName = llListReplaceList(gSeatName, [pname], seat, seat);
         gActive = llListReplaceList(gActive, [TRUE], seat, seat);
-        if (gMode == MODE_IDLE) requestEntitlements(FALSE);
+        if (gMode == MODE_IDLE) llMessageLinked(LINK_THIS, HTTP_CMD, "ENTNEED|", NULL_KEY);
         okReq(httpId, cb);
         return;
     }
@@ -975,14 +838,12 @@ default
         gHostUid = NULL_KEY;
         gRoomCode = "";
         gJoined = [];
-        gEntReq = NULL_KEY;
-        loadFamilyFromLsd();
+        gFamily = llLinksetDataRead(LSD_FAM);
         clearBoardStore();
         llListen(tableChannel(), "", NULL_KEY, "");
         llSetTimerEvent(2.0);
         llMessageLinked(LINK_THIS, HTTP_CMD, "NEEDCAP", NULL_KEY);
-        notifyFamily();
-        requestEntitlements(TRUE);
+        llMessageLinked(LINK_THIS, HTTP_CMD, "ENTNEED|1", NULL_KEY);
         pushStatus();
         llOwnerSay("Parlor hub ready. Free=" + (string)llGetFreeMemory());
     }
@@ -995,24 +856,6 @@ default
     changed(integer change)
     {
         if (change & CHANGED_OWNER) llResetScript();
-    }
-
-    dataserver(key query, string data)
-    {
-        if (query != gEntReq) return;
-        gEntReq = NULL_KEY;
-        list res = llCSV2List(data);
-        integer ok = FALSE;
-        if (llGetListLength(res) > 0) ok = (integer)llList2String(res, 0);
-        string payload = "";
-        if (ok && llGetListLength(res) > 1) payload = llList2String(res, 1);
-        if (ok) applyEntCache(payload);
-        else
-        {
-            // Keep LSD cache; mark fetch time so we do not spin.
-            gEntFetchedAt = llGetUnixTime();
-        }
-        pushStatus();
     }
 
     link_message(integer sender, integer num, string str, key id)
@@ -1033,6 +876,14 @@ default
             {
                 gCapUrl = llGetSubString(str, 4, -1);
                 sendDisplayCap();
+                announceAllSeated();
+                pushStatus();
+                return;
+            }
+            // Http set_family / entitlement clear → sync CN_READY family.
+            if (llGetSubString(str, 0, 6) == "FAMSET|")
+            {
+                gFamily = llGetSubString(str, 7, -1);
                 announceAllSeated();
                 pushStatus();
                 return;
@@ -1181,14 +1032,6 @@ default
         if (gMode == MODE_RESETTING && gResetDeadline > 0)
         {
             if (llGetUnixTime() >= gResetDeadline) finishReset();
-        }
-        // Idle: refresh entitlements about once an hour.
-        if (gMode == MODE_IDLE && gEntFetchedAt > 0)
-        {
-            if ((llGetUnixTime() - gEntFetchedAt) >= ENT_IDLE_SEC)
-            {
-                requestEntitlements(TRUE);
-            }
         }
     }
 }
