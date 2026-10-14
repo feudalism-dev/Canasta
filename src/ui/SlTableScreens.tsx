@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { HouseRules, Variant } from '../core/types'
-import { familyHintPresent, resolveTableFamily, type GameFamily } from '../core/family'
+import {
+  familyHintPresent,
+  parseEntitlements,
+  resolveTableFamily,
+  type GameFamily,
+} from '../core/family'
+import { GamePicker } from './GamePicker'
 import type { RummyVariant } from '../core/rummy/types'
 import type { TrickVariant } from '../core/trick/types'
 import type { IchiVariant } from '../core/ichi/types'
@@ -40,6 +46,7 @@ import {
   tableStart,
   tableStatus,
   tableEndGame,
+  tableSetFamily,
   type TableStatus,
 } from '../sl/tableApi'
 
@@ -181,14 +188,26 @@ export function SlTableScreens({
     onHouse(decoded)
   }, [variant, table?.house, onHouse])
 
+  const isHub = Boolean(table?.hub)
+  const hubFamilyRaw = String(table?.family || '')
+    .trim()
+    .toLowerCase()
+  const hubPicking = isHub && !hubFamilyRaw
+  const ownedFamilies = parseEntitlements(table?.entitlements)
+
   useEffect(() => {
+    // Hub: table.family is source of truth (empty = picker). Do not invent canasta.
+    if (table?.hub) {
+      if (hubFamilyRaw) onFamily(resolveTableFamily(table.family))
+      return
+    }
     // Never push the canasta default while status has not answered yet — that flashes
     // Hand & Foot on Rummy tables (shared HUD MoAP historically omitted ?family=).
     if (!familyHintPresent(table?.family, boot.family)) return
     onFamily(resolveTableFamily(table?.family, boot.family))
-  }, [table?.family, boot.family, onFamily])
+  }, [table?.hub, table?.family, hubFamilyRaw, boot.family, onFamily])
 
-  const familyKnown = familyHintPresent(table?.family, boot.family)
+  const familyKnown = isHub ? Boolean(hubFamilyRaw) : familyHintPresent(table?.family, boot.family)
   const family = resolveTableFamily(table?.family, boot.family)
   const isRummyTable = family === 'rummy'
   const isTrickTable = family === 'trick'
@@ -348,6 +367,45 @@ export function SlTableScreens({
     )
   }
 
+  if (hubPicking) {
+    return (
+      <div className="shell-menu">
+        <div className="menu-card game-picker-shell">
+          <p className="brand-kicker">
+            Seat {youSeat + 1} · Game selection
+            {seatedBrowser ? ' · browser' : ''}
+          </p>
+          <h1>Choose a game</h1>
+          <p className="muted">
+            Tap a game you own. Gray cards are not registered for this table owner yet.
+          </p>
+          {err ? <p className="error">{err}</p> : null}
+          <GamePicker
+            owned={ownedFamilies}
+            busy={busy}
+            onPick={(fam) => {
+              void (async () => {
+                setBusy(true)
+                setErr('')
+                try {
+                  const st = await tableSetFamily(boot.slCap, boot.uid, youSeat, fam)
+                  if (!st.ok) throw new Error(st.error || 'Could not select game')
+                  setTable(st)
+                  onFamily(fam)
+                  setStatus(`Selected ${fam}`)
+                } catch (e) {
+                  setErr(e instanceof Error ? e.message : 'Could not select game')
+                } finally {
+                  setBusy(false)
+                }
+              })()
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="shell-menu">
       <div className="menu-card">
@@ -372,8 +430,35 @@ export function SlTableScreens({
                         ? 'Yotsy'
                     : 'Hand & Foot / Canasta'}
         </h1>
+        {isHub && mode === 'idle' ? (
+          <button
+            type="button"
+            className="btn secondary"
+            disabled={busy}
+            onClick={() => {
+              void (async () => {
+                setBusy(true)
+                setErr('')
+                try {
+                  const st = await tableSetFamily(boot.slCap, boot.uid, youSeat, null)
+                  if (!st.ok) throw new Error(st.error || 'Could not open game selection')
+                  setTable(st)
+                  setStatus('Choose a game')
+                } catch (e) {
+                  setErr(e instanceof Error ? e.message : 'Could not open game selection')
+                } finally {
+                  setBusy(false)
+                }
+              })()
+            }}
+          >
+            All games
+          </button>
+        ) : null}
         {!familyKnown ? (
           <p className="muted">Connecting to this table…</p>
+        ) : isHub ? (
+          <p className="muted">Lobby for this parlor game. Use All games when idle to switch.</p>
         ) : isRummyTable ? (
           <p className="muted">This table is locked to the Rummy family (creator SKU).</p>
         ) : isTrickTable ? (

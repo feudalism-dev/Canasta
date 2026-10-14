@@ -19,8 +19,12 @@ export type TableStatus = {
   hostUid?: string
   soloUid?: string
   ownerUid?: string
-  /** Creator-locked product family from table Http (`canasta` | `rummy`). */
+  /** Selected / creator-locked product family (`canasta` | `rummy` | …). Empty on hub picker. */
   family?: string
+  /** Parlor hub table (runtime family from owner entitlements). */
+  hub?: boolean
+  /** Comma-separated owned families from Experience (`canasta,rummy,…`). */
+  entitlements?: string
   /** Compact house-rules pipe string from table LSD. */
   house?: string
   roster?: TableRosterEntry[]
@@ -136,6 +140,20 @@ export async function tableClaimBrowser(
 
 export async function tableSaveHouse(slCap: string, uid: string, seat: number, compact: string): Promise<TableStatus> {
   return jsonpTable(slCap, { action: 'save_house', uid, seat, p: compact })
+}
+
+/** Hub: select a family, or pass null/`none` to return to the game picker (idle only). */
+export async function tableSetFamily(
+  slCap: string,
+  uid: string,
+  seat: number,
+  family: string | null,
+): Promise<TableStatus> {
+  return jsonpTable(slCap, { action: 'set_family', uid, seat, p: family && family !== '' ? family : 'none' })
+}
+
+export async function tableRefreshEntitlements(slCap: string, uid: string, seat: number): Promise<TableStatus> {
+  return jsonpTable(slCap, { action: 'refresh_entitlements', uid, seat })
 }
 
 export async function tableEvent(

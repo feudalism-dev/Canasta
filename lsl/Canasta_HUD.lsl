@@ -251,7 +251,8 @@ integer storeReadyFields(string msg)
         dirty = TRUE;
     }
     if (gNameHint == "" && nm != "") gNameHint = nm;
-    if (fam != "" && fam != gFamily)
+    // Allow empty family (hub game picker) so MoAP drops ?family=.
+    if (llGetListLength(p) > 6 && fam != gFamily)
     {
         gFamily = fam;
         dirty = TRUE;
@@ -383,6 +384,22 @@ default
             }
             llOwnerSay("Left the Canasta table.");
             initiateDetach();
+            return;
+        }
+
+        // Hub table: CN_FAMILY|tableId|family  (family may be empty = picker)
+        if (llGetSubString(msg, 0, 9) == "CN_FAMILY|")
+        {
+            list fp = llParseStringKeepNulls(msg, ["|"], []);
+            string tid = llList2String(fp, 1);
+            if (gTableId != "" && tid != "" && tid != gTableId) return;
+            string fam = "";
+            if (llGetListLength(fp) > 2) fam = llToLower(llStringTrim(llList2String(fp, 2), STRING_TRIM));
+            if (fam != gFamily)
+            {
+                gFamily = fam;
+                if (llGetAttached()) applyMoap(TRUE);
+            }
             return;
         }
 

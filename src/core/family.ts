@@ -1,6 +1,17 @@
-/** Product family locked by table LSL (creator SKU). */
+/** Product family locked by table LSL (creator SKU) or hub picker. */
 
 export type GameFamily = 'canasta' | 'rummy' | 'trick' | 'ichi' | 'skippo' | 'phaseit' | 'yotsy'
+
+/** All hub-selectable families (picker order). */
+export const GAME_FAMILIES: GameFamily[] = [
+  'canasta',
+  'rummy',
+  'trick',
+  'ichi',
+  'skippo',
+  'phaseit',
+  'yotsy',
+]
 
 export function normalizeFamily(raw: unknown): GameFamily {
   const s = String(raw || '')
@@ -62,4 +73,50 @@ export function familyLabel(family: GameFamily): string {
   if (family === 'phaseit') return 'Phase It'
   if (family === 'yotsy') return 'Yotsy'
   return 'Canasta'
+}
+
+/** Parse table status `entitlements` CSV (`canasta,rummy,…`). */
+export function parseEntitlements(raw: unknown): Set<GameFamily> {
+  const out = new Set<GameFamily>()
+  const s = String(raw || '')
+    .trim()
+    .toLowerCase()
+  if (!s) return out
+  for (const part of s.split(/[,\s]+/)) {
+    const t = part.trim()
+    if (!t) continue
+    if (
+      t === 'canasta' ||
+      t === 'rummy' ||
+      t === 'trick' ||
+      t === 'ichi' ||
+      t === 'skippo' ||
+      t === 'phaseit' ||
+      t === 'yotsy'
+    ) {
+      out.add(t)
+    }
+  }
+  return out
+}
+
+/** Ad art in `public/assets/` for the hub game picker. */
+export function familyAdSrc(family: GameFamily): string {
+  const base = import.meta.env.BASE_URL
+  switch (family) {
+    case 'rummy':
+      return `${base}assets/rummy_ad.jpg`
+    case 'trick':
+      return `${base}assets/rooster_ad.jpg`
+    case 'ichi':
+      return `${base}assets/ichi_ad.jpg`
+    case 'skippo':
+      return `${base}assets/skippo_ad.jpg`
+    case 'phaseit':
+      return `${base}assets/phaseIt_ad.jpg`
+    case 'yotsy':
+      return `${base}assets/yotsy_ad.jpg`
+    default:
+      return `${base}assets/canasta_ad.jpg`
+  }
 }

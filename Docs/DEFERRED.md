@@ -1,6 +1,6 @@
 # Deferred
 
-- Second Life Experience Database for purchase entitlement / ELO
+- Second Life Experience Database for ELO (purchase entitlement: see Docs/PLAN_PARLOR_HUB.md)
 - Samba / Bolivia leave beta labeling in the game menu (high scores already record on their own boards — see `PLAN_SAMBA_BOLIVIA.md`)
 - Modern American Canasta (CLA special hands, 8,500)
 - 3-player cutthroat (no partners) and 5–6 player Hand and Foot

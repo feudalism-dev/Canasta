@@ -6,7 +6,7 @@ Art Deco card parlor. Emerald felt, brass rails, warm lamp light. Custom basket-
 **Host:** GitHub Pages.  
 **Multiplayer:** PeerJS P2P, host-authoritative.  
 **Second Life:** AVsitter HUD + table HTTP-IN lobby (`Docs/SECOND_LIFE.md`).  
-**Storefront:** Second Life (paid); Experience DB entitlement deferred.
+**Storefront:** Second Life (paid); hub entitlement via Experience DB — see Docs/PLAN_PARLOR_HUB.md.
 
 ## Product
 
