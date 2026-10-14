@@ -14,7 +14,6 @@ integer MAX_SEATS = 4;
 integer BROWSER_TOKEN_TTL = 600;
 integer ENT_STALE_SEC = 900;
 integer ENT_IDLE_SEC = 3600;
-integer XP_ERROR_KEY_NOT_FOUND = 3;
 string LSD_FAM = "cn.fam";
 string LSD_ENT = "cn.ent";
 string XP_PREFIX = "cn.ent.";

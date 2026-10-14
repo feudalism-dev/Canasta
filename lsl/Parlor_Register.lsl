@@ -30,7 +30,7 @@
 string GRANT_FAMILY = "canasta";
 
 string XP_PREFIX = "cn.ent.";
-integer XP_ERROR_KEY_NOT_FOUND = 3;
+// XP_ERROR_KEY_NOT_FOUND is a built-in Experience constant — do not redeclare.
 
 key gXpReq = NULL_KEY;
 integer gXpStep = 0;
