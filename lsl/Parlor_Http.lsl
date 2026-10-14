@@ -1,11 +1,12 @@
-// Parlor Hub — HTTP-IN JSONP + owner entitlements (Experience).
+// Parlor Hub — HTTP-IN JSONP + owner entitlements (Experience) + status JSON.
 // Drop in the SAME prim as Parlor_Table.lsl. Compile: Mono + Experience.
-// Entitlements live here so Parlor_Table stays under the Mono bytecode limit.
+// Table sends compact STATUS/RESP pipes; this script expands them to JSON (heap relief).
 // See Docs/PLAN_PARLOR_HUB.md
 //
 // Http ↔ Table: HTTP_CMD = 92001
 //   Http → Table: REQ|…  CAP|  BGATE|  FAMSET|<family>
-//   Table → Http: RESP|  STATUS|  BOARD|  BCLR|  BCLEAR|  BGATEOK|  BGATEFAIL|  ENTNEED|
+//   Table → Http: RESP|cb|<pipe or {json}>  STATUS|<pipe>  BOARD|  BCLR|  BCLEAR|
+//                 BGATEOK|  BGATEFAIL|  ENTNEED|
 
 integer HTTP_CMD = 92001;
 integer DISPLAY_CMD_FAMILY = 91007;
@@ -137,6 +138,85 @@ requestEntitlements(integer force)
     }
     // Always key by current owner (new owner after CHANGED_OWNER / reset).
     gEntReq = llReadKeyValue(XP_PREFIX + (string)llGetOwner());
+}
+
+// Table status pipe → JSON. Pass-through if already JSON (`{…}`).
+string expandStatus(string pipe)
+{
+    if (pipe == "") return "{\"ok\":false}";
+    if (llGetSubString(pipe, 0, 0) == "{") return pipe;
+    list p = llParseStringKeepNulls(pipe, ["|"], []);
+    integer ok = (integer)llList2String(p, 0);
+    string mode = llList2String(p, 1);
+    string active = llList2String(p, 2);
+    string seated = llList2String(p, 3);
+    string room = llList2String(p, 4);
+    string host = llList2String(p, 5);
+    string solo = llList2String(p, 6);
+    string rost = llList2String(p, 7);
+    string gr = llList2String(p, 8);
+    string err = "";
+    if (llGetListLength(p) > 9) err = llList2String(p, 9);
+    string roster = "[";
+    integer first = TRUE;
+    if (rost != "")
+    {
+        list rows = llParseStringKeepNulls(rost, ["^"], []);
+        integer i;
+        integer n = llGetListLength(rows);
+        for (i = 0; i < n; i++)
+        {
+            list c = llParseStringKeepNulls(llList2String(rows, i), ["~"], []);
+            if (llGetListLength(c) < 5) jump rskip;
+            if (!first) roster += ",";
+            first = FALSE;
+            roster += "{\"seat\":" + llList2String(c, 0)
+                + ",\"uid\":\"" + llList2String(c, 1)
+                + "\",\"active\":" + llList2String(["false", "true"], (integer)llList2String(c, 2))
+                + ",\"joined\":" + llList2String(["false", "true"], (integer)llList2String(c, 3))
+                + ",\"name\":\"" + jsonEscape(llList2String(c, 4)) + "\"}";
+            @rskip;
+        }
+    }
+    roster += "]";
+    string grace = "[";
+    first = TRUE;
+    integer now = llGetUnixTime();
+    if (gr != "")
+    {
+        list grows = llParseStringKeepNulls(gr, ["^"], []);
+        integer gi;
+        integer gn = llGetListLength(grows);
+        for (gi = 0; gi < gn; gi++)
+        {
+            list c = llParseStringKeepNulls(llList2String(grows, gi), ["~"], []);
+            if (llGetListLength(c) < 3) jump gskip;
+            integer untilUnix = (integer)llList2String(c, 2);
+            string nm = "";
+            if (llGetListLength(c) > 3) nm = llList2String(c, 3);
+            if (!first) grace += ",";
+            first = FALSE;
+            grace += "{\"uid\":\"" + llList2String(c, 0)
+                + "\",\"seat\":" + llList2String(c, 1)
+                + ",\"until\":" + (string)untilUnix
+                + ",\"secondsLeft\":" + (string)(untilUnix - now)
+                + ",\"name\":\"" + jsonEscape(nm) + "\"}";
+            @gskip;
+        }
+    }
+    grace += "]";
+    string j = "{\"ok\":" + llList2String(["false", "true"], ok)
+        + ",\"tableId\":\"" + (string)llGetKey()
+        + "\",\"mode\":\"" + jsonEscape(mode)
+        + "\",\"activeCount\":" + active
+        + ",\"seatedCount\":" + seated
+        + ",\"roomCode\":\"" + jsonEscape(room)
+        + "\",\"hostUid\":\"" + host
+        + "\",\"soloUid\":\"" + solo
+        + "\",\"grace\":" + grace
+        + ",\"roster\":" + roster;
+    if (err != "") j += ",\"error\":\"" + jsonEscape(err) + "\"";
+    return j + "}";
 }
 
 string withBoard(string status)
@@ -577,13 +657,17 @@ default
             string rest = llGetSubString(str, 5, -1);
             integer bar = llSubStringIndex(rest, "|");
             if (bar < 0) return;
-            sendJsonp(id, llGetSubString(rest, 0, bar - 1), llGetSubString(rest, bar + 1, -1));
+            string cb = llGetSubString(rest, 0, bar - 1);
+            string body = llGetSubString(rest, bar + 1, -1);
+            string core = expandStatus(body);
+            if (llSubStringIndex(core, "\"tableId\"") >= 0) gLastStatus = core;
+            sendJsonp(id, cb, statusOut(core));
             return;
         }
         if (llGetSubString(str, 0, 6) == "STATUS|")
         {
-            string json = llGetSubString(str, 7, -1);
-            if (json != "") gLastStatus = json;
+            string body = llGetSubString(str, 7, -1);
+            if (body != "") gLastStatus = expandStatus(body);
             return;
         }
         if (llGetSubString(str, 0, 5) == "BOARD|")

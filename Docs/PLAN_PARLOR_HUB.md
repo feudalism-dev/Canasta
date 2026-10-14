@@ -7,8 +7,8 @@ Free (or paid) tables use one **hub** script set. Buying a game registers that f
 | Script | Role |
 |--------|------|
 | `Parlor_Register.lsl` | On rez/attach: merge `GRANT_FAMILY` into `cn.ent.<ownerUUID>`. Edit `GRANT_FAMILY` per SKU. Ship **no-mod / no-transfer**. |
-| `Parlor_Table.lsl` | Hub controller: roster / HUD / locks. **Mono only** (no Experience). Syncs family via `FAMSET\|`. |
-| `Parlor_Http.lsl` | JSONP + **Experience entitlements** + `set_family` (keeps Table under bytecode limit). Injects `hub` / `family` / `entitlements`. |
+| `Parlor_Table.lsl` | Hub controller: roster / HUD / locks. **Mono only**. Sends compact status pipes (not JSON). Syncs family via `FAMSET\|`. |
+| `Parlor_Http.lsl` | JSONP + status JSON expand + **Experience entitlements** + `set_family`. Injects `hub` / `family` / `entitlements`. |
 | `Parlor_Display.lsl` | Furware + MoAP; family from LSD / `91007`. |
 | `Parlor_Scores.lsl` | Score shout; letter + partnership from family. |
 | `Canasta_HUD.lsl` | Shared; listens for `CN_FAMILY\|tableId\|family`. |

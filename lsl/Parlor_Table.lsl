@@ -1,6 +1,7 @@
 // Parlor Hub — table controller (roster / HUD / locks).
-// Pair with Parlor_Http.lsl (entitlements + JSONP live there to save Mono bytecode).
-// Compile: Mono (Experience not required on this script). See Docs/PLAN_PARLOR_HUB.md
+// Pair with Parlor_Http.lsl — Http builds status JSON + entitlements (Table stays lean).
+// Status wire: STATUS| / RESP| use compact ST pipe (not JSON) to avoid stack-heap on Table.
+// Compile: Mono (no Experience). See Docs/PLAN_PARLOR_HUB.md
 
 integer AVSITTER_STAND = 90065;
 integer AVSITTER_SITTER = 90070;
@@ -120,107 +121,75 @@ integer clearGraceFor(key av)
     return TRUE;
 }
 
-string jsonEscape(string s)
+string scrubPipe(string s)
 {
-    s = llDumpList2String(llParseStringKeepNulls(s, ["\\"], []), "\\\\");
-    s = llDumpList2String(llParseStringKeepNulls(s, ["\""], []), "\\\"");
-    return llDumpList2String(llParseStringKeepNulls(s, ["\n"], []), "\\n");
+    s = llDumpList2String(llParseStringKeepNulls(s, ["|"], []), " ");
+    s = llDumpList2String(llParseStringKeepNulls(s, ["^"], []), " ");
+    return llDumpList2String(llParseStringKeepNulls(s, ["~"], []), " ");
 }
 
-string modeName()
+// Compact status for Http → JSON (avoids large string work on this script's heap).
+// ok|mode|active|seated|room|host|solo|seat~uid~a~j~name^…|uid~seat~until~name^…|err
+string statusPipe(integer ok, string err)
 {
-    if (gMode == MODE_SOLO) return "solo";
-    if (gMode == MODE_LOBBY) return "lobby";
-    if (gMode == MODE_MATCH) return "match";
-    if (gMode == MODE_RESETTING) return "resetting";
-    return "idle";
-}
-
-string rosterJson()
-{
-    string s = "[";
+    string mode = "idle";
+    if (gMode == MODE_SOLO) mode = "solo";
+    else if (gMode == MODE_LOBBY) mode = "lobby";
+    else if (gMode == MODE_MATCH) mode = "match";
+    else if (gMode == MODE_RESETTING) mode = "resetting";
+    string rost = "";
     integer i;
-    integer first = TRUE;
     for (i = 0; i < MAX_SEATS; i++)
     {
         key av = llList2Key(gSeatAv, i);
-        if (av == NULL_KEY) jump cont;
-        if (!first) s += ",";
-        first = FALSE;
-        s += "{\"seat\":" + (string)i
-            + ",\"uid\":\"" + (string)av
-            + "\",\"name\":\"" + jsonEscape(llList2String(gSeatName, i))
-            + "\",\"active\":" + llList2String(["false", "true"], llList2Integer(gActive, i))
-            + ",\"joined\":" + llList2String(["false", "true"], isJoined(av)) + "}";
-        @cont;
+        if (av == NULL_KEY) jump rnext;
+        if (rost != "") rost += "^";
+        rost += (string)i + "~" + (string)av
+            + "~" + (string)llList2Integer(gActive, i)
+            + "~" + (string)isJoined(av)
+            + "~" + scrubPipe(llList2String(gSeatName, i));
+        @rnext;
     }
-    return s + "]";
-}
-
-string graceJson()
-{
-    string s = "[";
-    integer i;
-    integer first = TRUE;
-    integer now = llGetUnixTime();
+    string gr = "";
     for (i = 0; i < llGetListLength(gGrace); i += 3)
     {
-        key av = llList2Key(gGrace, i);
+        if (gr != "") gr += "^";
         integer seat = llList2Integer(gGrace, i + 1);
-        integer untilUnix = llList2Integer(gGrace, i + 2);
         string nm = "";
-        if (seat >= 0 && seat < MAX_SEATS) nm = llList2String(gSeatName, seat);
-        if (!first) s += ",";
-        first = FALSE;
-        s += "{\"uid\":\"" + (string)av
-            + "\",\"seat\":" + (string)seat
-            + ",\"until\":" + (string)untilUnix
-            + ",\"secondsLeft\":" + (string)(untilUnix - now)
-            + ",\"name\":\"" + jsonEscape(nm) + "\"}";
+        if (seat >= 0 && seat < MAX_SEATS) nm = scrubPipe(llList2String(gSeatName, seat));
+        gr += (string)llList2Key(gGrace, i) + "~" + (string)seat
+            + "~" + (string)llList2Integer(gGrace, i + 2) + "~" + nm;
     }
-    return s + "]";
-}
-
-string statusJson(integer ok, string err)
-{
-    // hub/family/entitlements are injected by Parlor_Http from LSD.
-    string j = "{\"ok\":" + llList2String(["false", "true"], ok)
-        + ",\"tableId\":\"" + (string)llGetKey()
-        + "\",\"mode\":\"" + modeName()
-        + "\",\"activeCount\":" + (string)activeCount()
-        + ",\"seatedCount\":" + (string)seatedCount()
-        + ",\"roomCode\":\"" + jsonEscape(gRoomCode)
-        + "\",\"hostUid\":\"" + (string)gHostUid
-        + "\",\"soloUid\":\"" + (string)gSoloUid
-        + "\",\"grace\":" + graceJson()
-        + ",\"roster\":" + rosterJson();
-    if (err != "") j += ",\"error\":\"" + jsonEscape(err) + "\"";
-    return j + "}";
+    return (string)ok + "|" + mode
+        + "|" + (string)activeCount()
+        + "|" + (string)seatedCount()
+        + "|" + scrubPipe(gRoomCode)
+        + "|" + (string)gHostUid
+        + "|" + (string)gSoloUid
+        + "|" + rost
+        + "|" + gr
+        + "|" + scrubPipe(err);
 }
 
 pushStatus()
 {
-    llMessageLinked(LINK_THIS, HTTP_CMD, "STATUS|" + statusJson(TRUE, ""), NULL_KEY);
+    llMessageLinked(LINK_THIS, HTTP_CMD, "STATUS|" + statusPipe(TRUE, ""), NULL_KEY);
 }
 
-httpResp(key httpId, string cb, string json)
+httpResp(key httpId, string cb, string pipe)
 {
     if (httpId == NULL_KEY) return;
-    llMessageLinked(LINK_THIS, HTTP_CMD, "RESP|" + cb + "|" + json, httpId);
-    if (llSubStringIndex(json, "\"tableId\"") >= 0)
-    {
-        llMessageLinked(LINK_THIS, HTTP_CMD, "STATUS|" + json, NULL_KEY);
-    }
+    llMessageLinked(LINK_THIS, HTTP_CMD, "RESP|" + cb + "|" + pipe, httpId);
 }
 
 failReq(key httpId, string cb, string err)
 {
-    httpResp(httpId, cb, statusJson(FALSE, err));
+    httpResp(httpId, cb, statusPipe(FALSE, err));
 }
 
 okReq(key httpId, string cb)
 {
-    httpResp(httpId, cb, statusJson(TRUE, ""));
+    httpResp(httpId, cb, statusPipe(TRUE, ""));
 }
 
 clearBoardStore()
@@ -447,7 +416,7 @@ integer onSit(key av, integer seat)
     if (gCapUrl == "") llMessageLinked(LINK_THIS, HTTP_CMD, "NEEDCAP", NULL_KEY);
     if (gMode == MODE_IDLE) llMessageLinked(LINK_THIS, HTTP_CMD, "ENTNEED|", NULL_KEY);
     rezHudFor(av, seat);
-    llRegionSayTo(av, 0, "Parlor: HUD attaching — pick a game when ready.");
+    llRegionSayTo(av, 0, "Parlor: HUD attaching…");
     pushStatus();
     return TRUE;
 }
@@ -470,11 +439,6 @@ integer processGrace()
     return TRUE;
 }
 
-string pipeSafe(string s)
-{
-    return llDumpList2String(llParseStringKeepNulls(s, ["|"], []), " ");
-}
-
 string seatPipe(integer uids)
 {
     string s = "";
@@ -489,8 +453,8 @@ string seatPipe(integer uids)
         }
         else
         {
-            string nm = pipeSafe(llList2String(gSeatName, i));
-            if (nm == "" && av != NULL_KEY) nm = pipeSafe(llGetDisplayName(av));
+            string nm = scrubPipe(llList2String(gSeatName, i));
+            if (nm == "" && av != NULL_KEY) nm = scrubPipe(llGetDisplayName(av));
             s += nm;
         }
     }
