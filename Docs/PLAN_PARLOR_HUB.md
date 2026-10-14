@@ -14,7 +14,8 @@ Free (or paid) tables use one **hub** script set. Buying a game registers that f
 | `Canasta_HUD.lsl` | Shared; listens for `CN_FAMILY\|tableId\|family`. |
 
 **Experience value:** `v1|canasta,rummy,trick` (comma-separated families).  
-**LSD cache:** `cn.ent` (CSV), `cn.fam` (selected family).
+**LSD cache:** `cn.ent` (CSV), `cn.fam` (selected family).  
+**Parse note:** Experience dataserver replies are `1,<value>` — split on the **first** comma only (`llCSV2List` breaks once a second family is stored).
 
 **Owner change:** LSD survives `llResetScript`. On `CHANGED_OWNER`, Http clears `cn.ent` / `cn.fam` and re-reads `cn.ent.<newOwner>`; Register re-runs for the new owner; Table/Display/Scores drop the old selected family.
 

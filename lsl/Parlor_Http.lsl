@@ -619,15 +619,18 @@ default
     {
         if (query != gEntReq) return;
         gEntReq = NULL_KEY;
-        list res = llCSV2List(data);
+        // "1,<value>" / "0,<err>" — value may contain commas; do not llCSV2List.
         integer ok = FALSE;
-        if (llGetListLength(res) > 0) ok = (integer)llList2String(res, 0);
-        string payload = "";
-        integer err = 0;
-        if (ok && llGetListLength(res) > 1) payload = llList2String(res, 1);
-        if (!ok && llGetListLength(res) > 1) err = (integer)llList2String(res, 1);
-        if (ok) applyEntCache(payload);
-        else if (err == XP_ERROR_KEY_NOT_FOUND) applyEntCache("");
+        string rest = "";
+        integer comma = llSubStringIndex(data, ",");
+        if (comma < 0) ok = (integer)data;
+        else
+        {
+            ok = (integer)llGetSubString(data, 0, comma - 1);
+            rest = llGetSubString(data, comma + 1, -1);
+        }
+        if (ok) applyEntCache(rest);
+        else if ((integer)rest == XP_ERROR_KEY_NOT_FOUND) applyEntCache("");
         else gEntFetchedAt = llGetUnixTime();
         if (gPendOp == "refresh_ent" && gPendHttp != NULL_KEY)
         {

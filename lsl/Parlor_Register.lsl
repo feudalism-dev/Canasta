@@ -18,11 +18,6 @@
 //   Phase It                          "phaseit"
 //   Yotsy                             "yotsy"
 //
-// Examples:
-//   string GRANT_FAMILY = "canasta";
-//   string GRANT_FAMILY = "rummy";
-//   string GRANT_FAMILY = "trick";
-//
 // Free hub table: do NOT include this script (hub only reads entitlements).
 // Idempotent: rezzing again if already registered is safe.
 // =============================================================================
@@ -37,6 +32,8 @@ integer gXpStep = 0;
 string gOldPayload = "";
 string gMerged = "";
 integer gBusy = FALSE;
+integer gRetries = 0;
+integer MAX_RETRIES = 4;
 
 string normFamily(string raw)
 {
@@ -91,12 +88,31 @@ integer hasExperience()
     return (llGetListLength(llGetExperienceDetails(NULL_KEY)) > 0);
 }
 
+// Experience dataserver: "1,<value>" or "0,<errcode>".
+// Value may contain commas (v1|canasta,rummy) — NEVER use llCSV2List.
+integer gXpOk = FALSE;
+string gXpRest = "";
+
+takeXpReply(string data)
+{
+    gXpOk = FALSE;
+    gXpRest = "";
+    integer comma = llSubStringIndex(data, ",");
+    if (comma < 0)
+    {
+        gXpOk = (integer)data;
+        return;
+    }
+    gXpOk = (integer)llGetSubString(data, 0, comma - 1);
+    gXpRest = llGetSubString(data, comma + 1, -1);
+}
+
 startRegister()
 {
     string fam = normFamily(GRANT_FAMILY);
     if (fam == "")
     {
-        llOwnerSay("Parlor Register: set GRANT_FAMILY to a known family name.");
+        llOwnerSay("Parlor Register: set GRANT_FAMILY to a known family name (got \"" + GRANT_FAMILY + "\").");
         return;
     }
     if (!hasExperience())
@@ -104,11 +120,17 @@ startRegister()
         llOwnerSay("Parlor Register: compile with Experience to store purchases.");
         return;
     }
-    if (gBusy) return;
+    if (gBusy)
+    {
+        llOwnerSay("Parlor Register: still working…");
+        return;
+    }
     gBusy = TRUE;
     gXpStep = 0;
+    gRetries = 0;
     gOldPayload = "";
     gMerged = "";
+    llOwnerSay("Parlor Register: looking up " + fam + " for " + llKey2Name(llGetOwner()) + "…");
     gXpReq = llReadKeyValue(entKey());
 }
 
@@ -133,7 +155,6 @@ default
     {
         if (change & CHANGED_OWNER)
         {
-            // New owner → register GRANT_FAMILY under their UUID (idempotent).
             llOwnerSay("Parlor Register: owner changed — registering for new owner.");
             llResetScript();
         }
@@ -149,13 +170,7 @@ default
     {
         if (query != gXpReq) return;
         gXpReq = NULL_KEY;
-        list res = llCSV2List(data);
-        integer ok = FALSE;
-        if (llGetListLength(res) > 0) ok = (integer)llList2String(res, 0);
-        string payload = "";
-        integer err = 0;
-        if (ok && llGetListLength(res) > 1) payload = llList2String(res, 1);
-        if (!ok && llGetListLength(res) > 1) err = (integer)llList2String(res, 1);
+        takeXpReply(data);
 
         string fam = normFamily(GRANT_FAMILY);
         if (fam == "")
@@ -167,39 +182,51 @@ default
         if (gXpStep == 0)
         {
             string base = "";
-            if (ok) base = payload;
-            if (ok && familyInList(packedBody(base), fam))
+            if (gXpOk) base = gXpRest;
+            if (gXpOk && familyInList(packedBody(base), fam))
             {
-                llOwnerSay("Parlor: " + fam + " already registered.");
+                llOwnerSay("Parlor: " + fam + " already registered (" + base + "). You may remove or pick up this HUD/box.");
                 gBusy = FALSE;
                 return;
             }
             gMerged = mergePacked(base, fam);
-            gOldPayload = payload;
-            if (!ok && err == XP_ERROR_KEY_NOT_FOUND)
+            gOldPayload = base;
+            if (!gXpOk && ((integer)gXpRest == XP_ERROR_KEY_NOT_FOUND))
             {
                 gXpStep = 1;
+                llOwnerSay("Parlor Register: creating " + gMerged);
                 gXpReq = llCreateKeyValue(entKey(), gMerged);
                 return;
             }
-            if (ok)
+            if (gXpOk)
             {
                 gXpStep = 1;
+                llOwnerSay("Parlor Register: updating " + base + " → " + gMerged);
                 gXpReq = llUpdateKeyValue(entKey(), gMerged, TRUE, gOldPayload);
                 return;
             }
-            llOwnerSay("Parlor Register: Experience read failed (" + (string)err + ").");
+            llOwnerSay("Parlor Register: Experience read failed (err " + gXpRest + ").");
             gBusy = FALSE;
             return;
         }
 
-        if (!ok)
+        // Step 1 — create/update result
+        if (!gXpOk)
         {
+            gRetries += 1;
+            if (gRetries > MAX_RETRIES)
+            {
+                llOwnerSay("Parlor Register: update failed after retries (err " + gXpRest + "). Try again.");
+                gBusy = FALSE;
+                return;
+            }
+            // Lost race / stale check — re-read and merge again.
+            llOwnerSay("Parlor Register: retry " + (string)gRetries + "…");
             gXpStep = 0;
             gXpReq = llReadKeyValue(entKey());
             return;
         }
-        llOwnerSay("Parlor: registered " + fam + " for this account.");
+        llOwnerSay("Parlor: registered " + fam + " (" + gMerged + "). You may remove or pick up this HUD/box.");
         gBusy = FALSE;
     }
 }
