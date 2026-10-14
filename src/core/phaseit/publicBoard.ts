@@ -3,12 +3,24 @@ import { phaseLabel } from './phases'
 import type { PhaseItCard, PhaseItPhase, PhaseItState, PhaseItVariant } from './types'
 import { phaseItVariantLabel } from './variants'
 
+function variantWire(v: PhaseItVariant): string {
+  if (v === 'masters') return 'm'
+  if (v === 'sprint') return 's'
+  return 'c'
+}
+
+function parseVariantWire(ch: string): PhaseItVariant {
+  if (ch === 'm') return 'masters'
+  if (ch === 's') return 'sprint'
+  return 'classic'
+}
+
 export type PhaseItPublicPlayer = {
   name: string
   seat: number
   handCount: number
   score: number
-  /** 0–10 current phase index (10 = complete). */
+  /** Active phase index (−1 = Masters choose; winN = complete). */
   phase: number
   phaseDown: boolean
 }
@@ -101,7 +113,7 @@ export function encodePhaseItPublicBoard(board: PhaseItPublicBoard): string {
   const head = [
     'P1',
     '1',
-    'c',
+    variantWire(board.variant),
     String(board.playerCount),
     String(board.round),
     playTo,
@@ -142,12 +154,13 @@ export function decodePhaseItPublicBoard(raw: string): PhaseItPublicBoard {
       if (parts.length < 5) return null
       const seat = Number(parts[1])
       if (!Number.isFinite(seat) || seat < 0 || seat > 3) return null
+      const phaseNum = Number(parts[4])
       return {
         name: clipName(parts[0] || `P${seat + 1}`),
         seat,
         handCount: Number(parts[2]) || 0,
         score: Number(parts[3]) || 0,
-        phase: Number(parts[4]) || 0,
+        phase: Number.isFinite(phaseNum) ? phaseNum : 0,
         phaseDown: parts[5] === '1',
       }
     })
@@ -155,7 +168,7 @@ export function decodePhaseItPublicBoard(raw: string): PhaseItPublicBoard {
 
   return {
     live: true,
-    variant: 'classic',
+    variant: parseVariantWire(head[2] || 'c'),
     playerCount: Number(head[3]) || players.length || 4,
     round: Number(head[4]) || 1,
     playTo: playRaw === '-' ? null : Number(playRaw),

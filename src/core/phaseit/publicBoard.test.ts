@@ -25,4 +25,17 @@ describe('phaseit public board', () => {
   it('idle payload', () => {
     expect(decodePhaseItPublicBoard('P1~0~').live).toBe(false)
   })
+
+  it('encodes masters / sprint variant letters', () => {
+    const masters = createPhaseItMatch(['Ada', 'Bot'], [false, true], 'masters', 5)
+    const mWire = encodePhaseItPublicBoard(phaseItPublicBoardFromState(masters))
+    expect(mWire.split('~')[2]).toBe('m')
+    expect(decodePhaseItPublicBoard(mWire).variant).toBe('masters')
+    expect(decodePhaseItPublicBoard(mWire).players[0]!.phase).toBe(-1)
+
+    const sprint = createPhaseItMatch(['Ada', 'Bot'], [false, true], 'sprint', 6)
+    const sWire = encodePhaseItPublicBoard(phaseItPublicBoardFromState(sprint))
+    expect(sWire.split('~')[2]).toBe('s')
+    expect(decodePhaseItPublicBoard(sWire).variant).toBe('sprint')
+  })
 })

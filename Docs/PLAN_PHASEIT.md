@@ -13,7 +13,7 @@ Brand name **Phase It** (Phase 10–style phase race; not a commercial trademark
 | **trick** | Hearts, Rooster, Spades, Euchre, Oh Hell | Follow suit, tricks |
 | **ichi** | Classic, Eights, Twin Piles, Switch, Palace, Flip | Match color/number |
 | **skippo** | Classic, Short, Partners, Jump-In | Stock + builders 1–12 |
-| **phaseit** (this work) | Classic Phase It | 10 phases · sets / runs / color |
+| **phaseit** (this work) | Classic / Masters / Sprint | phases · sets / runs / color |
 
 ## Creator lock
 
@@ -34,7 +34,9 @@ Brand name **Phase It** (Phase 10–style phase race; not a commercial trademark
 
 | Id | Status | Notes |
 |----|--------|--------|
-| `classic` | ready | 108-card deck; hand 10; 10 phases; leftover points; first through Phase 10 wins |
+| `classic` | ready | 108-card deck; hand 10; phases 1→10 in order; leftover points; first through Phase 10 wins |
+| `masters` | ready | Same 10 phases; choose any remaining phase each hand before drawing |
+| `sprint` | ready | Phases 1→5 only; same turn structure; faster match |
 
 See `RULES_PHASEIT.md`.
 

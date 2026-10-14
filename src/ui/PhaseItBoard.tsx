@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { pumpPhaseItBots } from '../ai/phaseitBot'
 import { cardLabel, colorLabel, isSkip, sortPhaseItHand } from '../core/phaseit/deck'
 import { canHitMeld, findPhaseGroups, matchPhaseGroups } from '../core/phaseit/melds'
-import { phaseDef, phaseLabel } from '../core/phaseit/phases'
+import { CLASSIC_PHASES, phaseDef, phaseLabel, phasesToWin } from '../core/phaseit/phases'
 import { applyPhaseItMove } from '../core/phaseit/rules'
 import { createPhaseItMatch, dealNextPhaseItRound, topDiscard } from '../core/phaseit/state'
 import type { PhaseItCard, PhaseItColor, PhaseItMove, PhaseItState, PhaseItVariant } from '../core/phaseit/types'
-import { phaseItTip, phaseItVariantLabel } from '../core/phaseit/variants'
+import { isMastersVariant, phaseItTip, phaseItVariantLabel } from '../core/phaseit/variants'
 
 export type PhaseItBoardController = {
   state: PhaseItState
@@ -139,7 +139,10 @@ export function PhaseItBoard({ yourName, variant, playerCount = 4, onExit, contr
   const actingName = state?.players[state.current]?.name ?? 'Someone'
   const top = state ? topDiscard(state) : null
 
-  const def = you && you.phase < 10 ? phaseDef(you.phase) : null
+  const winN = state ? phasesToWin(state.config.variant) : 10
+  const needsChoice =
+    Boolean(you && state && isMastersVariant(state.config.variant) && you.phase < 0 && you.remaining.length)
+  const def = you && you.phase >= 0 && you.phase < winN ? phaseDef(you.phase) : null
   const suggest = useMemo(() => {
     if (!you || !def || you.phaseDown) return null
     return findPhaseGroups(you.hand, def.parts)
@@ -194,12 +197,20 @@ export function PhaseItBoard({ yourName, variant, playerCount = 4, onExit, contr
       ? `${actingName} is thinking…`
       : state.lastMessage || phaseItTip(state.config.variant)
   const ranked = [...state.players].sort((a, b) => {
-    if (b.phase !== a.phase) return b.phase - a.phase
+    const doneA = winN - a.remaining.length
+    const doneB = winN - b.remaining.length
+    if (doneB !== doneA) return doneB - doneA
     return a.score - b.score
   })
   const leaderId = ranked[0]?.id
   const handScoreById = new Map((state.lastHandScores ?? []).map((l) => [l.playerId, l]))
   const orderedHand = sortPhaseItHand(you.hand)
+  const progressLabel = (p: (typeof state.players)[0]) => {
+    const done = winN - p.remaining.length
+    if (p.remaining.length === 0) return `Done ${done}/${winN}`
+    if (p.phase < 0) return `Pick · ${done}/${winN}`
+    return `${phaseLabel(p.phase).replace('Phase ', 'Ph ')}${p.phaseDown ? ' ✓' : ''} · ${done}/${winN}`
+  }
 
   const toggleSelect = (id: string) => {
     if (!yourTurn || !state.hasDrawn) return
@@ -258,7 +269,7 @@ export function PhaseItBoard({ yourName, variant, playerCount = 4, onExit, contr
             {phaseItVariantLabel(state.config.variant)} · {state.players.length} players
           </h2>
           <p className="muted">
-            Hand {state.round} · first through Phase 10 wins
+            Hand {state.round} · first through Phase {winN} wins
           </p>
           <p className="rummy-tip">{phaseItTip(state.config.variant)}</p>
         </div>
@@ -272,17 +283,40 @@ export function PhaseItBoard({ yourName, variant, playerCount = 4, onExit, contr
           {thinking && !yourTurn
             ? 'Computers are thinking…'
             : yourTurn
-              ? !state.hasDrawn
-                ? 'Your turn — draw from stock or discard'
-                : you.phaseDown
-                  ? mode === 'discard'
-                    ? 'Discard one card to end your turn'
-                    : 'Hit on melds, then discard'
-                  : `Complete ${phaseLabel(you.phase)}`
+              ? needsChoice
+                ? 'Your turn — choose which phase to attempt'
+                : !state.hasDrawn
+                  ? 'Your turn — draw from stock or discard'
+                  : you.phaseDown
+                    ? mode === 'discard'
+                      ? 'Discard one card to end your turn'
+                      : 'Hit on melds, then discard'
+                    : `Complete ${phaseLabel(you.phase)}`
               : `${actingName}'s turn`}
         </strong>
         <span>{status}</span>
       </div>
+
+      {needsChoice && yourTurn ? (
+        <div className="phaseit-choose-panel" aria-label="Choose phase">
+          <p className="muted">Pick one remaining phase for this hand:</p>
+          <div className="phaseit-choose-grid">
+            {you.remaining.map((idx) => {
+              const d = CLASSIC_PHASES[idx]!
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => play({ t: 'choosePhase', phaseIndex: idx })}
+                >
+                  Phase {idx + 1}: {d.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {err ? <p className="error">{err}</p> : null}
 
@@ -306,9 +340,9 @@ export function PhaseItBoard({ yourName, variant, playerCount = 4, onExit, contr
               <span className="rummy-score-delta">
                 {roundOver || matchOver
                   ? line
-                    ? `${line.delta > 0 ? '+' : ''}${line.delta} · Ph ${Math.min(10, line.phase)}`
+                    ? `${line.delta > 0 ? '+' : ''}${line.delta} · ${winN - (state.players.find((x) => x.id === p.id)?.remaining.length ?? 0)}/${winN}`
                     : '—'
-                  : `${phaseLabel(p.phase).replace('Phase ', 'Ph ')}${p.phaseDown ? ' ✓' : ''} · ${p.hand.length} cards`}
+                  : `${progressLabel(p)} · ${p.hand.length} cards`}
               </span>
             </div>
           )
@@ -347,8 +381,8 @@ export function PhaseItBoard({ yourName, variant, playerCount = 4, onExit, contr
             <span className="pile-label">Stock ({state.stock.length})</span>
             <button
               type="button"
-              className={`ichi-face is-lg is-back${yourTurn && !state.hasDrawn ? ' is-legal is-clickable' : ''}`}
-              disabled={!yourTurn || state.hasDrawn}
+              className={`ichi-face is-lg is-back${yourTurn && !needsChoice && !state.hasDrawn ? ' is-legal is-clickable' : ''}`}
+              disabled={!yourTurn || needsChoice || state.hasDrawn}
               onClick={() => play({ t: 'drawStock' })}
               aria-label="Draw from stock"
             >
@@ -361,9 +395,9 @@ export function PhaseItBoard({ yourName, variant, playerCount = 4, onExit, contr
               <PhaseItCardFace
                 card={top}
                 size="lg"
-                legal={yourTurn && !state.hasDrawn && !isSkip(top)}
+                legal={yourTurn && !needsChoice && !state.hasDrawn && !isSkip(top)}
                 onClick={
-                  yourTurn && !state.hasDrawn && !isSkip(top)
+                  yourTurn && !needsChoice && !state.hasDrawn && !isSkip(top)
                     ? () => play({ t: 'drawDiscard' })
                     : undefined
                 }

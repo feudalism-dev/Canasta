@@ -2009,6 +2009,27 @@ ul {
   background: rgba(0, 0, 0, 0.18);
 }
 
+.phaseit-choose-panel {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.35rem;
+  background: rgba(0, 0, 0, 0.22);
+  max-width: 52rem;
+}
+
+.phaseit-choose-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.phaseit-choose-grid .btn {
+  font-size: 0.85rem;
+  text-align: left;
+}
+
 /* —— Yotsy dice —— */
 .yotsy-dice-tray {
   display: flex;

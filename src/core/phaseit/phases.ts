@@ -1,4 +1,4 @@
-/** Phase definitions — Classic Phase It (10 phases). */
+/** Phase definitions — Classic Phase It list (Masters / Sprint reuse these). */
 
 export type PhasePart =
   | { t: 'set'; size: number }
@@ -24,11 +24,24 @@ export const CLASSIC_PHASES: PhaseDef[] = [
   { id: 10, label: '1 set of 5 + 1 set of 3', parts: [{ t: 'set', size: 5 }, { t: 'set', size: 3 }] },
 ]
 
+/** Sprint = first five classic phases only. */
+export const SPRINT_PHASE_COUNT = 5
+
 export function phaseDef(phaseIndex: number): PhaseDef {
-  return CLASSIC_PHASES[Math.min(9, Math.max(0, phaseIndex))]!
+  return CLASSIC_PHASES[Math.min(CLASSIC_PHASES.length - 1, Math.max(0, phaseIndex))]!
 }
 
 export function phaseLabel(phaseIndex: number): string {
-  if (phaseIndex >= 10) return 'Complete'
+  if (phaseIndex < 0) return 'Choose a phase'
+  if (phaseIndex >= CLASSIC_PHASES.length) return 'Complete'
   return `Phase ${phaseIndex + 1}: ${phaseDef(phaseIndex).label}`
+}
+
+export function initialRemaining(variant: 'classic' | 'masters' | 'sprint'): number[] {
+  const n = variant === 'sprint' ? SPRINT_PHASE_COUNT : CLASSIC_PHASES.length
+  return Array.from({ length: n }, (_, i) => i)
+}
+
+export function phasesToWin(variant: 'classic' | 'masters' | 'sprint'): number {
+  return variant === 'sprint' ? SPRINT_PHASE_COUNT : CLASSIC_PHASES.length
 }

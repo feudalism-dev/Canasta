@@ -1,6 +1,6 @@
 import { buildPhaseItDeck, shuffleDeck, sortPhaseItHand } from './deck'
-import { phaseLabel } from './phases'
-import { phaseItConfig, phaseItVariantLabel } from './variants'
+import { initialRemaining, phaseLabel, phasesToWin } from './phases'
+import { phaseItConfig, phaseItVariantLabel, isMastersVariant } from './variants'
 import type { PhaseItPlayer, PhaseItState, PhaseItVariant } from './types'
 
 export function clonePhaseIt(state: PhaseItState): PhaseItState {
@@ -47,13 +47,17 @@ export function createPhaseItMatch(
   const useComp = computers.slice(0, n)
   while (useComp.length < n) useComp.push(true)
 
+  const rem = initialRemaining(variant)
+  const startPhase = isMastersVariant(variant) ? -1 : (rem[0] ?? 0)
+
   const players: PhaseItPlayer[] = useNames.map((name, i) => ({
     id: `p${i}`,
     name,
     seat: i,
     isComputer: Boolean(useComp[i]),
     hand: [],
-    phase: 0,
+    phase: startPhase,
+    remaining: [...rem],
     laid: [],
     phaseDown: false,
     score: 0,
@@ -85,11 +89,20 @@ export function dealPhaseItHand(state: PhaseItState, seed: number): PhaseItState
   next.lastHandNote = null
   next.lastHandScores = null
   next.phase = 'play'
+  const masters = isMastersVariant(next.config.variant)
+  const winN = phasesToWin(next.config.variant)
 
   for (const pl of next.players) {
     pl.hand = []
     pl.laid = []
     pl.phaseDown = false
+    if (pl.remaining.length === 0) {
+      pl.phase = winN
+    } else if (masters) {
+      pl.phase = -1
+    } else {
+      pl.phase = pl.remaining[0]!
+    }
   }
 
   let deck = shuffleDeck(buildPhaseItDeck(), seed)

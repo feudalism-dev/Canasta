@@ -1,3 +1,4 @@
+import { phasesToWin } from './phases'
 import type { PhaseItConfig, PhaseItVariant } from './types'
 
 export function clampPhaseItPlayerCount(playerCount: number): number {
@@ -14,18 +15,38 @@ export function phaseItVariantOptions(): { value: PhaseItVariant; label: string;
   return [
     {
       value: 'classic',
-      label: 'Classic Phase It — race through 10 phases',
+      label: 'Classic — phases 1→10 in order',
+      ready: true,
+    },
+    {
+      value: 'masters',
+      label: 'Masters — pick any remaining phase each hand',
+      ready: true,
+    },
+    {
+      value: 'sprint',
+      label: 'Sprint — race through phases 1→5',
       ready: true,
     },
   ]
 }
 
 export function phaseItVariantLabel(v: PhaseItVariant): string {
-  void v
+  if (v === 'masters') return 'Masters Phase It'
+  if (v === 'sprint') return 'Sprint Phase It'
   return 'Classic Phase It'
 }
 
 export function phaseItTip(v: PhaseItVariant): string {
-  void v
+  if (v === 'masters') {
+    return `Each hand, choose which of your remaining phases to attempt. First to finish all ${phasesToWin('masters')} phases wins.`
+  }
+  if (v === 'sprint') {
+    return 'Shorter race: only phases 1–5. Draw, lay your phase, hit, discard. First through phase 5 wins.'
+  }
   return 'Draw, complete your phase (sets / runs / color), then hit and discard. First through all 10 phases wins.'
+}
+
+export function isMastersVariant(v: PhaseItVariant): boolean {
+  return v === 'masters'
 }

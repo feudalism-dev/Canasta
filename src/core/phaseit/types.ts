@@ -1,6 +1,7 @@
 /** Phase It — phase-racing parlor family (Phase 10 style). */
 
-export type PhaseItVariant = 'classic'
+/** classic = 1→10 order · masters = any remaining order · sprint = 1→5 only */
+export type PhaseItVariant = 'classic' | 'masters' | 'sprint'
 
 export type PhaseItColor = 'R' | 'Y' | 'G' | 'B'
 
@@ -27,8 +28,13 @@ export type PhaseItPlayer = {
   seat: number
   isComputer: boolean
   hand: PhaseItCard[]
-  /** 0–9: current phase to complete (10 = finished all). */
+  /**
+   * Active phase index for this hand (into CLASSIC_PHASES).
+   * Masters: -1 until the player chooses; classic/sprint: next remaining.
+   */
   phase: number
+  /** Phase indexes still needed to win (classic/sprint stay ordered; masters any order). */
+  remaining: number[]
   /** Melds laid this hand after completing the current phase requirement. */
   laid: PhaseItMeld[]
   /** True once this hand’s phase was successfully laid. */
@@ -39,7 +45,7 @@ export type PhaseItPlayer = {
 export type PhaseItConfig = {
   variant: PhaseItVariant
   playerCount: number
-  /** First to finish phase 10 (index 9) wins — no point race required. */
+  /** Unused — win is first to clear remaining phases (tie-break: lowest score). */
   playTo: number | null
 }
 
@@ -69,6 +75,7 @@ export type PhaseItState = {
 }
 
 export type PhaseItMove =
+  | { t: 'choosePhase'; phaseIndex: number }
   | { t: 'drawStock' }
   | { t: 'drawDiscard' }
   | { t: 'layPhase'; groups: string[][] }

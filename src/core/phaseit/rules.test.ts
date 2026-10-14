@@ -71,6 +71,7 @@ describe('phaseit rules', () => {
     const state = createPhaseItMatch(['You', 'Bot'], [false, true], 'classic', 42)
     expect(state.players[0]!.hand).toHaveLength(10)
     expect(state.players[1]!.hand).toHaveLength(10)
+    expect(state.players[0]!.remaining).toHaveLength(10)
     expect(state.stock.length).toBeGreaterThan(0)
     expect(topDiscard(state)).not.toBeNull()
 
@@ -100,5 +101,29 @@ describe('phaseit rules', () => {
     if (!res.ok) return
     // A=0, skip B=1 → C=2
     expect(res.state.current).toBe(2)
+  })
+
+  it('sprint starts with five remaining phases', () => {
+    const state = createPhaseItMatch(['You', 'Bot'], [false, true], 'sprint', 11)
+    expect(state.config.variant).toBe('sprint')
+    expect(state.players[0]!.remaining).toEqual([0, 1, 2, 3, 4])
+    expect(state.players[0]!.phase).toBe(0)
+  })
+
+  it('masters requires choosePhase before draw', () => {
+    const state = createPhaseItMatch(['You', 'Bot'], [false, true], 'masters', 3)
+    expect(state.players[0]!.phase).toBe(-1)
+    expect(state.players[0]!.remaining).toHaveLength(10)
+
+    const blocked = applyPhaseItMove(state, { t: 'drawStock' })
+    expect(blocked.ok).toBe(false)
+
+    const pick = applyPhaseItMove(state, { t: 'choosePhase', phaseIndex: 4 })
+    expect(pick.ok).toBe(true)
+    if (!pick.ok) return
+    expect(pick.state.players[0]!.phase).toBe(4)
+
+    const draw = applyPhaseItMove(pick.state, { t: 'drawStock' })
+    expect(draw.ok).toBe(true)
   })
 })

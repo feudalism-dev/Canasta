@@ -1,16 +1,29 @@
 import { cardPoints, isSkip, isWild } from '../core/phaseit/deck'
 import { canHitMeld, findPhaseGroups } from '../core/phaseit/melds'
-import { phaseDef } from '../core/phaseit/phases'
+import { phaseDef, phasesToWin } from '../core/phaseit/phases'
 import { applyPhaseItMove } from '../core/phaseit/rules'
 import { currentPlayer, topDiscard } from '../core/phaseit/state'
+import { isMastersVariant } from '../core/phaseit/variants'
 import type { PhaseItMove, PhaseItState } from '../core/phaseit/types'
+
+function pickMastersPhase(state: PhaseItState): PhaseItMove {
+  const me = currentPlayer(state)
+  // Prefer a remaining phase the current hand can already complete; else easiest (lowest index).
+  for (const idx of [...me.remaining].sort((a, b) => a - b)) {
+    if (findPhaseGroups(me.hand, phaseDef(idx).parts)) {
+      return { t: 'choosePhase', phaseIndex: idx }
+    }
+  }
+  const easiest = [...me.remaining].sort((a, b) => a - b)[0]!
+  return { t: 'choosePhase', phaseIndex: easiest }
+}
 
 function pickDraw(state: PhaseItState): PhaseItMove {
   const top = topDiscard(state)
   const me = currentPlayer(state)
+  const winN = phasesToWin(state.config.variant)
   if (top && !isSkip(top)) {
-    // Take discard if it helps current phase or is a low point number we might need
-    if (!me.phaseDown && me.phase < 10) {
+    if (!me.phaseDown && me.phase >= 0 && me.phase < winN) {
       const trial = [...me.hand, top]
       const groups = findPhaseGroups(trial, phaseDef(me.phase).parts)
       if (groups) return { t: 'drawDiscard' }
@@ -30,7 +43,6 @@ function pickDraw(state: PhaseItState): PhaseItMove {
 function pickHit(state: PhaseItState): PhaseItMove | null {
   const me = currentPlayer(state)
   if (!me.phaseDown) return null
-  // Prefer hitting with high-point cards, then wilds last
   const ranked = [...me.hand].sort((a, b) => cardPoints(b) - cardPoints(a))
   for (const card of ranked) {
     if (isSkip(card)) continue
@@ -49,14 +61,12 @@ function pickHit(state: PhaseItState): PhaseItMove | null {
 
 function pickDiscard(state: PhaseItState): PhaseItMove {
   const me = currentPlayer(state)
-  // Prefer discarding Skip to punish, then high points, keep wilds
   const ranked = [...me.hand].sort((a, b) => {
     const sa = isSkip(a) ? 0 : isWild(a) ? 2 : 1
     const sb = isSkip(b) ? 0 : isWild(b) ? 2 : 1
     if (sa !== sb) return sa - sb
     return cardPoints(b) - cardPoints(a)
   })
-  // If we have a skip and more than one card, dump it
   const skip = ranked.find(isSkip)
   if (skip && me.hand.length > 1) return { t: 'discard', cardId: skip.id }
   const card = ranked.find((c) => !isWild(c)) ?? ranked[0]!
@@ -68,9 +78,19 @@ export function pickPhaseItBotMove(state: PhaseItState): PhaseItMove | null {
   const me = currentPlayer(state)
   if (!me.isComputer) return null
 
+  if (
+    isMastersVariant(state.config.variant) &&
+    me.phase < 0 &&
+    me.remaining.length > 0 &&
+    !state.hasDrawn
+  ) {
+    return pickMastersPhase(state)
+  }
+
   if (!state.hasDrawn) return pickDraw(state)
 
-  if (!me.phaseDown && me.phase < 10) {
+  const winN = phasesToWin(state.config.variant)
+  if (!me.phaseDown && me.phase >= 0 && me.phase < winN) {
     const groups = findPhaseGroups(me.hand, phaseDef(me.phase).parts)
     if (groups) return { t: 'layPhase', groups }
   }

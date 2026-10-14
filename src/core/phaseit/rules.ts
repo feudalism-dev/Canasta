@@ -1,8 +1,9 @@
 import { isSkip, sortPhaseItHand } from './deck'
 import { hitMeld, matchPhaseGroups } from './melds'
-import { phaseDef, phaseLabel } from './phases'
+import { phaseDef, phaseLabel, phasesToWin } from './phases'
 import { scorePhaseItHand } from './score'
 import { clonePhaseIt, drawFromStock, topDiscard } from './state'
+import { isMastersVariant } from './variants'
 import type { PhaseItMove, PhaseItState } from './types'
 
 export type PhaseItApplyResult =
@@ -21,6 +22,15 @@ function advance(state: PhaseItState, from: number, skipNext = false): void {
   state.lastMessage = `${cur.name}'s turn · ${phaseLabel(cur.phase)}`
 }
 
+function needsPhaseChoice(state: PhaseItState, playerIndex: number): boolean {
+  const pl = state.players[playerIndex]!
+  return isMastersVariant(state.config.variant) && pl.phase < 0 && pl.remaining.length > 0
+}
+
+function activeDone(state: PhaseItState, playerIndex: number): boolean {
+  return state.players[playerIndex]!.remaining.length === 0
+}
+
 export function applyPhaseItMove(state: PhaseItState, move: PhaseItMove): PhaseItApplyResult {
   if (state.phase === 'roundEnd' || state.phase === 'matchEnd') {
     return { ok: false, error: 'Round is over' }
@@ -28,8 +38,26 @@ export function applyPhaseItMove(state: PhaseItState, move: PhaseItMove): PhaseI
   const next = clonePhaseIt(state)
   const me = next.current
   const pl = next.players[me]!
+  const winN = phasesToWin(next.config.variant)
+
+  if (move.t === 'choosePhase') {
+    if (!isMastersVariant(next.config.variant)) {
+      return { ok: false, error: 'Only Masters picks phases' }
+    }
+    if (next.hasDrawn) return { ok: false, error: 'Already drew' }
+    if (pl.phaseDown) return { ok: false, error: 'Phase already down' }
+    if (!pl.remaining.includes(move.phaseIndex)) {
+      return { ok: false, error: 'Phase not remaining' }
+    }
+    pl.phase = move.phaseIndex
+    const def = phaseDef(pl.phase)
+    next.log.push(`${pl.name} chooses Phase ${pl.phase + 1}: ${def.label}.`)
+    next.lastMessage = next.log[next.log.length - 1]!
+    return { ok: true, state: next }
+  }
 
   if (move.t === 'drawStock') {
+    if (needsPhaseChoice(next, me)) return { ok: false, error: 'Choose a phase first' }
     if (next.hasDrawn) return { ok: false, error: 'Already drew' }
     if (!next.stock.length && next.discard.length <= 1) {
       return { ok: false, error: 'Nothing to draw' }
@@ -42,6 +70,7 @@ export function applyPhaseItMove(state: PhaseItState, move: PhaseItMove): PhaseI
   }
 
   if (move.t === 'drawDiscard') {
+    if (needsPhaseChoice(next, me)) return { ok: false, error: 'Choose a phase first' }
     if (next.hasDrawn) return { ok: false, error: 'Already drew' }
     const top = topDiscard(next)
     if (!top) return { ok: false, error: 'Discard empty' }
@@ -57,7 +86,12 @@ export function applyPhaseItMove(state: PhaseItState, move: PhaseItMove): PhaseI
   if (move.t === 'layPhase') {
     if (!next.hasDrawn) return { ok: false, error: 'Draw first' }
     if (pl.phaseDown) return { ok: false, error: 'Phase already down' }
-    if (pl.phase >= 10) return { ok: false, error: 'All phases done' }
+    if (needsPhaseChoice(next, me) || pl.phase < 0) {
+      return { ok: false, error: 'Choose a phase first' }
+    }
+    if (activeDone(next, me) || pl.phase >= winN) {
+      return { ok: false, error: 'All phases done' }
+    }
     const def = phaseDef(pl.phase)
     const groups = move.groups.map((ids) => {
       const cards = ids.map((id) => pl.hand.find((c) => c.id === id)).filter(Boolean)
@@ -113,7 +147,6 @@ export function applyPhaseItMove(state: PhaseItState, move: PhaseItMove): PhaseI
     next.log.push(`${pl.name} discards ${card.kind === 'wild' ? 'WILD' : card.kind}.`)
     if (pl.hand.length === 0) {
       if (!pl.phaseDown) {
-        // Can't go out without phase down — shouldn't empty without phase except theoretically
         return { ok: false, error: 'Must lay phase before going out' }
       }
       scorePhaseItHand(next, me)

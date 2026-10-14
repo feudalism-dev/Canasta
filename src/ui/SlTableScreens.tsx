@@ -822,7 +822,7 @@ export function SlTableScreens({
                 !['classic', 'eights', 'dos', 'switch', 'palace', 'flip'].includes(ichiVariant)) ||
               (isSkippoTable &&
                 !['classic', 'short', 'partners', 'jumpin'].includes(skippoVariant)) ||
-              (isPhaseitTable && !['classic'].includes(phaseitVariant)) ||
+              (isPhaseitTable && !['classic', 'masters', 'sprint'].includes(phaseitVariant)) ||
               (isYotsyTable &&
                 !['classic', 'kismet', 'yacht', 'generala'].includes(yotsyVariant))
             }
