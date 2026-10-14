@@ -402,6 +402,16 @@ default
         llResetScript();
     }
 
+    changed(integer change)
+    {
+        if (change & CHANGED_OWNER)
+        {
+            gFamily = "";
+            llLinksetDataWrite(LSD_FAM, "");
+            llResetScript();
+        }
+    }
+
     http_response(key id, integer status, list meta, string body)
     {
         if (id != gRevReq) return;

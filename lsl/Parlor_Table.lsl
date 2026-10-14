@@ -855,7 +855,13 @@ default
 
     changed(integer change)
     {
-        if (change & CHANGED_OWNER) llResetScript();
+        if (change & CHANGED_OWNER)
+        {
+            // LSD outlives reset — drop prior owner's selected family.
+            gFamily = "";
+            llLinksetDataWrite(LSD_FAM, "");
+            llResetScript();
+        }
     }
 
     link_message(integer sender, integer num, string str, key id)

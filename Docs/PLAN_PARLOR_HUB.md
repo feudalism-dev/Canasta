@@ -16,6 +16,8 @@ Free (or paid) tables use one **hub** script set. Buying a game registers that f
 **Experience value:** `v1|canasta,rummy,trick` (comma-separated families).  
 **LSD cache:** `cn.ent` (CSV), `cn.fam` (selected family).
 
+**Owner change:** LSD survives `llResetScript`. On `CHANGED_OWNER`, Http clears `cn.ent` / `cn.fam` and re-reads `cn.ent.<newOwner>`; Register re-runs for the new owner; Table/Display/Scores drop the old selected family.
+
 ## Web
 
 - Status `hub:true` + empty `family` → **Game selection** card grid (`*_ad.jpg` in `public/assets/`).

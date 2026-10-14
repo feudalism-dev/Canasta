@@ -131,7 +131,12 @@ default
 
     changed(integer change)
     {
-        if (change & CHANGED_OWNER) llResetScript();
+        if (change & CHANGED_OWNER)
+        {
+            // New owner → register GRANT_FAMILY under their UUID (idempotent).
+            llOwnerSay("Parlor Register: owner changed — registering for new owner.");
+            llResetScript();
+        }
     }
 
     timer()

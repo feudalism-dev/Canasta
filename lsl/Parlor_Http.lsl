@@ -14,6 +14,7 @@ integer MAX_SEATS = 4;
 integer BROWSER_TOKEN_TTL = 600;
 integer ENT_STALE_SEC = 900;
 integer ENT_IDLE_SEC = 3600;
+integer XP_ERROR_KEY_NOT_FOUND = 3;
 string LSD_FAM = "cn.fam";
 string LSD_ENT = "cn.ent";
 string XP_PREFIX = "cn.ent.";
@@ -112,6 +113,18 @@ applyEntCache(string packed)
     }
 }
 
+/** LSD survives script reset — wipe prior owner's library on ownership change. */
+clearOwnerEntitlements()
+{
+    gEnt = "";
+    gEntFetchedAt = 0;
+    gEntReq = NULL_KEY;
+    llLinksetDataWrite(LSD_ENT, "");
+    llLinksetDataWrite(LSD_FAM, "");
+    llMessageLinked(LINK_SET, DISPLAY_CMD_FAMILY, "", NULL_KEY);
+    llMessageLinked(LINK_THIS, HTTP_CMD, "FAMSET|", NULL_KEY);
+}
+
 requestEntitlements(integer force)
 {
     integer now = llGetUnixTime();
@@ -123,6 +136,7 @@ requestEntitlements(integer force)
         gEntFetchedAt = now;
         return;
     }
+    // Always key by current owner (new owner after CHANGED_OWNER / reset).
     gEntReq = llReadKeyValue(XP_PREFIX + (string)llGetOwner());
 }
 
@@ -497,6 +511,7 @@ default
     {
         initBrowser();
         clearPend();
+        // Soft cache only — Experience read is authoritative for this owner.
         gEnt = llLinksetDataRead(LSD_ENT);
         requestCap();
         requestEntitlements(TRUE);
@@ -512,7 +527,13 @@ default
     changed(integer change)
     {
         if (change & CHANGED_REGION_START) requestCap();
-        if (change & CHANGED_OWNER) llResetScript();
+        if (change & CHANGED_OWNER)
+        {
+            // Clear before reset so state_entry does not briefly serve the prior owner.
+            clearOwnerEntitlements();
+            llOwnerSay("Parlor: owner changed — reloading registrations for new owner.");
+            llResetScript();
+        }
     }
 
     dataserver(key query, string data)
@@ -523,8 +544,11 @@ default
         integer ok = FALSE;
         if (llGetListLength(res) > 0) ok = (integer)llList2String(res, 0);
         string payload = "";
+        integer err = 0;
         if (ok && llGetListLength(res) > 1) payload = llList2String(res, 1);
+        if (!ok && llGetListLength(res) > 1) err = (integer)llList2String(res, 1);
         if (ok) applyEntCache(payload);
+        else if (err == XP_ERROR_KEY_NOT_FOUND) applyEntCache("");
         else gEntFetchedAt = llGetUnixTime();
         if (gPendOp == "refresh_ent" && gPendHttp != NULL_KEY)
         {
