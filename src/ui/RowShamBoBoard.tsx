@@ -15,11 +15,14 @@ import '../styles/rowshambo.css'
 
 /** Pacing — keep readable on MoAP / HUD. */
 const DIR_SPIN_MS = 2800
-const PRE_DUEL_MS = 2000
+const PRE_DUEL_MS = 2200
 /** Let flipped cards sit before POW/OOF/TIE. */
-const REVEAL_PAUSE_MS = 1000
-const BURST_HOLD_MS = 2000
-const DUEL_HOLD_MS = REVEAL_PAUSE_MS + BURST_HOLD_MS + 600
+const REVEAL_PAUSE_MS = 1200
+/** How long the center stamp stays up. */
+const BURST_HOLD_MS = 2400
+/** Extra beat after the stamp before the next duel. */
+const POST_BURST_MS = 900
+const DUEL_HOLD_MS = REVEAL_PAUSE_MS + BURST_HOLD_MS + POST_BURST_MS
 /** Let POW/OOF/TIE + scores soak in before the next-round countdown. */
 const POST_HAND_DWELL_MS = 4500
 /** 3…2…1 after the dwell, then advance. */
@@ -182,6 +185,8 @@ export function RowShamBoBoard({
   const timedOutDeadlineRef = useRef<number | null>(null)
   /** Only deadlines we observed while still in the future may auto-timeout. */
   const armedDeadlineRef = useRef<number | null>(null)
+  /** Bumps when resolve step/phase changes so stale timers cannot skip ahead. */
+  const resolveGenRef = useRef(0)
   /** `${gameNumber}:${handNumber}` — once per handEnd, never across games. */
   const handEndAckedKeyRef = useRef<string | null>(null)
   const handEndArmedKeyRef = useRef<string | null>(null)
@@ -249,31 +254,45 @@ export function RowShamBoBoard({
   // Auto-advance resolve: face-down beat, then each duel held so flips + bursts read clearly
   useEffect(() => {
     if (!state || state.phase !== 'resolve') {
+      resolveGenRef.current += 1
       setBurst(null)
       return
     }
+    const gen = ++resolveGenRef.current
     // Preamble: all cards still face-down
     if (state.resolveStepIndex < 0) {
       setBurst(null)
-      const t = window.setTimeout(() => playRef.current({ t: 'ackResolve' }), PRE_DUEL_MS)
+      const t = window.setTimeout(() => {
+        if (resolveGenRef.current !== gen) return
+        playRef.current({ t: 'ackResolve' })
+      }, PRE_DUEL_MS)
       return () => window.clearTimeout(t)
     }
     const step = state.resolveSteps[state.resolveStepIndex]
     if (!step) return
-    // One center stamp; per-card WIN/OUT badges carry who actually won or lost.
-    const cls = step.outcome === 'tie' ? 'is-tie' : ''
-    const text = step.outcome === 'tie' ? 'TIE!' : 'POW!'
-    const img = step.outcome === 'tie' ? 'burst-tie.png' : 'burst-pow.png'
-    // Cards flip with the resolve step — hold them face-up before the result stamp.
+    // Contested holds → OOF (challenger out). Challenger smashes group → POW. Tie → TIE.
+    const cls =
+      step.outcome === 'tie' ? 'is-tie' : step.outcome === 'contestedWin' ? 'is-oof' : ''
+    const text =
+      step.outcome === 'tie' ? 'TIE!' : step.outcome === 'contestedWin' ? 'OOF!' : 'POW!'
+    const img =
+      step.outcome === 'tie'
+        ? 'burst-tie.png'
+        : step.outcome === 'contestedWin'
+          ? 'burst-oof.png'
+          : 'burst-pow.png'
+    // Cards flip with the resolve step — hold them face-up, then stamp, then pause.
     setBurst(null)
     const burstT = window.setTimeout(() => {
+      if (resolveGenRef.current !== gen) return
       setBurst({ text, cls, img })
     }, REVEAL_PAUSE_MS)
-    const clearT = window.setTimeout(() => setBurst(null), REVEAL_PAUSE_MS + BURST_HOLD_MS)
-    const t = window.setTimeout(() => playRef.current({ t: 'ackResolve' }), DUEL_HOLD_MS)
+    const t = window.setTimeout(() => {
+      if (resolveGenRef.current !== gen) return
+      playRef.current({ t: 'ackResolve' })
+    }, DUEL_HOLD_MS)
     return () => {
       window.clearTimeout(burstT)
-      window.clearTimeout(clearT)
       window.clearTimeout(t)
     }
   }, [state?.phase, state?.resolveStepIndex])
@@ -416,7 +435,9 @@ export function RowShamBoBoard({
                     : null
                 const inDuel =
                   step != null && (step.contested.includes(pi) || step.next === pi)
-                const result = burst && step ? duelResultForSeat(step, pi) : { kind: 'idle' as const, label: '' }
+                // Badges as soon as this duel is active (don't wait for the center stamp).
+                const result =
+                  step && inDuel ? duelResultForSeat(step, pi) : { kind: 'idle' as const, label: '' }
                 const compass = compassForPlayer(
                   pi,
                   localIndex,
