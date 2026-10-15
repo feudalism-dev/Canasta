@@ -40,14 +40,26 @@ function CardFace({
   legal,
   disabled,
   onClick,
+  faceDown,
 }: {
-  card: RowShamBoCard
+  card?: RowShamBoCard | null
   selected?: boolean
   legal?: boolean
   disabled?: boolean
   onClick?: () => void
+  faceDown?: boolean
 }) {
   const [imgOk, setImgOk] = useState(true)
+  if (faceDown || !card) {
+    return (
+      <div className="rsb-card is-back" aria-label="Face down">
+        <span className="rsb-card-glyph" aria-hidden>
+          ?
+        </span>
+        <span className="rsb-card-label">Hidden</span>
+      </div>
+    )
+  }
   const src = assetUrl(`${card.kind}.png`)
   return (
     <button
@@ -254,17 +266,39 @@ export function RowShamBoBoard({
         {secsLeft != null && (waitingPass || waitingPlay) ? (
           <div className={`rsb-timer${secsLeft <= 10 ? ' is-warn' : ''}`}>{secsLeft}s</div>
         ) : null}
-        <div
-          className={`rsb-dial${state.phase === 'chooseDir' ? ' is-spin' : ''}${
-            state.direction === 'cw' ? ' is-cw' : state.direction === 'ccw' ? ' is-ccw' : ''
-          }`}
-        >
-          <div className="rsb-dial-core">
-            {state.direction ? directionLabel(state.direction) : '???'}
-            <br />
-            Stock {state.stock.length}
+        {state.phase === 'resolve' && state.tablePlays.some(Boolean) ? (
+          <div className="rsb-duel-row" aria-label="Table plays">
+            {state.players.map((p, pi) => {
+              const play = state.tablePlays[pi]
+              if (!play) return null
+              const faceUp = Boolean(state.revealed[pi])
+              const step = state.resolveSteps[state.resolveStepIndex]
+              const inDuel =
+                step != null && (step.contested.includes(pi) || step.next === pi)
+              return (
+                <div
+                  key={p.id}
+                  className={`rsb-duel-slot${inDuel ? ' is-dueling' : ''}${pi === state.button ? ' is-button' : ''}`}
+                >
+                  <span className="rsb-duel-name">{p.name}</span>
+                  <CardFace card={play} faceDown={!faceUp} disabled />
+                </div>
+              )
+            })}
           </div>
-        </div>
+        ) : (
+          <div
+            className={`rsb-dial${state.phase === 'chooseDir' ? ' is-spin' : ''}${
+              state.direction === 'cw' ? ' is-cw' : state.direction === 'ccw' ? ' is-ccw' : ''
+            }`}
+          >
+            <div className="rsb-dial-core">
+              {state.direction ? directionLabel(state.direction) : '???'}
+              <br />
+              Stock {state.stock.length}
+            </div>
+          </div>
+        )}
         <div className="rsb-prompt">{prompt}</div>
         {burst ? (
           <div className="rsb-burst" aria-hidden>

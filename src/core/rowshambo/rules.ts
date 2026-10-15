@@ -15,6 +15,17 @@ export type RowShamBoApplyResult =
   | { ok: true; state: RowShamBoState }
   | { ok: false; error: string }
 
+/** Strip unrevealed table-play kinds so clients cannot peek ahead of duels. */
+export function sanitizeRowShamBoForWire(state: RowShamBoState): RowShamBoState {
+  const next = cloneRowShamBo(state)
+  next.tablePlays = next.tablePlays.map((c, i) => {
+    if (!c || next.revealed[i]) return c
+    // Dummy kind — UI must honor `revealed[i]` and show the card back.
+    return { id: c.id, kind: 'rock' }
+  })
+  return next
+}
+
 function allPassed(state: RowShamBoState): boolean {
   return state.players.every((p) => p.hand.length === 0 || p.passCardId != null)
 }
@@ -58,58 +69,103 @@ function beginPlayPhase(state: RowShamBoState): void {
   state.lastMessage = 'Select a card to play face-down.'
 }
 
+/** Lock plays face-down; flip + score only as each duel step runs. */
 function beginReveal(state: RowShamBoState): void {
-  state.phase = 'reveal'
   state.actionDeadline = null
   const plays = state.players.map((p) => {
     if (!p.playCardId) return null
     return p.hand.find((c) => c.id === p.playCardId) ?? null
   })
-  const labels = state.players
-    .map((p, i) => {
-      const c = plays[i]
-      return c ? `${p.name}: ${cardLabel(c)}` : null
-    })
-    .filter(Boolean)
-  state.lastMessage = `Reveal! ${labels.join(' · ')}`
-  state.log.push(state.lastMessage)
 
-  const { steps, deltas } = buildResolveSteps(
-    plays,
+  // Pull cards off hands onto the table (still face-down).
+  state.tablePlays = plays.map((c) => (c ? { ...c } : null))
+  state.revealed = state.players.map(() => false)
+  for (let i = 0; i < state.players.length; i++) {
+    const pl = state.players[i]!
+    if (!pl.playCardId) continue
+    pl.hand = sortHand(pl.hand.filter((c) => c.id !== pl.playCardId))
+    pl.playCardId = null
+  }
+
+  const { steps } = buildResolveSteps(
+    state.tablePlays,
     state.button,
     state.direction!,
     state.config.variant,
   )
   state.resolveSteps = steps
-
-  // Apply deltas to game scores
-  for (let i = 0; i < state.players.length; i++) {
-    state.players[i]!.gameScore += deltas[i] ?? 0
-  }
-
-  // Remove played cards to discard
-  for (const pl of state.players) {
-    if (!pl.playCardId) continue
-    const card = pl.hand.find((c) => c.id === pl.playCardId)
-    if (card) {
-      pl.hand = sortHand(pl.hand.filter((c) => c.id !== pl.playCardId))
-      state.discard.push(card)
-    }
-    pl.playCardId = null
-  }
-
   state.resolveStepIndex = steps.length ? 0 : -1
+
   if (!steps.length) {
+    sweepTableToDiscard(state)
     finishHand(state)
-  } else {
-    state.phase = 'resolve'
-    state.lastMessage = steps[0]!.note
+    return
   }
+
+  state.phase = 'resolve'
+  state.lastMessage = 'Cards are down — duels begin!'
+  state.log.push(state.lastMessage)
+  applyCurrentDuel(state)
+}
+
+function revealSeats(state: RowShamBoState, seats: number[]): void {
+  for (const i of seats) {
+    if (i >= 0 && i < state.revealed.length) state.revealed[i] = true
+  }
+}
+
+function applyCurrentDuel(state: RowShamBoState): void {
+  const step = state.resolveSteps[state.resolveStepIndex]
+  if (!step) return
+
+  // Flip only the cards in this duel (contested group + challenger).
+  revealSeats(state, [...step.contested, step.next])
+
+  for (const d of step.deltas) {
+    const pl = state.players[d.seat]
+    if (pl) pl.gameScore += d.delta
+  }
+
+  const names = (idxs: number[]) =>
+    idxs.map((i) => state.players[i]?.name ?? `P${i + 1}`).join(' & ')
+  const nextCard = state.tablePlays[step.next]
+  const champCard = state.tablePlays[step.contested[0]!]
+  const nextLabel = nextCard ? cardLabel(nextCard) : '?'
+  const champLabel = champCard ? cardLabel(champCard) : '?'
+
+  if (step.outcome === 'tie') {
+    state.lastMessage = `TIE! ${names(step.contested)} — ${champLabel}`
+  } else if (step.outcome === 'contestedWin') {
+    state.lastMessage = `POW! ${names(step.contested)} (${champLabel}) beat ${names([step.next])} (${nextLabel})`
+  } else {
+    state.lastMessage = `POW! ${names([step.next])} (${nextLabel}) beat ${names(step.contested)} (${champLabel})`
+  }
+  state.log.push(state.lastMessage)
+}
+
+function sweepTableToDiscard(state: RowShamBoState): void {
+  for (const c of state.tablePlays) {
+    if (c) state.discard.push(c)
+  }
+  state.tablePlays = state.players.map(() => null)
+  state.revealed = state.players.map(() => false)
+}
+
+function advanceResolve(state: RowShamBoState): void {
+  const i = state.resolveStepIndex + 1
+  if (i >= state.resolveSteps.length) {
+    sweepTableToDiscard(state)
+    finishHand(state)
+    return
+  }
+  state.resolveStepIndex = i
+  applyCurrentDuel(state)
 }
 
 function finishHand(state: RowShamBoState): void {
   state.phase = 'handEnd'
   state.resolveStepIndex = -1
+  state.resolveSteps = []
   state.lastHandScores = state.players.map((p) => ({
     playerId: p.id,
     name: p.name,
@@ -252,24 +308,8 @@ export function applyRowShamBoMove(state: RowShamBoState, move: RowShamBoMove): 
   }
 
   if (move.t === 'ackReveal' || move.t === 'ackResolve') {
-    if (next.phase === 'reveal') {
-      if (next.resolveSteps.length) {
-        next.phase = 'resolve'
-        next.resolveStepIndex = 0
-        next.lastMessage = next.resolveSteps[0]!.note
-      } else {
-        finishHand(next)
-      }
-      return { ok: true, state: next }
-    }
     if (next.phase !== 'resolve') return { ok: false, error: 'Not resolving' }
-    const i = next.resolveStepIndex + 1
-    if (i >= next.resolveSteps.length) {
-      finishHand(next)
-    } else {
-      next.resolveStepIndex = i
-      next.lastMessage = next.resolveSteps[i]!.note
-    }
+    advanceResolve(next)
     return { ok: true, state: next }
   }
 

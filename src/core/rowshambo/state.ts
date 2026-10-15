@@ -50,6 +50,8 @@ export function createRowShamBoMatch(
     direction: null,
     stock: [],
     discard: [],
+    tablePlays: players.map(() => null),
+    revealed: players.map(() => false),
     handNumber: 0,
     gameNumber: 1,
     actionDeadline: null,
@@ -75,6 +77,8 @@ export function dealNewGame(state: RowShamBoState, seed: number): RowShamBoState
   next.winnerId = null
   next.matchTied = false
   next.actionDeadline = null
+  next.tablePlays = next.players.map(() => null)
+  next.revealed = next.players.map(() => false)
   for (const pl of next.players) {
     pl.hand = []
     pl.passCardId = null
@@ -108,6 +112,8 @@ export function startHand(state: RowShamBoState, seed: number): RowShamBoState {
   next.resolveStepIndex = -1
   next.lastHandScores = null
   next.actionDeadline = null
+  next.tablePlays = next.players.map(() => null)
+  next.revealed = next.players.map(() => false)
   for (const pl of next.players) {
     pl.passCardId = null
     pl.playCardId = null

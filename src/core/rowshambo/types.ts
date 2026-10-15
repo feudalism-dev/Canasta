@@ -78,6 +78,10 @@ export type RowShamBoState = {
   direction: RowShamBoDirection | null
   stock: RowShamBoCard[]
   discard: RowShamBoCard[]
+  /** Face-down plays locked for this hand (player index → card). */
+  tablePlays: (RowShamBoCard | null)[]
+  /** Which table plays are face-up (flipped only when their duel runs). */
+  revealed: boolean[]
   handNumber: number
   gameNumber: number
   /** Deadline (ms epoch) for current human pass/play action; null if N/A. */

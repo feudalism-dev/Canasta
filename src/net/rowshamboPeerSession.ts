@@ -1,7 +1,7 @@
 import Peer, { type DataConnection } from 'peerjs'
 import { fillRowShamBoBots } from '../ai/rowshamboBot'
 import { COMPUTER_NAMES } from '../core/tableSeating'
-import { applyRowShamBoMove } from '../core/rowshambo/rules'
+import { applyRowShamBoMove, sanitizeRowShamBoForWire } from '../core/rowshambo/rules'
 import { createRowShamBoMatch, withPhysicalSeats } from '../core/rowshambo/state'
 import type { RowShamBoMove, RowShamBoState, RowShamBoVariant } from '../core/rowshambo/types'
 import {
@@ -259,7 +259,7 @@ function buildRowShamBoSession(
     const res = applyRowShamBoMove(state, move)
     if (!res.ok) return res
     state = pumpRowShamBoBots(res.state)
-    broadcast({ t: 'state', state })
+    broadcast({ t: 'state', state: sanitizeRowShamBoForWire(state) })
     notify()
     return { ok: true }
   }
@@ -302,7 +302,7 @@ function buildRowShamBoSession(
       syncLobby()
       if (state) {
         const c = conns.get(fromId)
-        if (c) send(c, { t: 'start', state })
+        if (c) send(c, { t: 'start', state: sanitizeRowShamBoForWire(state) })
       }
       return
     }
@@ -370,7 +370,7 @@ function buildRowShamBoSession(
         return
       }
       state = pumpRowShamBoBots(res.state)
-      broadcast({ t: 'state', state })
+      broadcast({ t: 'state', state: sanitizeRowShamBoForWire(state) })
       notify()
       return
     }
@@ -487,7 +487,7 @@ function buildRowShamBoSession(
         roster.seats,
       )
       state = pumpRowShamBoBots(state)
-      broadcast({ t: 'start', state })
+      broadcast({ t: 'start', state: sanitizeRowShamBoForWire(state) })
       status = 'Match started'
       notify()
     },

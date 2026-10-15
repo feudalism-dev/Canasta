@@ -282,6 +282,51 @@
   color: #fff;
 }
 
+.rsb-card.is-back {
+  background: linear-gradient(160deg, #2b6cff, #1a3a8f);
+  color: #fff;
+  cursor: default;
+}
+
+.rsb-duel-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 0.55rem;
+  width: 92%;
+  z-index: 1;
+}
+
+.rsb-duel-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  opacity: 0.55;
+  transform: scale(0.92);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.rsb-duel-slot.is-dueling {
+  opacity: 1;
+  transform: scale(1.06);
+}
+
+.rsb-duel-slot.is-button .rsb-duel-name::after {
+  content: ' ★';
+}
+
+.rsb-duel-name {
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  max-width: 5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .rsb-card-glyph {
   font-size: 1.7rem;
   line-height: 1;
