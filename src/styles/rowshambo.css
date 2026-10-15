@@ -686,6 +686,11 @@
   animation: rsb-pulse 0.55s ease-in-out infinite alternate;
 }
 
+.rsb-countdown-dwell {
+  background: var(--rsb-cream, #fff8e7);
+  animation: none;
+}
+
 .rsb-countdown strong {
   font-size: 1.35rem;
   margin-left: 0.15rem;

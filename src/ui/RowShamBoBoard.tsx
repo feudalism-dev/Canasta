@@ -20,7 +20,9 @@ const PRE_DUEL_MS = 2000
 const REVEAL_PAUSE_MS = 1000
 const BURST_HOLD_MS = 2000
 const DUEL_HOLD_MS = REVEAL_PAUSE_MS + BURST_HOLD_MS + 600
-/** Auto-advance after a round ends. */
+/** Let POW/OOF/TIE + scores soak in before the next-round countdown. */
+const POST_HAND_DWELL_MS = 4500
+/** 3…2…1 after the dwell, then advance. */
 const ROUND_COUNTDOWN_SEC = 3
 
 export type RowShamBoBoardController = {
@@ -293,7 +295,7 @@ export function RowShamBoBoard({
     playRef.current({ t: 'timeout' })
   }, [now, state?.actionDeadline, state?.phase])
 
-  // Auto next round: arm a 3s end time once per handEnd (no setInterval storms)
+  // Auto next round: dwell on results, then 3…2…1 (once per handEnd)
   useEffect(() => {
     if (!state || state.phase !== 'handEnd') {
       setRoundEndAt(null)
@@ -304,7 +306,7 @@ export function RowShamBoBoard({
     if (handEndAckedKeyRef.current === key) return
     if (handEndArmedKeyRef.current === key) return
     handEndArmedKeyRef.current = key
-    setRoundEndAt(Date.now() + ROUND_COUNTDOWN_SEC * 1000)
+    setRoundEndAt(Date.now() + POST_HAND_DWELL_MS + ROUND_COUNTDOWN_SEC * 1000)
   }, [state?.phase, state?.gameNumber, state?.handNumber])
 
   useEffect(() => {
@@ -317,10 +319,14 @@ export function RowShamBoBoard({
     playRef.current({ t: 'ackHandEnd' })
   }, [now, roundEndAt, state?.phase, state?.gameNumber, state?.handNumber])
 
+  const roundMsLeft =
+    roundEndAt != null && state?.phase === 'handEnd' ? Math.max(0, roundEndAt - now) : null
+  // Countdown digits only in the final 3s; dwell shows results without ticking.
   const roundCountdown =
-    roundEndAt != null && state?.phase === 'handEnd'
-      ? Math.max(1, Math.ceil((roundEndAt - now) / 1000))
+    roundMsLeft != null && roundMsLeft <= ROUND_COUNTDOWN_SEC * 1000
+      ? Math.max(1, Math.ceil(roundMsLeft / 1000))
       : null
+  const roundDwelling = roundMsLeft != null && roundCountdown == null
 
   const secsLeft = useMemo(() => {
     if (!state?.actionDeadline) return null
@@ -364,7 +370,11 @@ export function RowShamBoBoard({
               : state.phase === 'handEnd'
                 ? roundCountdown != null
                   ? `Round over — next round in ${roundCountdown}`
-                  : 'Round over…'
+                  : roundDwelling
+                    ? state.lastMessage
+                      ? `Round over — ${state.lastMessage}`
+                      : 'Round over — check the scores'
+                    : 'Round over…'
                 : state.lastMessage || rowShamBoTip(state.config.variant)
 
   return (
@@ -550,6 +560,11 @@ export function RowShamBoBoard({
       </div>
 
       <div className="rsb-actions">
+        {handOver && roundDwelling ? (
+          <div className="rsb-countdown rsb-countdown-dwell" aria-live="polite">
+            Round complete
+          </div>
+        ) : null}
         {handOver && roundCountdown != null ? (
           <div className="rsb-countdown" aria-live="polite">
             Next round in <strong key={roundCountdown}>{roundCountdown}</strong>
