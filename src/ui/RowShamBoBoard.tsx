@@ -20,8 +20,6 @@ const DIR_SPIN_MS = 2800
 const PRE_DUEL_MS = 2200
 /** After a result, soak before we even flip the next challenger. */
 const BETWEEN_DUELS_MS = 1600
-/** Challenger stays face-down this long into the duel, then flips. */
-const CHALLENGER_FLIP_MS = 900
 /** Hold face-up cards before POW/OOF/TIE. */
 const REVEAL_PAUSE_MS = 1100
 /** How long the center stamp stays up. */
@@ -39,6 +37,8 @@ export type RowShamBoBoardController = {
   submit: (move: RowShamBoMove) => { ok: true } | { ok: false; error: string }
   newMatch?: () => void
   onChange?: (cb: () => void) => () => void
+  /** Host/solo only — guests must not ackResolve or duels double-advance. */
+  pacesResolve?: boolean
 }
 
 type Props = {
@@ -181,8 +181,6 @@ export function RowShamBoBoard({
   const [fallback, setFallback] = useState<RowShamBoState | null>(null)
   const [err, setErr] = useState('')
   const [burst, setBurst] = useState<{ text: string; cls: string; img: string } | null>(null)
-  /** Challenger card stays down until this flips true — separates back-to-back bot fights. */
-  const [challengerFlipped, setChallengerFlipped] = useState(false)
   const [now, setNow] = useState(Date.now())
   const [roundEndAt, setRoundEndAt] = useState<number | null>(null)
   const fallbackRef = useRef(fallback)
@@ -192,9 +190,11 @@ export function RowShamBoBoard({
   const timedOutDeadlineRef = useRef<number | null>(null)
   /** Only deadlines we observed while still in the future may auto-timeout. */
   const armedDeadlineRef = useRef<number | null>(null)
-  /** Which resolve stepIndex we are already pacing (do not restart timers). */
-  const pacingStepRef = useRef<number | null>(null)
+  /** Active resolve pacing key — survives Strict Mode remounts for the same stage. */
+  const pacingKeyRef = useRef<string>('')
   const pacingTimersRef = useRef<number[]>([])
+  const pacingRunRef = useRef(0)
+  const ackedResolveKeysRef = useRef<Set<string>>(new Set())
   /** `${gameNumber}:${handNumber}` — once per handEnd, never across games. */
   const handEndAckedKeyRef = useRef<string | null>(null)
   const handEndArmedKeyRef = useRef<string | null>(null)
@@ -204,10 +204,12 @@ export function RowShamBoBoard({
     pacingTimersRef.current = []
   }
 
+  // Subscribe once per session object — do not re-bind when App rebuilds the controller wrapper.
+  const onChange = controller?.onChange
   useEffect(() => {
-    if (!controller?.onChange) return
-    return controller.onChange(() => setTick((t) => t + 1))
-  }, [controller])
+    if (!onChange) return
+    return onChange(() => setTick((t) => t + 1))
+  }, [onChange])
 
   useEffect(() => {
     if (controller) {
@@ -217,7 +219,9 @@ export function RowShamBoBoard({
     const names = [yourName || 'You', 'Computer 1', 'Computer 2', 'Computer 3'].slice(0, playerCount)
     const computers = names.map((_, i) => i > 0)
     setFallback(createRowShamBoMatch(names, computers, variant, playTo))
-  }, [controller, yourName, variant, playerCount, playTo])
+    // Only re-deal when solo fallback mode / roster changes — not every controller wrapper rebuild.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controller == null, yourName, variant, playerCount, playTo])
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 250)
@@ -264,63 +268,109 @@ export function RowShamBoBoard({
     return () => window.clearTimeout(t)
   }, [state?.phase, state?.handNumber])
 
-  // Auto-advance resolve — one duel at a time (lead-in → flip challenger → stamp → ack).
+  // Auto-advance resolve one stage at a time (preamble → flip → POW/OOF/TIE → next).
+  // Strict Mode safe: cleanup does not kill an in-flight run for the same pace key.
   useEffect(() => {
     if (!state || state.phase !== 'resolve') {
+      pacingRunRef.current += 1
       clearPacingTimers()
-      pacingStepRef.current = null
+      pacingKeyRef.current = ''
+      ackedResolveKeysRef.current.clear()
       setBurst(null)
-      setChallengerFlipped(false)
       return
     }
-    const stepIndex = state.resolveStepIndex
-    clearPacingTimers()
-    pacingStepRef.current = stepIndex
 
-    // Preamble: all cards still face-down
-    if (stepIndex < 0) {
-      setBurst(null)
-      setChallengerFlipped(false)
-      const t = window.setTimeout(() => playRef.current({ t: 'ackResolve' }), PRE_DUEL_MS)
-      pacingTimersRef.current.push(t)
-      return () => clearPacingTimers()
+    const stepIndex = state.resolveStepIndex
+    const sub = state.resolveSubphase ?? 'idle'
+    const paceKey = `${state.gameNumber}:${state.handNumber}:${stepIndex}:${sub}`
+    const shouldAck = controller?.pacesResolve !== false
+
+    // Already running this exact stage — keep timers (re-render / Strict Mode).
+    if (pacingKeyRef.current === paceKey) return
+
+    pacingRunRef.current += 1
+    const runId = pacingRunRef.current
+    pacingKeyRef.current = paceKey
+    clearPacingTimers()
+    if (sub !== 'result') setBurst(null)
+
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        const id = window.setTimeout(resolve, ms)
+        pacingTimersRef.current.push(id)
+      })
+
+    const stillThisRun = () =>
+      runId === pacingRunRef.current && pacingKeyRef.current === paceKey
+
+    const ackOnce = () => {
+      if (!shouldAck) return
+      if (ackedResolveKeysRef.current.has(paceKey)) return
+      ackedResolveKeysRef.current.add(paceKey)
+      playRef.current({ t: 'ackResolve' })
     }
 
-    const step = state.resolveSteps[stepIndex]
-    if (!step) return () => clearPacingTimers()
+    ;(async () => {
+      // Preamble: all cards face-down
+      if (stepIndex < 0 || sub === 'idle') {
+        await sleep(PRE_DUEL_MS)
+        if (!stillThisRun()) return
+        ackOnce()
+        return
+      }
 
-    // Contested holds → OOF (challenger out). Challenger smashes group → POW. Tie → TIE.
-    const cls =
-      step.outcome === 'tie' ? 'is-tie' : step.outcome === 'contestedWin' ? 'is-oof' : ''
-    const text =
-      step.outcome === 'tie' ? 'TIE!' : step.outcome === 'contestedWin' ? 'OOF!' : 'POW!'
-    const img =
-      step.outcome === 'tie'
-        ? 'burst-tie.png'
-        : step.outcome === 'contestedWin'
-          ? 'burst-oof.png'
-          : 'burst-pow.png'
+      const step = state.resolveSteps[stepIndex]
+      if (!step) return
 
-    // Duel 2+: pause before the next challenger flips so back-to-back bots don't merge.
-    const leadIn = stepIndex === 0 ? 0 : BETWEEN_DUELS_MS
-    setBurst(null)
-    setChallengerFlipped(false)
+      if (sub === 'challengerDown') {
+        // Soak, then flip challenger via ack (core applies result + scores).
+        await sleep(stepIndex === 0 ? 400 : BETWEEN_DUELS_MS)
+        if (!stillThisRun()) return
+        await sleep(REVEAL_PAUSE_MS)
+        if (!stillThisRun()) return
+        ackOnce()
+        return
+      }
 
-    const flipT = window.setTimeout(() => setChallengerFlipped(true), leadIn + CHALLENGER_FLIP_MS)
-    const burstT = window.setTimeout(
-      () => setBurst({ text, cls, img }),
-      leadIn + CHALLENGER_FLIP_MS + REVEAL_PAUSE_MS,
-    )
-    const ackT = window.setTimeout(
-      () => {
-        setBurst(null)
-        playRef.current({ t: 'ackResolve' })
-      },
-      leadIn + CHALLENGER_FLIP_MS + REVEAL_PAUSE_MS + BURST_HOLD_MS + POST_BURST_MS,
-    )
-    pacingTimersRef.current.push(flipT, burstT, ackT)
-    return () => clearPacingTimers()
-  }, [state?.phase, state?.resolveStepIndex])
+      // result — hold POW/OOF/TIE before advancing
+      const cls =
+        step.outcome === 'tie' ? 'is-tie' : step.outcome === 'contestedWin' ? 'is-oof' : ''
+      const text =
+        step.outcome === 'tie' ? 'TIE!' : step.outcome === 'contestedWin' ? 'OOF!' : 'POW!'
+      const img =
+        step.outcome === 'tie'
+          ? 'burst-tie.png'
+          : step.outcome === 'contestedWin'
+            ? 'burst-oof.png'
+            : 'burst-pow.png'
+      setBurst({ text, cls, img })
+      await sleep(BURST_HOLD_MS)
+      if (!stillThisRun()) return
+      await sleep(POST_BURST_MS)
+      if (!stillThisRun()) return
+      setBurst(null)
+      ackOnce()
+    })()
+
+    return () => {
+      // Defer abort so Strict Mode remount of the same key keeps the run alive.
+      const keyAtCleanup = paceKey
+      queueMicrotask(() => {
+        if (pacingKeyRef.current !== keyAtCleanup) {
+          // Stage actually changed — drop orphaned timers from the old run.
+          return
+        }
+        // Same key remounted: do not bump pacingRunRef or clear timers.
+      })
+    }
+  }, [
+    state?.phase,
+    state?.resolveStepIndex,
+    state?.resolveSubphase,
+    state?.gameNumber,
+    state?.handNumber,
+    controller?.pacesResolve,
+  ])
 
   // Human timeout — full ACTION_TIMEOUT_MS window; never fire on a deadline we never armed
   useEffect(() => {
@@ -494,13 +544,9 @@ export function RowShamBoBoard({
                 const inContested = Boolean(step?.contested.includes(pi))
                 const isChallenger = Boolean(step && step.next === pi)
                 const inDuel = inContested || isChallenger
-                // One fight at a time: only current contested + (flipped) challenger face-up.
-                const faceUp =
-                  Boolean(step) &&
-                  Boolean(state.revealed[pi]) &&
-                  (inContested || (isChallenger && challengerFlipped))
-                // Badges only after the challenger is up (and for contested once fighting).
-                const showBadges = Boolean(burst) && inDuel && (inContested || challengerFlipped)
+                // Core stages: challengerDown = champs up / challenger down; result = all up.
+                const faceUp = Boolean(step) && Boolean(state.revealed[pi])
+                const showBadges = Boolean(burst) && inDuel && state.resolveSubphase === 'result'
                 const result =
                   showBadges && step
                     ? duelResultForSeat(step, pi)

@@ -16,8 +16,8 @@ Brand name **Row! Sham! Bo!** (directional Rock–Paper–Scissors with Dynamite
 | Id | Status | Notes |
 |----|--------|--------|
 | `classic` | ready | 52 cards; pass+play; CW/CCW random each hand; match to 100–500 |
-| `triples` | stub | Three face-down slots (coming soon) |
 | `elements` | ready | 64-card deck + Water/Earth/Fire; in-game beat key |
+| `triples` | hidden | Three face-down slots (not in picker yet) |
 
 BOARD wire prefix: `W1~`. Scoreboard letter: `w`.
 

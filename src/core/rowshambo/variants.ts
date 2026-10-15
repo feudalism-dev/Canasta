@@ -44,11 +44,6 @@ export function rowShamBoVariantOptions(): {
       ready: true,
     },
     {
-      value: 'triples',
-      label: 'Triples — three face-down slots (coming soon)',
-      ready: false,
-    },
-    {
       value: 'elements',
       label: 'Elements — Water / Earth / Fire',
       ready: true,

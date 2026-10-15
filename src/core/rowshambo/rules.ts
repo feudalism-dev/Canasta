@@ -111,7 +111,8 @@ function beginReveal(state: RowShamBoState): void {
     state.players.map((p) => p.seat),
   )
   state.resolveSteps = steps
-  state.resolveStepIndex = steps.length ? 0 : -1
+  state.resolveStepIndex = -1
+  state.resolveSubphase = 'idle'
 
   if (!steps.length) {
     sweepTableToDiscard(state)
@@ -119,9 +120,9 @@ function beginReveal(state: RowShamBoState): void {
     return
   }
 
-  // Start on a beat with all cards face-down; first ackResolve flips duel 1.
+  // Preamble: all cards face-down; first ack opens duel 1 (champions only).
   state.phase = 'resolve'
-  state.resolveStepIndex = -1
+  state.resolveAckAt = null
   state.lastMessage = 'Cards are down — get ready…'
   state.log.push(state.lastMessage)
 }
@@ -132,12 +133,34 @@ function revealSeats(state: RowShamBoState, seats: number[]): void {
   }
 }
 
-function applyCurrentDuel(state: RowShamBoState): void {
+/** Open a duel: champions face-up, challenger still down (ties already include next). */
+function beginDuel(state: RowShamBoState, index: number): void {
+  const step = state.resolveSteps[index]
+  if (!step) return
+  state.resolveStepIndex = index
+  state.resolveSubphase = 'challengerDown'
+  if (step.outcome === 'tie') {
+    // Tie group includes the challenger — flip them together.
+    revealSeats(state, step.contested)
+  } else {
+    // Champions only; challenger stays face-down until the result ack.
+    revealSeats(
+      state,
+      step.contested.filter((s) => s !== step.next),
+    )
+  }
+  const n = index + 1
+  const total = state.resolveSteps.length
+  state.lastMessage = `Duel ${n} of ${total} — challenger ready…`
+}
+
+function applyDuelResult(state: RowShamBoState): void {
   const step = state.resolveSteps[state.resolveStepIndex]
   if (!step) return
 
-  // Flip only the cards in this duel (contested group + challenger).
+  // Flip challenger (no-op if already up from a tie) and score.
   revealSeats(state, [...step.contested, step.next])
+  state.resolveSubphase = 'result'
 
   for (const d of step.deltas) {
     const pl = state.players[d.seat]
@@ -169,21 +192,42 @@ function sweepTableToDiscard(state: RowShamBoState): void {
   state.revealed = state.players.map(() => false)
 }
 
+/**
+ * Resolve advances one visual stage per ack:
+ * preamble → challengerDown → result → (next duel | handEnd).
+ * A single stray ack can no longer jump past POW/OOF/TIE.
+ */
 function advanceResolve(state: RowShamBoState): void {
+  if (state.resolveStepIndex < 0 || state.resolveSubphase === 'idle') {
+    if (!state.resolveSteps.length) {
+      sweepTableToDiscard(state)
+      finishHand(state)
+      return
+    }
+    beginDuel(state, 0)
+    return
+  }
+
+  if (state.resolveSubphase === 'challengerDown') {
+    applyDuelResult(state)
+    return
+  }
+
+  // result → next duel or hand over
   const i = state.resolveStepIndex + 1
   if (i >= state.resolveSteps.length) {
     sweepTableToDiscard(state)
     finishHand(state)
     return
   }
-  state.resolveStepIndex = i
-  applyCurrentDuel(state)
+  beginDuel(state, i)
 }
 
 function finishHand(state: RowShamBoState): void {
   state.phase = 'handEnd'
   state.actionDeadline = null
   state.resolveStepIndex = -1
+  state.resolveSubphase = 'idle'
   state.resolveSteps = []
   state.lastHandScores = state.players.map((p) => ({
     playerId: p.id,
@@ -347,7 +391,14 @@ export function applyRowShamBoMove(state: RowShamBoState, move: RowShamBoMove): 
 
   if (move.t === 'ackReveal' || move.t === 'ackResolve') {
     if (next.phase !== 'resolve') return { ok: false, error: 'Not resolving' }
+    // Ignore duplicate/rapid acks so a double-fire cannot skip a stage.
+    const now = Date.now()
+    const minGapMs = 900
+    if (next.resolveAckAt != null && now - next.resolveAckAt < minGapMs) {
+      return { ok: true, state: next }
+    }
     advanceResolve(next)
+    next.resolveAckAt = now
     return { ok: true, state: next }
   }
 

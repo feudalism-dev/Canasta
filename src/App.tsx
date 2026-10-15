@@ -1857,9 +1857,12 @@ function AppInner() {
             ? {
                 state: ctrl.state,
                 localIndex: ctrl.localIndex,
-                submit: (m) => ctrl.submit(m),
+                // Pass session methods directly so Board effects are not torn down every App tick.
+                submit: ctrl.submit,
                 newMatch: rowshamboLocal ? () => rowshamboLocal.newMatch() : undefined,
-                onChange: (cb) => ctrl.onChange(cb),
+                onChange: ctrl.onChange,
+                // Only host/solo advances resolve — guests would double-ack and skip bursts.
+                pacesResolve: rowshamboLocal ? true : Boolean(rowshamboPeer?.isHost),
               }
             : null
         }

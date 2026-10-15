@@ -102,6 +102,7 @@ describe('rowshambo rules', () => {
     if (!res.ok) return
     state = res.state
     while (state.phase === 'resolve') {
+      state = { ...state, resolveAckAt: null }
       res = applyRowShamBoMove(state, { t: 'ackResolve' })
       expect(res.ok).toBe(true)
       if (!res.ok) return
@@ -122,6 +123,80 @@ describe('rowshambo rules', () => {
     state = res.state
     expect(state.phase).toBe('play')
     expect(state.passedThisGame).toBe(true)
+  })
+
+  it('ignores a second ackResolve that arrives too quickly', () => {
+    let state = createRowShamBoMatch(['A', 'B', 'C'], [false, true, true], 'classic', 100, 21)
+    let res = applyRowShamBoMove(state, { t: 'ackDir' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    res = applyRowShamBoMove(state, { t: 'pass', cardId: state.players[0]!.hand[0]!.id })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    res = applyRowShamBoMove(state, { t: 'play', cardId: state.players[0]!.hand[0]!.id })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    expect(state.phase).toBe('resolve')
+    expect(state.resolveStepIndex).toBe(-1)
+    res = applyRowShamBoMove(state, { t: 'ackResolve' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    expect(state.resolveStepIndex).toBe(0)
+    expect(state.resolveSubphase).toBe('challengerDown')
+    res = applyRowShamBoMove(state, { t: 'ackResolve' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    // Rapid second ack must not skip into result / next duel.
+    expect(res.state.resolveStepIndex).toBe(0)
+    expect(res.state.resolveSubphase).toBe('challengerDown')
+    expect(res.state.phase).toBe('resolve')
+  })
+
+  it('resolve advances in stages so result cannot be skipped by one ack', () => {
+    let state = createRowShamBoMatch(['A', 'B', 'C'], [false, true, true], 'classic', 100, 21)
+    let res = applyRowShamBoMove(state, { t: 'ackDir' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    res = applyRowShamBoMove(state, { t: 'pass', cardId: state.players[0]!.hand[0]!.id })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    res = applyRowShamBoMove(state, { t: 'play', cardId: state.players[0]!.hand[0]!.id })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+
+    res = applyRowShamBoMove(state, { t: 'ackResolve' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    expect(state.resolveSubphase).toBe('challengerDown')
+    const step = state.resolveSteps[0]!
+    expect(state.revealed[step.next]).toBe(step.outcome === 'tie')
+
+    // Bypass min-gap for the staged advance check.
+    state = { ...state, resolveAckAt: Date.now() - 10_000 }
+    res = applyRowShamBoMove(state, { t: 'ackResolve' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    expect(state.resolveSubphase).toBe('result')
+    expect(state.revealed[step.next]).toBe(true)
+    expect(state.resolveStepIndex).toBe(0)
+
+    state = { ...state, resolveAckAt: Date.now() - 10_000 }
+    res = applyRowShamBoMove(state, { t: 'ackResolve' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    // Third ack leaves the result — either next duel or hand end.
+    expect(state.resolveStepIndex === 1 || state.phase === 'handEnd').toBe(true)
+    if (state.phase === 'resolve') expect(state.resolveSubphase).toBe('challengerDown')
   })
 
   it('ignores premature timeout while the action deadline is still in the future', () => {
@@ -180,8 +255,14 @@ describe('rowshambo rules', () => {
     if (!res.ok) return
     state = res.state
     expect(state.resolveStepIndex).toBe(0)
-    const revealedCount = state.revealed.filter(Boolean).length
-    // First duel flips contested + challenger (2), not everyone yet when 3+ players.
-    expect(revealedCount).toBe(2)
+    expect(state.resolveSubphase).toBe('challengerDown')
+    const step = state.resolveSteps[0]!
+    // Champions up; challenger still down (unless the opening step is a tie).
+    if (step.outcome === 'tie') {
+      expect(state.revealed.filter(Boolean).length).toBeGreaterThanOrEqual(2)
+    } else {
+      expect(state.revealed[step.next]).toBe(false)
+      expect(state.revealed.filter(Boolean).length).toBe(1)
+    }
   })
 })

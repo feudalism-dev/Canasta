@@ -59,6 +59,8 @@ export function createRowShamBoMatch(
     actionDeadline: null,
     resolveSteps: [],
     resolveStepIndex: -1,
+    resolveSubphase: 'idle',
+    resolveAckAt: null,
     lastHandScores: null,
     winnerId: null,
     matchTied: false,
@@ -75,6 +77,8 @@ export function dealNewGame(state: RowShamBoState, seed: number): RowShamBoState
   next.handNumber = 0
   next.resolveSteps = []
   next.resolveStepIndex = -1
+  next.resolveSubphase = 'idle'
+  next.resolveAckAt = null
   next.lastHandScores = null
   next.winnerId = null
   next.matchTied = false
@@ -116,6 +120,8 @@ export function startGame(state: RowShamBoState, seed: number): RowShamBoState {
   next.handNumber = 0
   next.resolveSteps = []
   next.resolveStepIndex = -1
+  next.resolveSubphase = 'idle'
+  next.resolveAckAt = null
   next.lastHandScores = null
   next.actionDeadline = null
   next.tablePlays = next.players.map(() => null)
@@ -143,6 +149,8 @@ export function startRound(state: RowShamBoState, seed = Date.now()): RowShamBoS
   next.phase = 'chooseDir'
   next.resolveSteps = []
   next.resolveStepIndex = -1
+  next.resolveSubphase = 'idle'
+  next.resolveAckAt = null
   next.lastHandScores = null
   next.actionDeadline = null
   next.tablePlays = next.players.map(() => null)

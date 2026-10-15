@@ -91,8 +91,15 @@ export type RowShamBoState = {
   /** Deadline (ms epoch) for current human pass/play action; null if N/A. */
   actionDeadline: number | null
   resolveSteps: RowShamBoResolveStep[]
-  /** Index into resolveSteps while animating; -1 when idle. */
+  /** Index into resolveSteps while animating; -1 when idle (preamble). */
   resolveStepIndex: number
+  /**
+   * Within the current duel: champions face-up waiting to flip the challenger,
+   * or result stamped (POW/OOF/TIE) before advancing.
+   */
+  resolveSubphase: 'idle' | 'challengerDown' | 'result'
+  /** Wall-clock gate so rapid duplicate ackResolve cannot skip a stage. */
+  resolveAckAt: number | null
   lastHandScores: RowShamBoHandScoreLine[] | null
   winnerId: string | null
   /** Match tied (multiple at playTo with same score). */
