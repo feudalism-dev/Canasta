@@ -197,7 +197,7 @@ function finishHand(state: RowShamBoState): void {
     endGame(state)
     return
   }
-  state.lastMessage = 'Round over — tap Next round.'
+  state.lastMessage = 'Round over…'
 }
 
 function endGame(state: RowShamBoState): void {

@@ -20,6 +20,8 @@ const PRE_DUEL_MS = 2000
 const REVEAL_PAUSE_MS = 1000
 const BURST_HOLD_MS = 2000
 const DUEL_HOLD_MS = REVEAL_PAUSE_MS + BURST_HOLD_MS + 600
+/** Auto-advance after a round ends. */
+const ROUND_COUNTDOWN_SEC = 3
 
 export type RowShamBoBoardController = {
   state: RowShamBoState
@@ -167,6 +169,7 @@ export function RowShamBoBoard({
   const [err, setErr] = useState('')
   const [burst, setBurst] = useState<{ text: string; cls: string; img: string } | null>(null)
   const [now, setNow] = useState(Date.now())
+  const [roundCountdown, setRoundCountdown] = useState<number | null>(null)
   const fallbackRef = useRef(fallback)
   fallbackRef.current = fallback
   const spinOnce = useRef(false)
@@ -273,6 +276,28 @@ export function RowShamBoBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now, state?.actionDeadline, state?.phase])
 
+  // Auto next round: 3…2…1 then advance (no manual click)
+  useEffect(() => {
+    if (!state || state.phase !== 'handEnd') {
+      setRoundCountdown(null)
+      return
+    }
+    let left = ROUND_COUNTDOWN_SEC
+    setRoundCountdown(left)
+    const id = window.setInterval(() => {
+      left -= 1
+      if (left <= 0) {
+        window.clearInterval(id)
+        setRoundCountdown(null)
+        play({ t: 'ackHandEnd' })
+        return
+      }
+      setRoundCountdown(left)
+    }, 1000)
+    return () => window.clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.phase, state?.handNumber])
+
   const secsLeft = useMemo(() => {
     if (!state?.actionDeadline) return null
     return Math.max(0, Math.ceil((state.actionDeadline - now) / 1000))
@@ -312,7 +337,9 @@ export function RowShamBoBoard({
                 ? 'Cards are down — get ready…'
                 : `Duel ${state.resolveStepIndex + 1} of ${state.resolveSteps.length}`
               : state.phase === 'handEnd'
-                ? 'Round over — tap Next round'
+                ? roundCountdown != null
+                  ? `Round over — next round in ${roundCountdown}`
+                  : 'Round over…'
                 : state.lastMessage || rowShamBoTip(state.config.variant)
 
   return (
@@ -498,10 +525,10 @@ export function RowShamBoBoard({
       </div>
 
       <div className="rsb-actions">
-        {handOver ? (
-          <button type="button" className="rsb-btn primary" onClick={() => play({ t: 'ackHandEnd' })}>
-            Next round
-          </button>
+        {handOver && roundCountdown != null ? (
+          <div className="rsb-countdown" aria-live="polite">
+            Next round in <strong>{roundCountdown}</strong>
+          </div>
         ) : null}
         {gameOver ? (
           <button type="button" className="rsb-btn primary" onClick={() => play({ t: 'ackGameEnd' })}>

@@ -674,6 +674,23 @@
   margin-top: 0.35rem;
 }
 
+.rsb-countdown {
+  border: 3px solid var(--rsb-ink);
+  border-radius: 0.55rem;
+  padding: 0.45rem 0.9rem;
+  background: var(--rsb-yellow);
+  font-weight: 900;
+  font-size: 1rem;
+  text-transform: uppercase;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.18);
+  animation: rsb-pulse 0.55s ease-in-out infinite alternate;
+}
+
+.rsb-countdown strong {
+  font-size: 1.35rem;
+  margin-left: 0.15rem;
+}
+
 .rsb-btn {
   border: 3px solid var(--rsb-ink);
   border-radius: 0.45rem;
