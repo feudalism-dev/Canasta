@@ -3,13 +3,15 @@ import { applyRowShamBoMove } from './rules'
 import { createRowShamBoMatch } from './state'
 
 describe('rowshambo rules', () => {
-  it('deals 5 and runs pass→play after ackDir', () => {
+  it('deals 5, direction once, pass once, then play', () => {
     let state = createRowShamBoMatch(['You', 'Bot'], [false, true], 'classic', 100, 42)
     expect(state.players[0]!.hand).toHaveLength(5)
     expect(state.players[1]!.hand).toHaveLength(5)
     expect(state.stock.length).toBe(52 - 10)
     expect(state.direction).toBeTruthy()
     expect(state.phase).toBe('chooseDir')
+    expect(state.passedThisGame).toBe(false)
+    const dir = state.direction
 
     const ack = applyRowShamBoMove(state, { t: 'ackDir' })
     expect(ack.ok).toBe(true)
@@ -22,7 +24,41 @@ describe('rowshambo rules', () => {
     expect(pass.ok).toBe(true)
     if (!pass.ok) return
     expect(pass.state.phase).toBe('play')
+    expect(pass.state.passedThisGame).toBe(true)
+    expect(pass.state.direction).toBe(dir)
     expect(pass.state.players.every((p) => p.hand.length === 5)).toBe(true)
+  })
+
+  it('keeps direction and skips pass on the next round', () => {
+    let state = createRowShamBoMatch(['You', 'Bot'], [false, true], 'classic', 100, 7)
+    const dir = state.direction
+    let res = applyRowShamBoMove(state, { t: 'ackDir' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    res = applyRowShamBoMove(state, { t: 'pass', cardId: state.players[0]!.hand[0]!.id })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    res = applyRowShamBoMove(state, { t: 'play', cardId: state.players[0]!.hand[0]!.id })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    while (state.phase === 'resolve') {
+      res = applyRowShamBoMove(state, { t: 'ackResolve' })
+      expect(res.ok).toBe(true)
+      if (!res.ok) return
+      state = res.state
+    }
+    expect(state.phase).toBe('handEnd')
+    res = applyRowShamBoMove(state, { t: 'ackHandEnd' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    expect(state.phase).toBe('play')
+    expect(state.passedThisGame).toBe(true)
+    expect(state.direction).toBe(dir)
+    expect(state.handNumber).toBe(2)
   })
 
   it('starts resolve face-down, then flips only the current duel', () => {

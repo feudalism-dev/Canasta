@@ -52,6 +52,7 @@ export function createRowShamBoMatch(
     discard: [],
     tablePlays: players.map(() => null),
     revealed: players.map(() => false),
+    passedThisGame: false,
     handNumber: 0,
     gameNumber: 1,
     actionDeadline: null,
@@ -77,6 +78,7 @@ export function dealNewGame(state: RowShamBoState, seed: number): RowShamBoState
   next.winnerId = null
   next.matchTied = false
   next.actionDeadline = null
+  next.passedThisGame = false
   next.tablePlays = next.players.map(() => null)
   next.revealed = next.players.map(() => false)
   for (const pl of next.players) {
@@ -96,18 +98,20 @@ export function dealNewGame(state: RowShamBoState, seed: number): RowShamBoState
     }
   }
   for (const pl of next.players) pl.hand = sortHand(pl.hand)
-  return startHand(next, seed + 17)
+  return startGame(next, seed + 17)
 }
 
 export function pickDirection(seed: number): RowShamBoDirection {
   return seed % 2 === 0 ? 'cw' : 'ccw'
 }
 
-export function startHand(state: RowShamBoState, seed: number): RowShamBoState {
+/** Once per game: pick CW/CCW, then pass once, then play rounds. */
+export function startGame(state: RowShamBoState, seed: number): RowShamBoState {
   const next = cloneRowShamBo(state)
-  next.handNumber += 1
   next.direction = pickDirection(seed)
   next.phase = 'chooseDir'
+  next.passedThisGame = false
+  next.handNumber = 0
   next.resolveSteps = []
   next.resolveStepIndex = -1
   next.lastHandScores = null
@@ -121,10 +125,32 @@ export function startHand(state: RowShamBoState, seed: number): RowShamBoState {
   const label = rowShamBoVariantLabel(next.config.variant)
   const dir = directionLabel(next.direction)
   const lead = next.players[next.button]!
-  next.log.push(
-    `Hand ${next.handNumber} — ${label}. Direction: ${dir}. Button: ${lead.name}.`,
-  )
-  next.lastMessage = `Randomizer… ${dir}! ${lead.name} has the button.`
+  next.log.push(`Game ${next.gameNumber} — ${label}. Direction for this game: ${dir}. Button: ${lead.name}.`)
+  next.lastMessage = `Randomizer… ${dir}! Pass once, then play. ${lead.name} has the button.`
+  return next
+}
+
+/** Later rounds in the same game: keep direction, no pass — just draw & play. */
+export function startRound(state: RowShamBoState): RowShamBoState {
+  const next = cloneRowShamBo(state)
+  next.handNumber += 1
+  next.phase = 'play'
+  next.resolveSteps = []
+  next.resolveStepIndex = -1
+  next.lastHandScores = null
+  next.actionDeadline = null
+  next.tablePlays = next.players.map(() => null)
+  next.revealed = next.players.map(() => false)
+  for (const pl of next.players) {
+    pl.passCardId = null
+    pl.playCardId = null
+  }
+  drawUpToFive(next)
+  next.actionDeadline = Date.now() + ACTION_TIMEOUT_MS
+  const dir = next.direction ? directionLabel(next.direction) : '?'
+  const lead = next.players[next.button]!
+  next.log.push(`Round ${next.handNumber} — still ${dir}. Button: ${lead.name}.`)
+  next.lastMessage = `Round ${next.handNumber} — select a card to play face-down.`
   return next
 }
 

@@ -36,11 +36,11 @@ At the start of a turn, players draw back up to 5 cards.
 
 Deck Depletion Rule: Once the draw deck is empty, players do not draw and must continue playing with their remaining hand cards until all cards are played.
 
-Passing Phase
+Passing Phase (once per game)
 
-The central UI indicator displays the current passing direction (Clockwise or Counter-Clockwise and only in a 4 person game Across which is you pass to the player opposite you).
+At the start of each game, the randomizer picks Clockwise or Counter-Clockwise for the whole game (pass and resolution). Players pass once in that direction, then play rounds without further passing until the next game.
 
-A prompt appears: "Select a card to pass".
+A prompt appears: "Pass 1 card (once this game)".
 
 Players select 1 card from their hand to pass to the player in the indicated direction.
 
@@ -92,7 +92,7 @@ Central Indicator Box:
 
 Features a prominent circular arrow indicating flow direction (Clockwise vs. Counter-Clockwise) for passing and play order.
 
-Prominently displays action prompts ("Select a card to pass", "Select a card to play").
+Prominently displays action prompts ("Pass 1 card (once this game)", "Select a card to play").
 
 Highlights the current active/lead player.
 

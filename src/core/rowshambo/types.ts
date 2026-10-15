@@ -35,7 +35,7 @@ export type RowShamBoPlayer = {
   seat: number
   isComputer: boolean
   hand: RowShamBoCard[]
-  /** Card chosen to pass this hand (pending exchange). */
+  /** Card chosen for the once-per-game pass (pending exchange). */
   passCardId: string | null
   /** Card played face-down this hand. */
   playCardId: string | null
@@ -82,6 +82,8 @@ export type RowShamBoState = {
   tablePlays: (RowShamBoCard | null)[]
   /** Which table plays are face-up (flipped only when their duel runs). */
   revealed: boolean[]
+  /** True after the once-per-game pass has completed. */
+  passedThisGame: boolean
   handNumber: number
   gameNumber: number
   /** Deadline (ms epoch) for current human pass/play action; null if N/A. */

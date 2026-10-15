@@ -6,7 +6,7 @@ import {
   dealNewGame,
   drawUpToFive,
   passTargetSeat,
-  startHand,
+  startRound,
 } from './state'
 import { directionLabel } from './variants'
 import type { RowShamBoMove, RowShamBoState } from './types'
@@ -54,13 +54,15 @@ function exchangePasses(state: RowShamBoState): void {
     state.players[to]!.hand = sortHand([...state.players[to]!.hand, card])
   }
   for (const pl of state.players) pl.passCardId = null
+  state.passedThisGame = true
+  if (state.handNumber < 1) state.handNumber = 1
 }
 
 function beginPassPhase(state: RowShamBoState): void {
   drawUpToFive(state)
   state.phase = 'pass'
   state.actionDeadline = Date.now() + ACTION_TIMEOUT_MS
-  state.lastMessage = `Pass 1 card ${directionLabel(state.direction!)}.`
+  state.lastMessage = `Once this game — pass 1 card ${directionLabel(state.direction!)}.`
 }
 
 function beginPlayPhase(state: RowShamBoState): void {
@@ -182,7 +184,7 @@ function finishHand(state: RowShamBoState): void {
     endGame(state)
     return
   }
-  state.lastMessage = `Hand over. Scores: ${state.players.map((p) => `${p.name} ${p.gameScore}`).join(', ')}`
+  state.lastMessage = `Round over. Scores: ${state.players.map((p) => `${p.name} ${p.gameScore}`).join(', ')}`
 }
 
 function endGame(state: RowShamBoState): void {
@@ -316,8 +318,8 @@ export function applyRowShamBoMove(state: RowShamBoState, move: RowShamBoMove): 
 
   if (move.t === 'ackHandEnd') {
     if (next.phase !== 'handEnd') return { ok: false, error: 'Hand not over' }
-    const seed = Date.now() % 1e9
-    return { ok: true, state: startHand(next, seed) }
+    // Same game: keep direction, skip pass — just the next play round.
+    return { ok: true, state: startRound(next) }
   }
 
   if (move.t === 'ackGameEnd') {

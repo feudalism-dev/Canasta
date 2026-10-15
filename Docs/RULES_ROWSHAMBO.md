@@ -12,22 +12,27 @@ Score the most points over a full deck, then race to a **match target** (default
 
 Rock beats Scissors · Scissors beats Paper · Paper beats Rock · Dynamite beats Rock/Paper/Scissors. Same vs same (including Dynamite×Dynamite) = tie.
 
-## Hand flow
+## Game setup (once per game)
 
-1. **Randomizer** picks Clockwise or Counter-clockwise (same for pass and resolution).
-2. **Draw** up to 5 cards (skip when stock empty).
-3. **Pass** one card in that direction (60s timeout → random card).
-4. **Play** one card face-down (60s timeout → random).
-5. **Reveal** and **resolve** from the button seat, walking the direction:
+1. Deal **5** cards each.
+2. **Randomizer** picks Clockwise or Counter-clockwise for the **whole game** (pass direction and resolution order).
+3. **Pass once** — each player passes 1 card in that direction (60s timeout → random card).
+
+## Round flow (repeat until the deck and hands are empty)
+
+1. **Draw** up to 5 cards (skip when stock empty).
+2. **Play** one card face-down (60s timeout → random).
+3. **Reveal** and **resolve** from the button seat, walking the game direction:
    - Contested starts as the button player.
    - Tie → join the contested group.
    - Lose to the group → each contested player scores +1.
    - Beat the group → score +size of group and become the new contested player.
-6. Button rotates clockwise each hand.
+4. Button rotates clockwise each round.
+5. **No further passing** until the next game.
 
 ## Endings
 
-- **Game:** stock empty and all hands empty → highest game score wins the game (points add to match totals).
+- **Game:** stock empty and all hands empty → highest game score wins the game (points add to match totals). Next game randomizes direction again and includes one new pass.
 - **Match:** first to reach/exceed the match target; if several crossed, highest wins; still tied → match tie.
 
 ## Future: Elements

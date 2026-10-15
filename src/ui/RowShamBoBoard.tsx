@@ -252,7 +252,7 @@ export function RowShamBoBoard({
     state.phase === 'chooseDir'
       ? 'Randomizer!'
       : waitingPass
-        ? 'Select a card to pass'
+        ? 'Pass 1 card (once this game)'
         : waitingPlay
           ? 'Select a card to play'
           : state.phase === 'resolve'
@@ -267,8 +267,9 @@ export function RowShamBoBoard({
         <div>
           <h2 className="rsb-title">Row! Sham! Bo!</h2>
           <p className="rsb-sub">
-            {rowShamBoVariantLabel(state.config.variant)} · to {state.config.playTo} · Hand{' '}
-            {state.handNumber} · Game {state.gameNumber}
+            {rowShamBoVariantLabel(state.config.variant)} · to {state.config.playTo} · Round{' '}
+            {Math.max(1, state.handNumber)} · Game {state.gameNumber}
+            {state.direction ? ` · ${directionLabel(state.direction)}` : ''}
           </p>
         </div>
         <button type="button" className="rsb-btn ghost" onClick={onExit}>
@@ -389,7 +390,7 @@ export function RowShamBoBoard({
       <div className="rsb-actions">
         {handOver ? (
           <button type="button" className="rsb-btn primary" onClick={() => play({ t: 'ackHandEnd' })}>
-            Next hand
+            Next round
           </button>
         ) : null}
         {gameOver ? (
