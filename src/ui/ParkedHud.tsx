@@ -28,6 +28,8 @@ export function ParkedHud({ boot }: { boot: SlBootstrap }) {
                       ? ' (Phase It)'
                     : boot.family === 'yotsy'
                       ? ' (Yotsy)'
+                    : boot.family === 'rowshambo'
+                      ? ' (Row! Sham! Bo!)'
                     : boot.family === 'canasta'
                       ? ' (Hand &amp; Foot / Canasta)'
                       : ''}

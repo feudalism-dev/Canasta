@@ -14,6 +14,7 @@ import { IchiBoard } from './ui/IchiBoard'
 import { SkippoBoard } from './ui/SkippoBoard'
 import { PhaseItBoard } from './ui/PhaseItBoard'
 import { YotsyBoard } from './ui/YotsyBoard'
+import { RowShamBoBoard } from './ui/RowShamBoBoard'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { ParkedHud } from './ui/ParkedHud'
 import { Scoreboard } from './ui/Scoreboard'
@@ -25,6 +26,7 @@ import type { IchiVariant } from './core/ichi/types'
 import type { SkippoVariant } from './core/skippo/types'
 import type { PhaseItVariant } from './core/phaseit/types'
 import type { YotsyVariant } from './core/yotsy/types'
+import type { RowShamBoVariant } from './core/rowshambo/types'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
 import { resumeSolo, startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
@@ -64,12 +66,18 @@ import {
   joinYotsyPeerRoom,
   type YotsyPeerSession,
 } from './net/yotsyPeerSession'
+import {
+  createRowShamBoPeerHost,
+  joinRowShamBoPeerRoom,
+  type RowShamBoPeerSession,
+} from './net/rowshamboPeerSession'
 import { startRummySolo, type RummyLocalSession } from './ui/rummyLocalSession'
 import { startTrickSolo, type TrickLocalSession } from './ui/trickLocalSession'
 import { startIchiSolo, type IchiLocalSession } from './ui/ichiLocalSession'
 import { startSkippoSolo, type SkippoLocalSession } from './ui/skippoLocalSession'
 import { startPhaseItSolo, type PhaseItLocalSession } from './ui/phaseitLocalSession'
 import { startYotsySolo, type YotsyLocalSession } from './ui/yotsyLocalSession'
+import { startRowShamBoSolo, type RowShamBoLocalSession } from './ui/rowshamboLocalSession'
 import {
   clearMatchResume,
   loadMatchResume,
@@ -85,6 +93,7 @@ import { syncIchiDisplay, resetIchiDisplaySync } from './sl/ichiDisplaySync'
 import { syncSkippoDisplay, resetSkippoDisplaySync } from './sl/skippoDisplaySync'
 import { syncPhaseItDisplay, resetPhaseItDisplaySync } from './sl/phaseitDisplaySync'
 import { syncYotsyDisplay, resetYotsyDisplaySync } from './sl/yotsyDisplaySync'
+import { syncRowShamBoDisplay, resetRowShamBoDisplaySync } from './sl/rowshamboDisplaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 import { playYourTurnBell } from './ui/sfx'
 
@@ -116,10 +125,17 @@ function AppInner() {
   const urlPlaySkippo = urlPlay === 'skippo'
   const urlPlayPhaseIt = urlPlay === 'phaseit'
   const urlPlayYotsy = urlPlay === 'yotsy'
+  const urlPlayRowshambo = urlPlay === 'rowshambo'
   const [screen, setScreen] = useState<Screen>(
     tableHud || seatedBrowser
       ? 'sl'
-      : urlPlayRummy || urlPlayHearts || urlPlayIchi || urlPlaySkippo || urlPlayPhaseIt || urlPlayYotsy
+      : urlPlayRummy ||
+          urlPlayHearts ||
+          urlPlayIchi ||
+          urlPlaySkippo ||
+          urlPlayPhaseIt ||
+          urlPlayYotsy ||
+          urlPlayRowshambo
         ? 'game'
         : 'menu',
   )
@@ -165,6 +181,12 @@ function AppInner() {
   const [yotsyPlay, setYotsyPlay] = useState(urlPlayYotsy)
   const [yotsyLocal, setYotsyLocal] = useState<YotsyLocalSession | null>(null)
   const [yotsyPeer, setYotsyPeer] = useState<YotsyPeerSession | null>(null)
+  const [rowshamboVariant, setRowshamboVariant] = useState<RowShamBoVariant>('classic')
+  const [rowshamboPlayerCount, setRowshamboPlayerCount] = useState(2)
+  const [rowshamboPlayTo, setRowshamboPlayTo] = useState(100)
+  const [rowshamboPlay, setRowshamboPlay] = useState(urlPlayRowshambo)
+  const [rowshamboLocal, setRowshamboLocal] = useState<RowShamBoLocalSession | null>(null)
+  const [rowshamboPeer, setRowshamboPeer] = useState<RowShamBoPeerSession | null>(null)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
@@ -282,7 +304,10 @@ function AppInner() {
     const skippoUi = family === 'skippo' || skippoPlay || Boolean(skippoLocal) || Boolean(skippoPeer)
     const phaseitUi = family === 'phaseit' || phaseitPlay || Boolean(phaseitLocal) || Boolean(phaseitPeer)
     const yotsyUi = family === 'yotsy' || yotsyPlay || Boolean(yotsyLocal) || Boolean(yotsyPeer)
-    const hideCanastaChrome = rummyUi || trickUi || ichiUi || skippoUi || phaseitUi || yotsyUi
+    const rowshamboUi =
+      family === 'rowshambo' || rowshamboPlay || Boolean(rowshamboLocal) || Boolean(rowshamboPeer)
+    const hideCanastaChrome =
+      rummyUi || trickUi || ichiUi || skippoUi || phaseitUi || yotsyUi || rowshamboUi
     return (
       <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
         <AppChrome
@@ -290,6 +315,7 @@ function AppInner() {
           family={family}
           parked={Boolean(slBoot?.parked)}
           roomCode={
+            rowshamboPeer?.roomCode ||
             yotsyPeer?.roomCode ||
             phaseitPeer?.roomCode ||
             skippoPeer?.roomCode ||
@@ -368,7 +394,9 @@ function AppInner() {
         phaseitLocal ||
         phaseitPeer?.state ||
         yotsyLocal ||
-        yotsyPeer?.state) &&
+        yotsyPeer?.state ||
+        rowshamboLocal ||
+        rowshamboPeer?.state) &&
       screen === 'sl'
     )
       setScreen('game')
@@ -386,6 +414,8 @@ function AppInner() {
     phaseitPeer?.state,
     yotsyLocal,
     yotsyPeer?.state,
+    rowshamboLocal,
+    rowshamboPeer?.state,
     screen,
     tick,
   ])
@@ -481,6 +511,23 @@ function AppInner() {
   }, [yotsyPeer, tick])
 
   useEffect(() => {
+    if (!rowshamboLocal) return
+    return rowshamboLocal.onChange(() => setTick((t) => t + 1))
+  }, [rowshamboLocal])
+
+  useEffect(() => {
+    if (!rowshamboPeer) return
+    return rowshamboPeer.onChange(() => setTick((t) => t + 1))
+  }, [rowshamboPeer])
+
+  useEffect(() => {
+    if (!rowshamboPeer || rowshamboPeer.isHost) return
+    setRowshamboVariant(rowshamboPeer.variant)
+    setRowshamboPlayerCount(rowshamboPeer.playerCount)
+    setRowshamboPlayTo(rowshamboPeer.playTo)
+  }, [rowshamboPeer, tick])
+
+  useEffect(() => {
     if (!state?.lastMessage) return
     setStatus(state.lastMessage)
     if (state.lastMessage !== lastToast.current) {
@@ -559,6 +606,14 @@ function AppInner() {
     syncYotsyDisplay(yotsyState, slBoot.slCap, slBoot.uid, slBoot.seat)
   }, [tick, yotsyLocal, yotsyPeer, slBoot, tableHud])
 
+  useEffect(() => {
+    const rowshamboState = rowshamboLocal?.state ?? rowshamboPeer?.state
+    if (!rowshamboState || !tableHud || !slBoot?.slCap) return
+    const isEmitter = Boolean(rowshamboLocal) || rowshamboPeer?.isHost === true
+    if (!isEmitter) return
+    syncRowShamBoDisplay(rowshamboState, slBoot.slCap, slBoot.uid, slBoot.seat)
+  }, [tick, rowshamboLocal, rowshamboPeer, slBoot, tableHud])
+
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
     if (local) {
@@ -597,6 +652,55 @@ function AppInner() {
     phaseitPeer?.destroy()
     yotsyLocal?.destroy()
     yotsyPeer?.destroy()
+    rowshamboLocal?.destroy()
+    rowshamboPeer?.destroy()
+    if (family === 'rowshambo') {
+      if (tableHud && slBoot?.slCap) {
+        try {
+          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, rowshamboPlayerCount)
+        } catch (e) {
+          push(e instanceof Error ? e.message : 'Could not claim table')
+        }
+      }
+      const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
+      const ctrl = startRowShamBoSolo(
+        name,
+        rowshamboPlayerCount,
+        rowshamboVariant,
+        rowshamboPlayTo,
+        humanSeat,
+      )
+      resetRowShamBoDisplaySync()
+      setLocal(null)
+      setPeer(null)
+      setRummyPeer(null)
+      setRummyLocal(null)
+      setTrickPeer(null)
+      setTrickLocal(null)
+      setIchiPeer(null)
+      setIchiLocal(null)
+      setSkippoPeer(null)
+      setSkippoLocal(null)
+      setPhaseitPeer(null)
+      setPhaseitLocal(null)
+      setYotsyPeer(null)
+      setYotsyLocal(null)
+      setRowshamboPeer(null)
+      setRowshamboLocal(ctrl)
+      setRummyPlay(false)
+      setTrickPlay(false)
+      setIchiPlay(false)
+      setSkippoPlay(false)
+      setPhaseitPlay(false)
+      setYotsyPlay(false)
+      setRowshamboPlay(false)
+      slMatchKind.current = tableHud ? 'solo' : 'none'
+      setScreen('game')
+      push(
+        `Row! Sham! Bo! solo — ${rowshamboPlayerCount} player${rowshamboPlayerCount > 1 ? 's' : ''} (you + ${Math.max(0, rowshamboPlayerCount - 1)} bot${rowshamboPlayerCount > 2 ? 's' : ''}) · first to ${rowshamboPlayTo}.`,
+      )
+      return
+    }
     if (family === 'yotsy') {
       if (tableHud && slBoot?.slCap) {
         try {
@@ -622,12 +726,15 @@ function AppInner() {
       setPhaseitLocal(null)
       setYotsyPeer(null)
       setYotsyLocal(ctrl)
+      setRowshamboPeer(null)
+      setRowshamboLocal(null)
       setRummyPlay(false)
       setTrickPlay(false)
       setIchiPlay(false)
       setSkippoPlay(false)
       setPhaseitPlay(false)
       setYotsyPlay(false)
+      setRowshamboPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       push(
@@ -875,6 +982,8 @@ function AppInner() {
     phaseitPeer?.destroy()
     yotsyLocal?.destroy()
     yotsyPeer?.destroy()
+    rowshamboLocal?.destroy()
+    rowshamboPeer?.destroy()
     setPeer(null)
     setLocal(null)
     setRummyPeer(null)
@@ -889,11 +998,14 @@ function AppInner() {
     setPhaseitPeer(null)
     setYotsyLocal(null)
     setYotsyPeer(null)
+    setRowshamboLocal(null)
+    setRowshamboPeer(null)
     setRummyPlay(false)
     setTrickPlay(false)
     setIchiPlay(false)
     setSkippoPlay(false)
     setPhaseitPlay(false)
+    setRowshamboPlay(false)
     if (tableHud && slBoot?.slCap && slMatchKind.current !== 'none') {
       try {
         await tableEndGame(slBoot.slCap, slBoot.uid, slBoot.seat)
@@ -994,7 +1106,9 @@ function AppInner() {
     !phaseitLocal &&
     !phaseitPeer?.state &&
     !yotsyLocal &&
-    !yotsyPeer?.state
+    !yotsyPeer?.state &&
+    !rowshamboLocal &&
+    !rowshamboPeer?.state
   ) {
     return wrap(
       <SlTableScreens
@@ -1052,6 +1166,7 @@ function AppInner() {
             family !== 'skippo' &&
             family !== 'phaseit' &&
             family !== 'yotsy' &&
+            family !== 'rowshambo' &&
             loadMatchResume({ uid: slBoot.uid, seat: slBoot.seat, tableId: slBoot.tableId }),
         )}
         ichiVariant={ichiVariant}
@@ -1099,6 +1214,21 @@ function AppInner() {
           setYotsyPlayerCount(n)
           yotsyPeer?.setPlayerCount(n)
         }}
+        rowshamboVariant={rowshamboVariant}
+        onRowshamboVariant={(v) => {
+          setRowshamboVariant(v)
+          rowshamboPeer?.setVariant(v)
+        }}
+        rowshamboPlayerCount={rowshamboPlayerCount}
+        onRowshamboPlayerCount={(n) => {
+          setRowshamboPlayerCount(n)
+          rowshamboPeer?.setPlayerCount(n)
+        }}
+        rowshamboPlayTo={rowshamboPlayTo}
+        onRowshamboPlayTo={(n) => {
+          setRowshamboPlayTo(n)
+          rowshamboPeer?.setPlayTo(n)
+        }}
         onCreatedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
@@ -1108,6 +1238,36 @@ function AppInner() {
           skippoPeer?.destroy()
           phaseitPeer?.destroy()
           yotsyPeer?.destroy()
+          rowshamboPeer?.destroy()
+          if (family === 'rowshambo') {
+            const session = await createRowShamBoPeerHost(name, {
+              roomCode,
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+              variant: rowshamboVariant,
+              playerCount: rowshamboPlayerCount,
+              playTo: rowshamboPlayTo,
+            })
+            resetRowShamBoDisplaySync()
+            setRowshamboPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
+            setYotsyPeer(null)
+            setYotsyLocal(null)
+            setRowshamboLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'yotsy') {
             const session = await createYotsyPeerHost(name, {
               roomCode,
@@ -1266,6 +1426,31 @@ function AppInner() {
           skippoPeer?.destroy()
           phaseitPeer?.destroy()
           yotsyPeer?.destroy()
+          rowshamboPeer?.destroy()
+          if (family === 'rowshambo') {
+            const session = await joinRowShamBoPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setRowshamboPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
+            setYotsyPeer(null)
+            setYotsyLocal(null)
+            setRowshamboLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'yotsy') {
             const session = await joinYotsyPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -1393,7 +1578,9 @@ function AppInner() {
           const occupants = (tableStatus?.roster || [])
             .filter((r) => r.seat >= 0 && r.joined)
             .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid, joined: true }))
-          if (family === 'yotsy') {
+          if (family === 'rowshambo') {
+            rowshamboPeer?.startMatch(occupants)
+          } else if (family === 'yotsy') {
             yotsyPeer?.startMatch(occupants)
           } else if (family === 'phaseit') {
             phaseitPeer?.startMatch(occupants)
@@ -1418,6 +1605,7 @@ function AppInner() {
           skippoPeer?.destroy()
           phaseitPeer?.destroy()
           yotsyPeer?.destroy()
+          rowshamboPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
@@ -1425,6 +1613,7 @@ function AppInner() {
           setSkippoPeer(null)
           setPhaseitPeer(null)
           setYotsyPeer(null)
+          setRowshamboPeer(null)
           slMatchKind.current = 'none'
         }}
         onDetachPeer={() => {
@@ -1435,6 +1624,7 @@ function AppInner() {
           skippoPeer?.destroy()
           phaseitPeer?.destroy()
           yotsyPeer?.destroy()
+          rowshamboPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
@@ -1442,10 +1632,18 @@ function AppInner() {
           setSkippoPeer(null)
           setPhaseitPeer(null)
           setYotsyPeer(null)
+          setRowshamboPeer(null)
           slMatchKind.current = 'none'
         }}
         peerHasState={Boolean(
-          peer?.state || rummyPeer?.state || trickPeer?.state || ichiPeer?.state || skippoPeer?.state || phaseitPeer?.state || yotsyPeer?.state,
+          peer?.state ||
+            rummyPeer?.state ||
+            trickPeer?.state ||
+            ichiPeer?.state ||
+            skippoPeer?.state ||
+            phaseitPeer?.state ||
+            yotsyPeer?.state ||
+            rowshamboPeer?.state,
         )}
         onRejoinPeer={async (roomCode) => {
           peer?.destroy()
@@ -1456,6 +1654,31 @@ function AppInner() {
           skippoPeer?.destroy()
           phaseitPeer?.destroy()
           yotsyPeer?.destroy()
+          rowshamboPeer?.destroy()
+          if (family === 'rowshambo') {
+            const session = await joinRowShamBoPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setRowshamboPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
+            setYotsyPeer(null)
+            setYotsyLocal(null)
+            setRowshamboLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'yotsy') {
             const session = await joinYotsyPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -1573,6 +1796,8 @@ function AppInner() {
           slMatchKind.current = 'mp'
         }}
         peerRoomCode={
+          rowshamboPeer?.roomCode ||
+          yotsyPeer?.roomCode ||
           skippoPeer?.roomCode ||
           ichiPeer?.roomCode ||
           trickPeer?.roomCode ||
@@ -1580,9 +1805,17 @@ function AppInner() {
           peer?.roomCode
         }
         peerSeats={
-          yotsyPeer?.seats || phaseitPeer?.seats || skippoPeer?.seats || ichiPeer?.seats || trickPeer?.seats || rummyPeer?.seats || peer?.seats
+          rowshamboPeer?.seats ||
+          yotsyPeer?.seats ||
+          phaseitPeer?.seats ||
+          skippoPeer?.seats ||
+          ichiPeer?.seats ||
+          trickPeer?.seats ||
+          rummyPeer?.seats ||
+          peer?.seats
         }
         isPeerHost={
+          rowshamboPeer?.isHost ??
           yotsyPeer?.isHost ??
           phaseitPeer?.isHost ??
           skippoPeer?.isHost ??
@@ -1592,6 +1825,7 @@ function AppInner() {
           peer?.isHost
         }
         onPeerReadyToggle={(ready) => {
+          rowshamboPeer?.setReady(ready)
           yotsyPeer?.setReady(ready)
           phaseitPeer?.setReady(ready)
           skippoPeer?.setReady(ready)
@@ -1606,6 +1840,30 @@ function AppInner() {
           writeCoachTips(on)
           setCoachTips(on)
         }}
+      />,
+    )
+  }
+
+  if (rowshamboLocal || rowshamboPeer?.state || rowshamboPlay) {
+    const ctrl = rowshamboLocal || rowshamboPeer
+    return wrap(
+      <RowShamBoBoard
+        yourName={name}
+        variant={rowshamboVariant}
+        playerCount={rowshamboPlayerCount}
+        playTo={rowshamboPlayTo}
+        controller={
+          ctrl?.state
+            ? {
+                state: ctrl.state,
+                localIndex: ctrl.localIndex,
+                submit: (m) => ctrl.submit(m),
+                newMatch: rowshamboLocal ? () => rowshamboLocal.newMatch() : undefined,
+                onChange: (cb) => ctrl.onChange(cb),
+              }
+            : null
+        }
+        onExit={() => void leaveToMenu(true)}
       />,
     )
   }

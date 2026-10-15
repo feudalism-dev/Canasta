@@ -63,6 +63,16 @@ import {
   type YotsyPublicBoard,
   type YotsyPublicPlayer,
 } from '../core/yotsy/publicBoard'
+import {
+  decodeRowShamBoPublicBoard,
+  idleRowShamBoPublicBoard,
+  rowShamBoSpectatorStatus,
+  rowShamBoVariantLabel,
+  isRowShamBoBoardPayload,
+  type RowShamBoPublicBoard,
+  type RowShamBoPublicPlayer,
+} from '../core/rowshambo/publicBoard'
+import { directionLabel } from '../core/rowshambo/variants'
 import { dieColor } from '../core/yotsy/dice'
 import { turnsNeeded } from '../core/yotsy/categories'
 import { colorLabel, kindLabel } from '../core/ichi/deck'
@@ -104,6 +114,35 @@ function phaseitPlayerAt(board: PhaseItPublicBoard, seat: number): PhaseItPublic
 
 function yotsyPlayerAt(board: YotsyPublicBoard, seat: number): YotsyPublicPlayer | undefined {
   return board.players.find((p) => p.seat === seat)
+}
+
+function rowshamboPlayerAt(board: RowShamBoPublicBoard, seat: number): RowShamBoPublicPlayer | undefined {
+  return board.players.find((p) => p.seat === seat)
+}
+
+function RowShamBoSeatChip({
+  board,
+  seat,
+  label,
+}: {
+  board: RowShamBoPublicBoard
+  seat: number
+  label: string
+}) {
+  const p = rowshamboPlayerAt(board, seat)
+  const isButton = board.live && board.buttonSeat === seat
+  return (
+    <div className={`spec-seat${isButton ? ' is-turn' : ''}`}>
+      <strong>{p?.name || `Seat ${seat + 1}`}</strong>
+      <span className="muted tiny">{label}</span>
+      {p ? (
+        <span className="muted tiny">
+          {p.matchScore}/{board.playTo} match · {p.gameScore} game · {p.handCount} cards
+        </span>
+      ) : null}
+      {isButton ? <span className="turn-pill">Button</span> : null}
+    </div>
+  )
 }
 
 function YotsySeatChip({ board, seat, label }: { board: YotsyPublicBoard; seat: number; label: string }) {
@@ -383,6 +422,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const [skippoBoard, setSkippoBoard] = useState<SkippoPublicBoard>(idleSkippoPublicBoard)
   const [phaseitBoard, setPhaseitBoard] = useState<PhaseItPublicBoard>(idlePhaseItPublicBoard)
   const [yotsyBoard, setYotsyBoard] = useState<YotsyPublicBoard>(idleYotsyPublicBoard)
+  const [rowshamboBoard, setRowshamboBoard] = useState<RowShamBoPublicBoard>(idleRowShamBoPublicBoard)
   const [linkOk, setLinkOk] = useState(true)
   const [family, setFamily] = useState<GameFamily>(() => normalizeFamily(familyHint))
   const rootRef = useRef<HTMLDivElement>(null)
@@ -402,6 +442,20 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     const applyRaw = (raw: string | undefined) => {
       if (!raw || !raw.trim()) return false
       const text = raw.trim()
+      if (isRowShamBoBoardPayload(text)) {
+        const next = decodeRowShamBoPublicBoard(text)
+        setRowshamboBoard(next)
+        if (next.live) {
+          setBoard(idlePublicBoard())
+          setRummyBoard(idleRummyPublicBoard())
+          setTrickBoard(idleTrickPublicBoard())
+          setIchiBoard(idleIchiPublicBoard())
+          setSkippoBoard(idleSkippoPublicBoard())
+          setPhaseitBoard(idlePhaseItPublicBoard())
+          setYotsyBoard(idleYotsyPublicBoard())
+        }
+        return true
+      }
       if (isYotsyBoardPayload(text)) {
         const next = decodeYotsyPublicBoard(text)
         setYotsyBoard(next)
@@ -412,6 +466,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setIchiBoard(idleIchiPublicBoard())
           setSkippoBoard(idleSkippoPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
+          setRowshamboBoard(idleRowShamBoPublicBoard())
         }
         return true
       }
@@ -544,15 +599,27 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const isSkippo = family === 'skippo'
   const isPhaseit = family === 'phaseit'
   const isYotsy = family === 'yotsy'
+  const isRowshambo = family === 'rowshambo'
   const rummyLive = isRummy && rummyBoard.live
   const trickLive = isTrick && trickBoard.live
   const ichiLive = isIchi && ichiBoard.live
   const skippoLive = isSkippo && skippoBoard.live
   const phaseitLive = isPhaseit && phaseitBoard.live
   const yotsyLive = isYotsy && yotsyBoard.live
-  const canastaLive = !isRummy && !isTrick && !isIchi && !isSkippo && !isPhaseit && !isYotsy && board.live
+  const rowshamboLive = isRowshambo && rowshamboBoard.live
+  const canastaLive =
+    !isRummy &&
+    !isTrick &&
+    !isIchi &&
+    !isSkippo &&
+    !isPhaseit &&
+    !isYotsy &&
+    !isRowshambo &&
+    board.live
   const config = spectatorConfig(board)
-  const variant = yotsyLive
+  const variant = rowshamboLive
+    ? rowShamBoVariantLabel(rowshamboBoard.variant)
+    : yotsyLive
     ? yotsyVariantLabel(yotsyBoard.variant)
     : phaseitLive
     ? phaseItVariantLabel(phaseitBoard.variant)
@@ -565,7 +632,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         : isRummy
           ? rummyVariantLabel(rummyBoard.variant)
           : variantLabel(board.variant)
-  const roundLine = yotsyLive
+  const roundLine = rowshamboLive
+    ? `G${rowshamboBoard.gameNumber} · H${rowshamboBoard.handNumber} · to ${rowshamboBoard.playTo}`
+    : yotsyLive
     ? `T${yotsyBoard.round}`
     : phaseitLive
     ? `H${phaseitBoard.round}`
@@ -602,9 +671,25 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
       : null
   const stockCount = rummyLive ? rummyBoard.stock : board.stock
   const discardCount = rummyLive ? rummyBoard.discardCount : board.discardCount
-  const frozen = !rummyLive && !trickLive && !ichiLive && !skippoLive && !phaseitLive && !yotsyLive && board.frozen
+  const frozen =
+    !rummyLive &&
+    !trickLive &&
+    !ichiLive &&
+    !skippoLive &&
+    !phaseitLive &&
+    !yotsyLive &&
+    !rowshamboLive &&
+    board.frozen
   const sideways = Boolean(topCard && (isWild(topCard) || frozen))
-  const live = rummyLive || trickLive || ichiLive || skippoLive || phaseitLive || yotsyLive || canastaLive
+  const live =
+    rummyLive ||
+    trickLive ||
+    ichiLive ||
+    skippoLive ||
+    phaseitLive ||
+    yotsyLive ||
+    rowshamboLive ||
+    canastaLive
   const trickPalette = trickBoard.variant === 'rooster' ? 'rooster' : 'french'
   const ichiColorCss: Record<string, string> = {
     R: '#c0392b',
@@ -617,7 +702,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     <div className={`spectator-root ${live ? 'is-live' : ''}`} ref={rootRef}>
       <div className="table-felt" />
       <div className="table-brass" />
-      {!isRummy && !isTrick && !isIchi && !isSkippo && !isPhaseit && !isYotsy ? (
+      {!isRummy && !isTrick && !isIchi && !isSkippo && !isPhaseit && !isYotsy && !isRowshambo ? (
         <TableFlyLayer board={board} rootRef={rootRef} />
       ) : null}
 
@@ -625,7 +710,12 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         <>
           <header className="spec-banner">
             <div className="brand-mark">
-              {yotsyLive ? (
+              {rowshamboLive ? (
+                <>
+                  <span>ROW! SHAM! BO!</span>
+                  <small>TABLE TOP · PLAYER 1 VIEW</small>
+                </>
+              ) : yotsyLive ? (
                 <>
                   <span>YOTSY</span>
                   <small>TABLE TOP · PLAYER 1 VIEW</small>
@@ -663,7 +753,19 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               )}
             </div>
             <div className="score-ticker">
-              {yotsyLive ? (
+              {rowshamboLive ? (
+                <>
+                  <div>
+                    <em>{variant}</em> {roundLine}
+                  </div>
+                  <div>
+                    <em>{rowshamboBoard.playerCount}p</em> · stock {rowshamboBoard.stockCount}
+                    {rowshamboBoard.direction
+                      ? ` · ${directionLabel(rowshamboBoard.direction)}`
+                      : ''}
+                  </div>
+                </>
+              ) : yotsyLive ? (
                 <>
                   <div>
                     <em>{variant}</em> {roundLine}
@@ -753,7 +855,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
             </div>
           </header>
           <p className="spec-turn">
-            {yotsyLive
+            {rowshamboLive
+              ? rowShamBoSpectatorStatus(rowshamboBoard)
+              : yotsyLive
               ? yotsySpectatorStatus(yotsyBoard)
               : phaseitLive
               ? phaseItSpectatorStatus(phaseitBoard)
@@ -767,7 +871,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                     ? rummyPhaseLine(rummyBoard)
                     : phaseLine(board, family)}
           </p>
-          {(yotsyLive
+          {(rowshamboLive
+            ? rowshamboBoard.lastMessage
+            : yotsyLive
             ? yotsyBoard.lastMessage
             : phaseitLive
             ? phaseitBoard.lastMessage
@@ -781,7 +887,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                   ? rummyBoard.lastMessage
                   : board.lastMessage) ? (
             <p className="spec-msg">
-              {yotsyLive
+              {rowshamboLive
+                ? rowshamboBoard.lastMessage
+                : yotsyLive
                 ? yotsyBoard.lastMessage
                 : phaseitLive
                 ? phaseitBoard.lastMessage
@@ -799,6 +907,34 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         </>
       ) : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
+
+      {rowshamboLive ? (
+        <div className="spec-grid is-trick">
+          <div className="spec-north">
+            <RowShamBoSeatChip board={rowshamboBoard} seat={2} label="opposite" />
+          </div>
+          <div className="spec-them" />
+          <div className="spec-west">
+            <RowShamBoSeatChip board={rowshamboBoard} seat={3} label="left" />
+          </div>
+          <div className="spec-mid">
+            <div className="spec-trick-center" aria-label="Row! Sham! Bo! table">
+              <span className="pile-label">
+                {rowShamBoVariantLabel(rowshamboBoard.variant)} · stock {rowshamboBoard.stockCount}
+              </span>
+              {rowshamboBoard.lastMessage ? (
+                <span className="muted tiny">{rowshamboBoard.lastMessage}</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="spec-east">
+            <RowShamBoSeatChip board={rowshamboBoard} seat={1} label="right" />
+          </div>
+          <div className="spec-south">
+            <RowShamBoSeatChip board={rowshamboBoard} seat={0} label="this side" />
+          </div>
+        </div>
+      ) : null}
 
       {yotsyLive ? (
         <div className="spec-grid is-trick">

@@ -1,0 +1,420 @@
+/* Row! Sham! Bo! — bold comic parlor UI */
+
+.rsb-root {
+  --rsb-ink: #1a1020;
+  --rsb-paper: #fff6e8;
+  --rsb-yellow: #ffe14a;
+  --rsb-red: #e23b2e;
+  --rsb-blue: #2b6cff;
+  --rsb-green: #2faf5a;
+  --rsb-purple: #7b3ff0;
+  --rsb-orange: #ff8a1f;
+  position: relative;
+  min-height: 100%;
+  padding: 0.65rem 0.75rem 1.25rem;
+  color: var(--rsb-ink);
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255, 225, 74, 0.35), transparent 45%),
+    radial-gradient(ellipse at 90% 10%, rgba(226, 59, 46, 0.22), transparent 40%),
+    linear-gradient(165deg, #f7ebe0 0%, #e8d4f5 45%, #d6e8ff 100%);
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+.rsb-root::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.08;
+  background-image: repeating-linear-gradient(
+    -12deg,
+    #000 0 1px,
+    transparent 1px 10px
+  );
+}
+
+.rsb-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.rsb-title {
+  margin: 0;
+  font-size: clamp(1.35rem, 4vw, 1.9rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.05;
+  text-shadow: 3px 3px 0 #fff, 5px 5px 0 rgba(0, 0, 0, 0.15);
+}
+
+.rsb-sub {
+  margin: 0.2rem 0 0;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.rsb-arena {
+  position: relative;
+  z-index: 1;
+  margin: 0.75rem auto 0.5rem;
+  width: min(100%, 28rem);
+  aspect-ratio: 1;
+  border: 4px solid var(--rsb-ink);
+  border-radius: 1.1rem;
+  background: radial-gradient(circle at 50% 45%, #fff 0%, #ffe9b8 55%, #ffc978 100%);
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
+  display: grid;
+  place-items: center;
+}
+
+.rsb-dial {
+  width: 58%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 5px solid var(--rsb-ink);
+  background: conic-gradient(from 0deg, var(--rsb-blue), var(--rsb-yellow), var(--rsb-red), var(--rsb-blue));
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 10px rgba(255, 255, 255, 0.35);
+  transition: transform 0.8s cubic-bezier(0.2, 1.4, 0.3, 1);
+}
+
+.rsb-dial.is-spin {
+  animation: rsb-spin 1.1s cubic-bezier(0.15, 0.8, 0.2, 1) both;
+}
+
+.rsb-dial.is-cw {
+  transform: rotate(28deg);
+}
+
+.rsb-dial.is-ccw {
+  transform: rotate(-28deg);
+}
+
+@keyframes rsb-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(720deg);
+  }
+}
+
+.rsb-dial-core {
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--rsb-paper);
+  border: 3px solid var(--rsb-ink);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0.35rem;
+  font-weight: 900;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.rsb-timer {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  min-width: 3.2rem;
+  padding: 0.25rem 0.45rem;
+  border: 3px solid var(--rsb-ink);
+  border-radius: 999px;
+  background: var(--rsb-yellow);
+  font-weight: 900;
+  font-size: 0.95rem;
+  text-align: center;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.18);
+}
+
+.rsb-timer.is-warn {
+  background: var(--rsb-red);
+  color: #fff;
+  animation: rsb-pulse 0.55s ease-in-out infinite alternate;
+}
+
+@keyframes rsb-pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+.rsb-prompt {
+  position: absolute;
+  bottom: 0.65rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  text-align: center;
+  font-weight: 900;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  background: #fff;
+  border: 3px solid var(--rsb-ink);
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.5rem;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
+}
+
+.rsb-scores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.4rem;
+  margin: 0.65rem 0;
+  position: relative;
+  z-index: 1;
+}
+
+.rsb-score-card {
+  border: 3px solid var(--rsb-ink);
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.35rem 0.45rem;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.12);
+}
+
+.rsb-score-card.is-button {
+  background: var(--rsb-yellow);
+}
+
+.rsb-score-card.is-winner {
+  background: var(--rsb-green);
+  color: #fff;
+}
+
+.rsb-score-name {
+  display: block;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.rsb-score-total {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.rsb-score-delta {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.rsb-hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0.5rem 0;
+  position: relative;
+  z-index: 1;
+}
+
+.rsb-card {
+  width: 4.4rem;
+  height: 5.8rem;
+  border: 3px solid var(--rsb-ink);
+  border-radius: 0.55rem;
+  background: #fff;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  cursor: pointer;
+  font-weight: 900;
+  text-transform: uppercase;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  padding: 0.25rem;
+}
+
+.rsb-card:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.rsb-card.is-legal:not(:disabled):hover,
+.rsb-card.is-selected {
+  transform: translateY(-6px) scale(1.04);
+  box-shadow: 6px 8px 0 rgba(0, 0, 0, 0.22);
+  outline: 3px solid var(--rsb-blue);
+}
+
+.rsb-card.is-rock {
+  background: linear-gradient(160deg, #d9d2c5, #9e9586);
+}
+.rsb-card.is-paper {
+  background: linear-gradient(160deg, #fff, #dce9ff);
+}
+.rsb-card.is-scissors {
+  background: linear-gradient(160deg, #ffe8a8, #ffb84d);
+}
+.rsb-card.is-dynamite {
+  background: linear-gradient(160deg, #ff7a5c, #ff2d55);
+  color: #fff;
+}
+.rsb-card.is-water {
+  background: linear-gradient(160deg, #9ad7ff, #2b6cff);
+  color: #fff;
+}
+.rsb-card.is-earth {
+  background: linear-gradient(160deg, #c8a27a, #6b4a2b);
+  color: #fff;
+}
+.rsb-card.is-fire {
+  background: linear-gradient(160deg, #ffb347, #e23b2e);
+  color: #fff;
+}
+
+.rsb-card-glyph {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.rsb-card-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.rsb-card-face {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.rsb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  margin-top: 0.35rem;
+}
+
+.rsb-btn {
+  border: 3px solid var(--rsb-ink);
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  background: var(--rsb-yellow);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.rsb-btn.primary {
+  background: var(--rsb-red);
+  color: #fff;
+}
+
+.rsb-btn.ghost {
+  background: #fff;
+}
+
+.rsb-burst {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.rsb-burst-stamp {
+  font-size: clamp(2.4rem, 10vw, 4rem);
+  font-weight: 900;
+  color: var(--rsb-red);
+  text-transform: uppercase;
+  transform: rotate(-12deg);
+  text-shadow:
+    3px 3px 0 #fff,
+    6px 6px 0 var(--rsb-ink);
+  animation: rsb-stamp 0.45s cubic-bezier(0.2, 1.6, 0.3, 1) both;
+}
+
+.rsb-burst-stamp.is-oof {
+  color: var(--rsb-blue);
+}
+
+.rsb-burst-stamp.is-tie {
+  color: var(--rsb-purple);
+}
+
+@keyframes rsb-stamp {
+  0% {
+    transform: rotate(-12deg) scale(0.2);
+    opacity: 0;
+  }
+  70% {
+    transform: rotate(-8deg) scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-12deg) scale(1);
+  }
+}
+
+.rsb-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  background: rgba(26, 16, 32, 0.72);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.rsb-overlay-card {
+  width: min(100%, 22rem);
+  background: var(--rsb-paper);
+  border: 4px solid var(--rsb-ink);
+  border-radius: 0.75rem;
+  padding: 1rem 1.1rem;
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.rsb-overlay-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.6rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.rsb-overlay-card.is-epic {
+  background: linear-gradient(160deg, #ffe14a, #ff8a1f 55%, #e23b2e);
+  color: #fff;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.rsb-overlay-card.is-epic h3 {
+  font-size: 2rem;
+}
+
+.rsb-tip {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  opacity: 0.8;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}

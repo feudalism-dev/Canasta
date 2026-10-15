@@ -1,6 +1,14 @@
 /** Product family locked by table LSL (creator SKU) or hub picker. */
 
-export type GameFamily = 'canasta' | 'rummy' | 'trick' | 'ichi' | 'skippo' | 'phaseit' | 'yotsy'
+export type GameFamily =
+  | 'canasta'
+  | 'rummy'
+  | 'trick'
+  | 'ichi'
+  | 'skippo'
+  | 'phaseit'
+  | 'yotsy'
+  | 'rowshambo'
 
 /** All hub-selectable families (picker order). */
 export const GAME_FAMILIES: GameFamily[] = [
@@ -11,6 +19,7 @@ export const GAME_FAMILIES: GameFamily[] = [
   'skippo',
   'phaseit',
   'yotsy',
+  'rowshambo',
 ]
 
 export function normalizeFamily(raw: unknown): GameFamily {
@@ -23,6 +32,9 @@ export function normalizeFamily(raw: unknown): GameFamily {
   if (s === 'skippo') return 'skippo'
   if (s === 'phaseit' || s === 'phase_it' || s === 'phase-it') return 'phaseit'
   if (s === 'yotsy' || s === 'yahtzee') return 'yotsy'
+  if (s === 'rowshambo' || s === 'rsb' || s === 'row-sham-bo' || s === 'row_sham_bo') {
+    return 'rowshambo'
+  }
   return 'canasta'
 }
 
@@ -38,6 +50,9 @@ export function resolveTableFamily(...hints: unknown[]): GameFamily {
     if (s === 'skippo') return 'skippo'
     if (s === 'phaseit' || s === 'phase_it' || s === 'phase-it') return 'phaseit'
     if (s === 'yotsy' || s === 'yahtzee') return 'yotsy'
+    if (s === 'rowshambo' || s === 'rsb' || s === 'row-sham-bo' || s === 'row_sham_bo') {
+      return 'rowshambo'
+    }
   }
   return 'canasta'
 }
@@ -57,7 +72,11 @@ export function familyHintPresent(...hints: unknown[]): boolean {
       s === 'phase_it' ||
       s === 'phase-it' ||
       s === 'yotsy' ||
-      s === 'yahtzee'
+      s === 'yahtzee' ||
+      s === 'rowshambo' ||
+      s === 'rsb' ||
+      s === 'row-sham-bo' ||
+      s === 'row_sham_bo'
     ) {
       return true
     }
@@ -72,6 +91,7 @@ export function familyLabel(family: GameFamily): string {
   if (family === 'skippo') return 'Skippo'
   if (family === 'phaseit') return 'Phase It'
   if (family === 'yotsy') return 'Yotsy'
+  if (family === 'rowshambo') return 'Row! Sham! Bo!'
   return 'Canasta'
 }
 
@@ -92,7 +112,8 @@ export function parseEntitlements(raw: unknown): Set<GameFamily> {
       t === 'ichi' ||
       t === 'skippo' ||
       t === 'phaseit' ||
-      t === 'yotsy'
+      t === 'yotsy' ||
+      t === 'rowshambo'
     ) {
       out.add(t)
     }
@@ -116,6 +137,8 @@ export function familyAdSrc(family: GameFamily): string {
       return `${base}assets/phaseIt_ad.jpg`
     case 'yotsy':
       return `${base}assets/yotsy_ad.jpg`
+    case 'rowshambo':
+      return `${base}assets/rowshambo_ad.jpg`
     default:
       return `${base}assets/canasta_ad.jpg`
   }

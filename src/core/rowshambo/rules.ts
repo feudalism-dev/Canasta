@@ -1,0 +1,320 @@
+import { cardLabel, sortHand } from './deck'
+import { buildResolveSteps } from './resolve'
+import {
+  ACTION_TIMEOUT_MS,
+  cloneRowShamBo,
+  dealNewGame,
+  drawUpToFive,
+  passTargetSeat,
+  startHand,
+} from './state'
+import { directionLabel } from './variants'
+import type { RowShamBoMove, RowShamBoState } from './types'
+
+export type RowShamBoApplyResult =
+  | { ok: true; state: RowShamBoState }
+  | { ok: false; error: string }
+
+function allPassed(state: RowShamBoState): boolean {
+  return state.players.every((p) => p.hand.length === 0 || p.passCardId != null)
+}
+
+function allPlayed(state: RowShamBoState): boolean {
+  return state.players.every((p) => p.hand.length === 0 || p.playCardId != null)
+}
+
+function exchangePasses(state: RowShamBoState): void {
+  const dir = state.direction!
+  const n = state.players.length
+  const outgoing = state.players.map((p) => {
+    if (!p.passCardId) return null
+    const card = p.hand.find((c) => c.id === p.passCardId) ?? null
+    return card
+  })
+  for (let i = 0; i < n; i++) {
+    const pl = state.players[i]!
+    if (!pl.passCardId) continue
+    pl.hand = pl.hand.filter((c) => c.id !== pl.passCardId)
+  }
+  for (let i = 0; i < n; i++) {
+    const card = outgoing[i]
+    if (!card) continue
+    const to = passTargetSeat(i, n, dir)
+    state.players[to]!.hand = sortHand([...state.players[to]!.hand, card])
+  }
+  for (const pl of state.players) pl.passCardId = null
+}
+
+function beginPassPhase(state: RowShamBoState): void {
+  drawUpToFive(state)
+  state.phase = 'pass'
+  state.actionDeadline = Date.now() + ACTION_TIMEOUT_MS
+  state.lastMessage = `Pass 1 card ${directionLabel(state.direction!)}.`
+}
+
+function beginPlayPhase(state: RowShamBoState): void {
+  state.phase = 'play'
+  state.actionDeadline = Date.now() + ACTION_TIMEOUT_MS
+  state.lastMessage = 'Select a card to play face-down.'
+}
+
+function beginReveal(state: RowShamBoState): void {
+  state.phase = 'reveal'
+  state.actionDeadline = null
+  const plays = state.players.map((p) => {
+    if (!p.playCardId) return null
+    return p.hand.find((c) => c.id === p.playCardId) ?? null
+  })
+  const labels = state.players
+    .map((p, i) => {
+      const c = plays[i]
+      return c ? `${p.name}: ${cardLabel(c)}` : null
+    })
+    .filter(Boolean)
+  state.lastMessage = `Reveal! ${labels.join(' · ')}`
+  state.log.push(state.lastMessage)
+
+  const { steps, deltas } = buildResolveSteps(
+    plays,
+    state.button,
+    state.direction!,
+    state.config.variant,
+  )
+  state.resolveSteps = steps
+
+  // Apply deltas to game scores
+  for (let i = 0; i < state.players.length; i++) {
+    state.players[i]!.gameScore += deltas[i] ?? 0
+  }
+
+  // Remove played cards to discard
+  for (const pl of state.players) {
+    if (!pl.playCardId) continue
+    const card = pl.hand.find((c) => c.id === pl.playCardId)
+    if (card) {
+      pl.hand = sortHand(pl.hand.filter((c) => c.id !== pl.playCardId))
+      state.discard.push(card)
+    }
+    pl.playCardId = null
+  }
+
+  state.resolveStepIndex = steps.length ? 0 : -1
+  if (!steps.length) {
+    finishHand(state)
+  } else {
+    state.phase = 'resolve'
+    state.lastMessage = steps[0]!.note
+  }
+}
+
+function finishHand(state: RowShamBoState): void {
+  state.phase = 'handEnd'
+  state.resolveStepIndex = -1
+  state.lastHandScores = state.players.map((p) => ({
+    playerId: p.id,
+    name: p.name,
+    delta: 0,
+    gameTotal: p.gameScore,
+    matchTotal: p.matchScore,
+  }))
+  // Rotate button clockwise
+  state.button = (state.button + 1) % state.players.length
+
+  const cardsLeft = state.players.reduce((s, p) => s + p.hand.length, 0)
+  if (state.stock.length === 0 && cardsLeft === 0) {
+    endGame(state)
+    return
+  }
+  state.lastMessage = `Hand over. Scores: ${state.players.map((p) => `${p.name} ${p.gameScore}`).join(', ')}`
+}
+
+function endGame(state: RowShamBoState): void {
+  state.phase = 'gameEnd'
+  const ranked = [...state.players].sort((a, b) => b.gameScore - a.gameScore)
+  const top = ranked[0]!
+  state.lastMessage = `${top.name} wins the game with ${top.gameScore} pts!`
+  state.log.push(state.lastMessage)
+
+  // Add game scores into match
+  for (const pl of state.players) {
+    pl.matchScore += pl.gameScore
+  }
+  state.lastHandScores = state.players.map((p) => ({
+    playerId: p.id,
+    name: p.name,
+    delta: p.gameScore,
+    gameTotal: p.gameScore,
+    matchTotal: p.matchScore,
+  }))
+
+  const target = state.config.playTo
+  const atTarget = state.players.filter((p) => p.matchScore >= target)
+  if (atTarget.length) {
+    atTarget.sort((a, b) => b.matchScore - a.matchScore)
+    const best = atTarget[0]!.matchScore
+    const champs = atTarget.filter((p) => p.matchScore === best)
+    state.phase = 'matchEnd'
+    if (champs.length > 1) {
+      state.matchTied = true
+      state.winnerId = null
+      state.lastMessage = `Match tie at ${best}! ${champs.map((c) => c.name).join(' & ')}`
+    } else {
+      state.matchTied = false
+      state.winnerId = champs[0]!.id
+      state.lastMessage = `${champs[0]!.name} wins the match with ${best} pts!`
+    }
+    state.log.push(state.lastMessage)
+  }
+}
+
+function autoPickCard(hand: { id: string }[]): string | null {
+  if (!hand.length) return null
+  return hand[Math.floor(Math.random() * hand.length)]!.id
+}
+
+function applyTimeout(state: RowShamBoState): RowShamBoState {
+  const next = cloneRowShamBo(state)
+  if (next.phase === 'pass') {
+    for (const pl of next.players) {
+      if (pl.passCardId || !pl.hand.length) continue
+      if (!pl.isComputer) {
+        pl.passCardId = autoPickCard(pl.hand)
+        next.log.push(`${pl.name} timed out — random pass.`)
+      }
+    }
+    if (allPassed(next)) {
+      exchangePasses(next)
+      beginPlayPhase(next)
+    }
+    return next
+  }
+  if (next.phase === 'play') {
+    for (const pl of next.players) {
+      if (pl.playCardId || !pl.hand.length) continue
+      if (!pl.isComputer) {
+        pl.playCardId = autoPickCard(pl.hand)
+        next.log.push(`${pl.name} timed out — random play.`)
+      }
+    }
+    if (allPlayed(next)) beginReveal(next)
+    return next
+  }
+  return next
+}
+
+export function applyRowShamBoMove(state: RowShamBoState, move: RowShamBoMove): RowShamBoApplyResult {
+  if (state.phase === 'matchEnd') return { ok: false, error: 'Match is over' }
+
+  if (move.t === 'timeout') {
+    return { ok: true, state: applyTimeout(state) }
+  }
+
+  const next = cloneRowShamBo(state)
+
+  if (move.t === 'ackDir') {
+    if (next.phase !== 'chooseDir') return { ok: false, error: 'Not choosing direction' }
+    beginPassPhase(next)
+    return { ok: true, state: next }
+  }
+
+  if (move.t === 'pass') {
+    if (next.phase !== 'pass') return { ok: false, error: 'Not pass phase' }
+    // Find human or any player who owns the card and hasn't passed
+    const pl = next.players.find((p) => p.hand.some((c) => c.id === move.cardId) && !p.passCardId)
+    if (!pl) return { ok: false, error: 'Card not available' }
+    if (!pl.hand.some((c) => c.id === move.cardId)) return { ok: false, error: 'Not in hand' }
+    pl.passCardId = move.cardId
+    next.log.push(`${pl.name} passes a card.`)
+    // Auto-pass for bots after human acts (solo flow); peer will submit bot moves separately
+    for (const bot of next.players) {
+      if (!bot.isComputer || bot.passCardId || !bot.hand.length) continue
+      bot.passCardId = autoPickCard(bot.hand)
+    }
+    if (allPassed(next)) {
+      exchangePasses(next)
+      beginPlayPhase(next)
+    }
+    return { ok: true, state: next }
+  }
+
+  if (move.t === 'play') {
+    if (next.phase !== 'play') return { ok: false, error: 'Not play phase' }
+    const pl = next.players.find((p) => p.hand.some((c) => c.id === move.cardId) && !p.playCardId)
+    if (!pl) return { ok: false, error: 'Card not available' }
+    pl.playCardId = move.cardId
+    next.log.push(`${pl.name} plays face-down.`)
+    for (const bot of next.players) {
+      if (!bot.isComputer || bot.playCardId || !bot.hand.length) continue
+      bot.playCardId = autoPickCard(bot.hand)
+    }
+    if (allPlayed(next)) beginReveal(next)
+    return { ok: true, state: next }
+  }
+
+  if (move.t === 'ackReveal' || move.t === 'ackResolve') {
+    if (next.phase === 'reveal') {
+      if (next.resolveSteps.length) {
+        next.phase = 'resolve'
+        next.resolveStepIndex = 0
+        next.lastMessage = next.resolveSteps[0]!.note
+      } else {
+        finishHand(next)
+      }
+      return { ok: true, state: next }
+    }
+    if (next.phase !== 'resolve') return { ok: false, error: 'Not resolving' }
+    const i = next.resolveStepIndex + 1
+    if (i >= next.resolveSteps.length) {
+      finishHand(next)
+    } else {
+      next.resolveStepIndex = i
+      next.lastMessage = next.resolveSteps[i]!.note
+    }
+    return { ok: true, state: next }
+  }
+
+  if (move.t === 'ackHandEnd') {
+    if (next.phase !== 'handEnd') return { ok: false, error: 'Hand not over' }
+    const seed = Date.now() % 1e9
+    return { ok: true, state: startHand(next, seed) }
+  }
+
+  if (move.t === 'ackGameEnd') {
+    if (next.phase !== 'gameEnd') return { ok: false, error: 'Game not over' }
+    next.gameNumber += 1
+    return { ok: true, state: dealNewGame(next, Date.now() % 1e9) }
+  }
+
+  return { ok: false, error: 'Unknown move' }
+}
+
+/** Submit pass/play for a specific seat (multiplayer). */
+export function applyRowShamBoSeatMove(
+  state: RowShamBoState,
+  seat: number,
+  move: Extract<RowShamBoMove, { t: 'pass' | 'play' }>,
+): RowShamBoApplyResult {
+  if (state.phase === 'matchEnd') return { ok: false, error: 'Match is over' }
+  const next = cloneRowShamBo(state)
+  const pl = next.players[seat]
+  if (!pl) return { ok: false, error: 'Bad seat' }
+
+  if (move.t === 'pass') {
+    if (next.phase !== 'pass') return { ok: false, error: 'Not pass phase' }
+    if (pl.passCardId) return { ok: false, error: 'Already passed' }
+    if (!pl.hand.some((c) => c.id === move.cardId)) return { ok: false, error: 'Not in hand' }
+    pl.passCardId = move.cardId
+    if (allPassed(next)) {
+      exchangePasses(next)
+      beginPlayPhase(next)
+    }
+    return { ok: true, state: next }
+  }
+
+  if (next.phase !== 'play') return { ok: false, error: 'Not play phase' }
+  if (pl.playCardId) return { ok: false, error: 'Already played' }
+  if (!pl.hand.some((c) => c.id === move.cardId)) return { ok: false, error: 'Not in hand' }
+  pl.playCardId = move.cardId
+  if (allPlayed(next)) beginReveal(next)
+  return { ok: true, state: next }
+}

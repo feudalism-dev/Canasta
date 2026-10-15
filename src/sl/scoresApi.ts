@@ -14,11 +14,11 @@ export type ScoreBundle = {
 
 /**
  * One-letter boards (must match Canasta_Scoreboard_Http knownGame):
- * c/h/s/b Canasta family · r Rummy · t Rooster · i Ichi · o Skippo · p Phase It · y Yotsy
+ * c/h/s/b Canasta family · r Rummy · t Rooster · i Ichi · o Skippo · p Phase It · y Yotsy · w Row! Sham! Bo!
  */
-export type ScoreGame = 'c' | 'h' | 's' | 'b' | 'r' | 't' | 'i' | 'o' | 'p' | 'y'
+export type ScoreGame = 'c' | 'h' | 's' | 'b' | 'r' | 't' | 'i' | 'o' | 'p' | 'y' | 'w'
 
-export const SCORE_GAMES: ScoreGame[] = ['c', 'h', 's', 'b', 'r', 't', 'i', 'o', 'p', 'y']
+export const SCORE_GAMES: ScoreGame[] = ['c', 'h', 's', 'b', 'r', 't', 'i', 'o', 'p', 'y', 'w']
 
 export type ScoreGames = Record<ScoreGame, ScoreBundle>
 
@@ -91,6 +91,8 @@ export function scoreGameLabel(g: ScoreGame): string {
       return 'Phase It'
     case 'y':
       return 'Yotsy'
+    case 'w':
+      return 'Row! Sham! Bo!'
     default:
       return 'Canasta'
   }

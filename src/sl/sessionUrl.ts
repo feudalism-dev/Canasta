@@ -25,6 +25,7 @@ export function playParamForFamily(family: string): string {
   if (f === 'skippo') return 'skippo'
   if (f === 'phaseit') return 'phaseit'
   if (f === 'yotsy') return 'yotsy'
+  if (f === 'rowshambo' || f === 'rsb' || f === 'row-sham-bo') return 'rowshambo'
   return ''
 }
 

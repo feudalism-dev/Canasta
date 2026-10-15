@@ -48,6 +48,15 @@ describe('family lock', () => {
     expect(normalizeFamily('yahtzee')).toBe('yotsy')
   })
 
+  it('recognizes rowshambo family', () => {
+    expect(normalizeFamily('rowshambo')).toBe('rowshambo')
+    expect(resolveTableFamily('rowshambo')).toBe('rowshambo')
+    expect(familyHintPresent('rowshambo')).toBe(true)
+    expect(normalizeFamily('rsb')).toBe('rowshambo')
+    expect(normalizeFamily('row-sham-bo')).toBe('rowshambo')
+    expect(normalizeFamily('row_sham_bo')).toBe('rowshambo')
+  })
+
   it('detects whether a real family hint exists', () => {
     expect(familyHintPresent(undefined, '')).toBe(false)
     expect(familyHintPresent('rummy')).toBe(true)

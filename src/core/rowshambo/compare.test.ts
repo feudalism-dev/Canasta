@@ -1,0 +1,30 @@
+import { describe, expect, it } from 'vitest'
+import { beats, compareOutcome } from './compare'
+
+describe('rowshambo compare', () => {
+  it('classic hierarchy', () => {
+    expect(beats('rock', 'scissors')).toBe(true)
+    expect(beats('scissors', 'paper')).toBe(true)
+    expect(beats('paper', 'rock')).toBe(true)
+    expect(compareOutcome('rock', 'rock')).toBe('tie')
+  })
+
+  it('dynamite beats all basics', () => {
+    expect(beats('dynamite', 'rock')).toBe(true)
+    expect(beats('dynamite', 'paper')).toBe(true)
+    expect(beats('dynamite', 'scissors')).toBe(true)
+    expect(compareOutcome('dynamite', 'dynamite')).toBe('tie')
+    expect(beats('rock', 'dynamite')).toBe(false)
+  })
+
+  it('elements triad and vs basics', () => {
+    expect(beats('water', 'earth', 'elements')).toBe(true)
+    expect(beats('earth', 'fire', 'elements')).toBe(true)
+    expect(beats('fire', 'water', 'elements')).toBe(true)
+    expect(beats('water', 'rock', 'elements')).toBe(true)
+    expect(beats('water', 'paper', 'elements')).toBe(true)
+    expect(beats('scissors', 'water', 'elements')).toBe(true)
+    expect(beats('dynamite', 'water', 'elements')).toBe(true)
+    expect(beats('water', 'dynamite', 'elements')).toBe(false)
+  })
+})

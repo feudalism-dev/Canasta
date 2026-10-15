@@ -13,6 +13,8 @@ import type { IchiVariant } from '../core/ichi/types'
 import type { SkippoVariant } from '../core/skippo/types'
 import type { PhaseItVariant } from '../core/phaseit/types'
 import type { YotsyVariant } from '../core/yotsy/types'
+import type { RowShamBoVariant } from '../core/rowshambo/types'
+import { rowShamBoTip } from '../core/rowshambo/variants'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
 import { BetaVariantNotice } from './BetaVariantNotice'
@@ -23,6 +25,7 @@ import { IchiVariantSelect } from './IchiVariantSelect'
 import { SkippoVariantSelect } from './SkippoVariantSelect'
 import { PhaseItVariantSelect } from './PhaseItVariantSelect'
 import { YotsyVariantSelect } from './YotsyVariantSelect'
+import { RowShamBoVariantSelect } from './RowShamBoVariantSelect'
 import { SeatMap } from './SeatMap'
 import type { SlBootstrap } from '../sl/bootstrap'
 import { openMatchInBrowser } from '../sl/sessionUrl'
@@ -86,6 +89,12 @@ type Props = {
   onYotsyVariant: (v: YotsyVariant) => void
   yotsyPlayerCount: number
   onYotsyPlayerCount: (n: number) => void
+  rowshamboVariant: RowShamBoVariant
+  onRowshamboVariant: (v: RowShamBoVariant) => void
+  rowshamboPlayerCount: number
+  onRowshamboPlayerCount: (n: number) => void
+  rowshamboPlayTo: number
+  onRowshamboPlayTo: (n: number) => void
   onFamily: (family: GameFamily) => void
   partnership: boolean
   onPartnership: (v: boolean) => void
@@ -146,6 +155,12 @@ export function SlTableScreens({
   onYotsyVariant,
   yotsyPlayerCount,
   onYotsyPlayerCount,
+  rowshamboVariant,
+  onRowshamboVariant,
+  rowshamboPlayerCount,
+  onRowshamboPlayerCount,
+  rowshamboPlayTo,
+  onRowshamboPlayTo,
   onFamily,
   partnership,
   onPartnership,
@@ -215,6 +230,7 @@ export function SlTableScreens({
   const isSkippoTable = family === 'skippo'
   const isPhaseitTable = family === 'phaseit'
   const isYotsyTable = family === 'yotsy'
+  const isRowshamboTable = family === 'rowshambo'
   const isCanastaTable = family === 'canasta'
 
   const enterTable = async (name: string) => {
@@ -471,6 +487,8 @@ export function SlTableScreens({
           <p className="muted">This table is locked to the Phase It family (creator SKU).</p>
         ) : isYotsyTable ? (
           <p className="muted">This table is locked to the Yotsy family (creator SKU).</p>
+        ) : isRowshamboTable ? (
+          <p className="muted">This table is locked to the Row! Sham! Bo! family (creator SKU).</p>
         ) : null}
         <label>
           Name
@@ -488,6 +506,14 @@ export function SlTableScreens({
           <PhaseItVariantSelect value={phaseitVariant} disabled={!canEditRules} onChange={onPhaseitVariant} />
         ) : isYotsyTable ? (
           <YotsyVariantSelect value={yotsyVariant} disabled={!canEditRules} onChange={onYotsyVariant} />
+        ) : isRowshamboTable ? (
+          <RowShamBoVariantSelect
+            value={rowshamboVariant}
+            playTo={rowshamboPlayTo}
+            disabled={!canEditRules}
+            onChange={onRowshamboVariant}
+            onPlayTo={onRowshamboPlayTo}
+          />
         ) : (
           <label>
             Game
@@ -685,6 +711,26 @@ export function SlTableScreens({
             </p>
           </>
         ) : null}
+        {!seatedBrowser && isRowshamboTable ? (
+          <>
+            <label className="field">
+              <span>Players</span>
+              <select
+                value={rowshamboPlayerCount}
+                disabled={!canEditRules}
+                onChange={(e) => onRowshamboPlayerCount(Number(e.target.value))}
+              >
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+              </select>
+            </label>
+            <p className="muted">
+              {rowshamboPlayerCount} seats · first to {rowshamboPlayTo}. {rowShamBoTip(rowshamboVariant)}{' '}
+              Empty chairs become bots.
+            </p>
+          </>
+        ) : null}
         {isCanastaTable && isHouseRulesHandAndFoot(variant) ? (
           <>
             {showMpLobby && !rulesLocked ? (
@@ -800,7 +846,12 @@ export function SlTableScreens({
                 ? 'A game is paused for this seat (about 60 seconds). Resume it, or Abandon to start fresh.'
                 : !canSolo && tableBusy
                   ? `Solo stays off while the table is “${mode}”.`
-                  : isTrickTable || isIchiTable || isSkippoTable || isPhaseitTable || isYotsyTable
+                  : isTrickTable ||
+                      isIchiTable ||
+                      isSkippoTable ||
+                      isPhaseitTable ||
+                      isYotsyTable ||
+                      isRowshamboTable
                     ? 'Solo fills empty seats with bots. Multiplayer: Create with 2+ humans, pick seat count, Start fills the rest with bots.'
                     : isRummyTable
                       ? 'Solo and multiplayer use your player count — empty chairs are computers.'
@@ -824,7 +875,8 @@ export function SlTableScreens({
                 !['classic', 'short', 'partners', 'jumpin'].includes(skippoVariant)) ||
               (isPhaseitTable && !['classic', 'masters', 'sprint'].includes(phaseitVariant)) ||
               (isYotsyTable &&
-                !['classic', 'kismet', 'yacht', 'generala'].includes(yotsyVariant))
+                !['classic', 'kismet', 'yacht', 'generala'].includes(yotsyVariant)) ||
+              (isRowshamboTable && rowshamboVariant !== 'classic')
             }
             onClick={async () => {
               setBusy(true)
