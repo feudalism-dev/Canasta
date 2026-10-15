@@ -15,14 +15,18 @@ import '../styles/rowshambo.css'
 
 /** Pacing — keep readable on MoAP / HUD. */
 const DIR_SPIN_MS = 2800
+/** All cards face-down before duel 1. */
 const PRE_DUEL_MS = 2200
-/** Let flipped cards sit before POW/OOF/TIE. */
-const REVEAL_PAUSE_MS = 1200
+/** After a result, soak before we even flip the next challenger. */
+const BETWEEN_DUELS_MS = 1600
+/** Challenger stays face-down this long into the duel, then flips. */
+const CHALLENGER_FLIP_MS = 900
+/** Hold face-up cards before POW/OOF/TIE. */
+const REVEAL_PAUSE_MS = 1100
 /** How long the center stamp stays up. */
-const BURST_HOLD_MS = 2400
-/** Extra beat after the stamp before the next duel. */
-const POST_BURST_MS = 900
-const DUEL_HOLD_MS = REVEAL_PAUSE_MS + BURST_HOLD_MS + POST_BURST_MS
+const BURST_HOLD_MS = 2200
+/** Beat after the stamp before ack → next duel / hand end. */
+const POST_BURST_MS = 800
 /** Let POW/OOF/TIE + scores soak in before the next-round countdown. */
 const POST_HAND_DWELL_MS = 4500
 /** 3…2…1 after the dwell, then advance. */
@@ -176,6 +180,8 @@ export function RowShamBoBoard({
   const [fallback, setFallback] = useState<RowShamBoState | null>(null)
   const [err, setErr] = useState('')
   const [burst, setBurst] = useState<{ text: string; cls: string; img: string } | null>(null)
+  /** Challenger card stays down until this flips true — separates back-to-back bot fights. */
+  const [challengerFlipped, setChallengerFlipped] = useState(false)
   const [now, setNow] = useState(Date.now())
   const [roundEndAt, setRoundEndAt] = useState<number | null>(null)
   const fallbackRef = useRef(fallback)
@@ -185,11 +191,17 @@ export function RowShamBoBoard({
   const timedOutDeadlineRef = useRef<number | null>(null)
   /** Only deadlines we observed while still in the future may auto-timeout. */
   const armedDeadlineRef = useRef<number | null>(null)
-  /** Bumps when resolve step/phase changes so stale timers cannot skip ahead. */
-  const resolveGenRef = useRef(0)
+  /** Which resolve stepIndex we are already pacing (do not restart timers). */
+  const pacingStepRef = useRef<number | null>(null)
+  const pacingTimersRef = useRef<number[]>([])
   /** `${gameNumber}:${handNumber}` — once per handEnd, never across games. */
   const handEndAckedKeyRef = useRef<string | null>(null)
   const handEndArmedKeyRef = useRef<string | null>(null)
+
+  const clearPacingTimers = () => {
+    for (const id of pacingTimersRef.current) window.clearTimeout(id)
+    pacingTimersRef.current = []
+  }
 
   useEffect(() => {
     if (!controller?.onChange) return
@@ -251,25 +263,31 @@ export function RowShamBoBoard({
     return () => window.clearTimeout(t)
   }, [state?.phase, state?.handNumber])
 
-  // Auto-advance resolve: face-down beat, then each duel held so flips + bursts read clearly
+  // Auto-advance resolve — one duel at a time (lead-in → flip challenger → stamp → ack).
   useEffect(() => {
     if (!state || state.phase !== 'resolve') {
-      resolveGenRef.current += 1
+      clearPacingTimers()
+      pacingStepRef.current = null
       setBurst(null)
+      setChallengerFlipped(false)
       return
     }
-    const gen = ++resolveGenRef.current
+    const stepIndex = state.resolveStepIndex
+    clearPacingTimers()
+    pacingStepRef.current = stepIndex
+
     // Preamble: all cards still face-down
-    if (state.resolveStepIndex < 0) {
+    if (stepIndex < 0) {
       setBurst(null)
-      const t = window.setTimeout(() => {
-        if (resolveGenRef.current !== gen) return
-        playRef.current({ t: 'ackResolve' })
-      }, PRE_DUEL_MS)
-      return () => window.clearTimeout(t)
+      setChallengerFlipped(false)
+      const t = window.setTimeout(() => playRef.current({ t: 'ackResolve' }), PRE_DUEL_MS)
+      pacingTimersRef.current.push(t)
+      return () => clearPacingTimers()
     }
-    const step = state.resolveSteps[state.resolveStepIndex]
-    if (!step) return
+
+    const step = state.resolveSteps[stepIndex]
+    if (!step) return () => clearPacingTimers()
+
     // Contested holds → OOF (challenger out). Challenger smashes group → POW. Tie → TIE.
     const cls =
       step.outcome === 'tie' ? 'is-tie' : step.outcome === 'contestedWin' ? 'is-oof' : ''
@@ -281,20 +299,26 @@ export function RowShamBoBoard({
         : step.outcome === 'contestedWin'
           ? 'burst-oof.png'
           : 'burst-pow.png'
-    // Cards flip with the resolve step — hold them face-up, then stamp, then pause.
+
+    // Duel 2+: pause before the next challenger flips so back-to-back bots don't merge.
+    const leadIn = stepIndex === 0 ? 0 : BETWEEN_DUELS_MS
     setBurst(null)
-    const burstT = window.setTimeout(() => {
-      if (resolveGenRef.current !== gen) return
-      setBurst({ text, cls, img })
-    }, REVEAL_PAUSE_MS)
-    const t = window.setTimeout(() => {
-      if (resolveGenRef.current !== gen) return
-      playRef.current({ t: 'ackResolve' })
-    }, DUEL_HOLD_MS)
-    return () => {
-      window.clearTimeout(burstT)
-      window.clearTimeout(t)
-    }
+    setChallengerFlipped(false)
+
+    const flipT = window.setTimeout(() => setChallengerFlipped(true), leadIn + CHALLENGER_FLIP_MS)
+    const burstT = window.setTimeout(
+      () => setBurst({ text, cls, img }),
+      leadIn + CHALLENGER_FLIP_MS + REVEAL_PAUSE_MS,
+    )
+    const ackT = window.setTimeout(
+      () => {
+        setBurst(null)
+        playRef.current({ t: 'ackResolve' })
+      },
+      leadIn + CHALLENGER_FLIP_MS + REVEAL_PAUSE_MS + BURST_HOLD_MS + POST_BURST_MS,
+    )
+    pacingTimersRef.current.push(flipT, burstT, ackT)
+    return () => clearPacingTimers()
   }, [state?.phase, state?.resolveStepIndex])
 
   // Human timeout — full ACTION_TIMEOUT_MS window; never fire on a deadline we never armed
@@ -428,16 +452,24 @@ export function RowShamBoBoard({
               {state.players.map((p, pi) => {
                 const tableCard = state.tablePlays[pi]
                 if (!tableCard) return null
-                const faceUp = Boolean(state.revealed[pi])
                 const step =
                   state.resolveStepIndex >= 0
                     ? state.resolveSteps[state.resolveStepIndex]
                     : null
-                const inDuel =
-                  step != null && (step.contested.includes(pi) || step.next === pi)
-                // Badges as soon as this duel is active (don't wait for the center stamp).
+                const inContested = Boolean(step?.contested.includes(pi))
+                const isChallenger = Boolean(step && step.next === pi)
+                const inDuel = inContested || isChallenger
+                // One fight at a time: only current contested + (flipped) challenger face-up.
+                const faceUp =
+                  Boolean(step) &&
+                  Boolean(state.revealed[pi]) &&
+                  (inContested || (isChallenger && challengerFlipped))
+                // Badges only after the challenger is up (and for contested once fighting).
+                const showBadges = Boolean(burst) && inDuel && (inContested || challengerFlipped)
                 const result =
-                  step && inDuel ? duelResultForSeat(step, pi) : { kind: 'idle' as const, label: '' }
+                  showBadges && step
+                    ? duelResultForSeat(step, pi)
+                    : { kind: 'idle' as const, label: '' }
                 const compass = compassForPlayer(
                   pi,
                   localIndex,
