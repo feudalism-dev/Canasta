@@ -48,7 +48,10 @@ function assetUrl(file: string): string {
 
 type CompassPoint = 's' | 'w' | 'n' | 'e'
 
-/** Seat the local player at south; walk CW around the table for the rest. */
+/**
+ * Seat the local player at south. Parlor chairs: +1 = right (east), +2 = opposite,
+ * +3 = left (west). Top-down clockwise from south walks west (left) first.
+ */
 function compassForPlayer(
   playerIndex: number,
   localIndex: number,
@@ -59,7 +62,7 @@ function compassForPlayer(
   const localSeat = seats[localIndex] ?? localIndex
   const seat = seats[playerIndex] ?? playerIndex
   const rel = (((seat - localSeat) % 4) + 4) % 4
-  return (['s', 'w', 'n', 'e'] as const)[rel] ?? 'n'
+  return (['s', 'e', 'n', 'w'] as const)[rel] ?? 'n'
 }
 
 function duelResultForSeat(

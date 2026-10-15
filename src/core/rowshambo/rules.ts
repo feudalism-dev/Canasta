@@ -5,7 +5,8 @@ import {
   cloneRowShamBo,
   dealNewGame,
   drawUpToFive,
-  passTargetSeat,
+  nextPlayerIndex,
+  passTargetIndex,
   startRound,
 } from './state'
 import { directionLabel } from './variants'
@@ -51,7 +52,7 @@ function exchangePasses(state: RowShamBoState): void {
   for (let i = 0; i < n; i++) {
     const card = outgoing[i]
     if (!card) continue
-    const to = passTargetSeat(i, n, dir)
+    const to = passTargetIndex(state.players, i, dir)
     const dest = state.players[to]!
     dest.hand = sortHand([...dest.hand, card])
     dest.receivedCardId = card.id
@@ -107,6 +108,7 @@ function beginReveal(state: RowShamBoState): void {
     state.button,
     state.direction!,
     state.config.variant,
+    state.players.map((p) => p.seat),
   )
   state.resolveSteps = steps
   state.resolveStepIndex = steps.length ? 0 : -1
@@ -190,8 +192,8 @@ function finishHand(state: RowShamBoState): void {
     gameTotal: p.gameScore,
     matchTotal: p.matchScore,
   }))
-  // Rotate button clockwise
-  state.button = (state.button + 1) % state.players.length
+  // Rotate button clockwise around the physical table
+  state.button = nextPlayerIndex(state.players, state.button, 'cw')
 
   const cardsLeft = state.players.reduce((s, p) => s + p.hand.length, 0)
   if (state.stock.length === 0 && cardsLeft === 0) {

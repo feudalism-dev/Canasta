@@ -178,11 +178,50 @@ export function withPhysicalSeats(state: RowShamBoState, seats: number[]): RowSh
   return next
 }
 
-export function passTargetSeat(
-  from: number,
-  n: number,
+/**
+ * Player indices in table order for a direction, starting at `startIndex`.
+ *
+ * Parlor seats: 0 this-side, 1 right, 2 opposite, 3 left.
+ * With the local player drawn at south, top-down clockwise walks left:
+ * seat 0 → 3 → 2 → 1 → 0 (decreasing seat among whoever is present).
+ */
+export function playerOrderByDirection(
+  players: { seat: number }[],
+  startIndex: number,
+  dir: RowShamBoDirection,
+): number[] {
+  const n = players.length
+  if (n === 0) return []
+  const ranked = players
+    .map((p, i) => ({ i, seat: p.seat }))
+    .sort((a, b) => a.seat - b.seat || a.i - b.i)
+  let startPos = ranked.findIndex((x) => x.i === startIndex)
+  if (startPos < 0) startPos = 0
+  // cw = decreasing seat; ccw = increasing seat
+  const step = dir === 'cw' ? -1 : 1
+  const order: number[] = []
+  for (let k = 0; k < n; k++) {
+    const pos = (startPos + step * k + n * 8) % n
+    order.push(ranked[pos]!.i)
+  }
+  return order
+}
+
+/** Next player index one step in `dir` around the physical table. */
+export function nextPlayerIndex(
+  players: { seat: number }[],
+  fromIndex: number,
   dir: RowShamBoDirection,
 ): number {
-  if (dir === 'cw') return (from + 1) % n
-  return (from - 1 + n) % n
+  const order = playerOrderByDirection(players, fromIndex, dir)
+  return order[1] ?? fromIndex
+}
+
+/** @deprecated use nextPlayerIndex — kept name for call-site clarity on passes */
+export function passTargetIndex(
+  players: { seat: number }[],
+  fromIndex: number,
+  dir: RowShamBoDirection,
+): number {
+  return nextPlayerIndex(players, fromIndex, dir)
 }

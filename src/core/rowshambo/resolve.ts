@@ -1,4 +1,5 @@
 import { compareOutcome, kindLabel } from './compare'
+import { playerOrderByDirection } from './state'
 import type {
   RowShamBoCard,
   RowShamBoDirection,
@@ -6,33 +7,28 @@ import type {
   RowShamBoVariant,
 } from './types'
 
-function nextSeat(from: number, n: number, dir: RowShamBoDirection, steps = 1): number {
-  if (dir === 'cw') return (from + steps) % n
-  return (from - steps + n * 4) % n
-}
-
 /**
- * Chain resolution from button, walking `direction`.
+ * Chain resolution from button, walking physical seats in `direction`.
  * Contested starts as [button]. Tie → join; lose → each contested +1; win → +|contested| and replace.
+ *
+ * `seats[i]` is the parlor chair for player index `i` (0 this-side … 3 left).
+ * When omitted, seats default to 0..n-1 (array order = table order).
  */
 export function buildResolveSteps(
   plays: (RowShamBoCard | null)[],
   button: number,
   direction: RowShamBoDirection,
   variant: RowShamBoVariant,
+  seats?: number[],
 ): { steps: RowShamBoResolveStep[]; deltas: number[] } {
   const n = plays.length
   const deltas = Array.from({ length: n }, () => 0)
   const steps: RowShamBoResolveStep[] = []
+  const players = Array.from({ length: n }, (_, i) => ({ seat: seats?.[i] ?? i }))
 
-  // Skip empty plays (players with no card)
-  const active: number[] = []
-  for (let i = 0; i < n; i++) {
-    const seat = nextSeat(button, n, direction, i)
-    if (plays[seat]) active.push(seat)
-  }
-  if (active.length === 0) return { steps, deltas }
-  if (active.length === 1) return { steps, deltas }
+  const order = playerOrderByDirection(players, button, direction)
+  const active = order.filter((i) => plays[i])
+  if (active.length <= 1) return { steps, deltas }
 
   let contested = [active[0]!]
   for (let ai = 1; ai < active.length; ai++) {

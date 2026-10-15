@@ -66,10 +66,10 @@ describe('rowshambo rules', () => {
     if (!res.ok) return
     state = res.state
     expect(state.phase).toBe('play')
-    // CW: A→B, B→C, C→A
-    expect(state.players[0]!.hand.some((c) => c.id === cPass)).toBe(true)
-    expect(state.players[1]!.hand.some((c) => c.id === aPass)).toBe(true)
-    expect(state.players[2]!.hand.some((c) => c.id === bPass)).toBe(true)
+    // Physical CW (seats 0→2→1): A→C, C→B, B→A
+    expect(state.players[0]!.hand.some((c) => c.id === bPass)).toBe(true)
+    expect(state.players[1]!.hand.some((c) => c.id === cPass)).toBe(true)
+    expect(state.players[2]!.hand.some((c) => c.id === aPass)).toBe(true)
     expect(state.players[0]!.hand.some((c) => c.id === aPass)).toBe(false)
   })
 
