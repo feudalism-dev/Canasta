@@ -157,10 +157,8 @@ integer paintSeat(integer seat)
     string conf = "a=left; w=none; t=on; force=on";
     string body;
     integer showLive = FALSE;
-    if (gLive && seat < gPlayers)
-    {
-        if (!seatVacant(seat)) showLive = TRUE;
-    }
+    // Any occupied seat while live (solo may remap onto seats outside 0..n-1).
+    if (gLive && !seatVacant(seat)) showLive = TRUE;
     if (!showLive)
     {
         body = (string)(seat + 1) + " P" + (string)(seat + 1);

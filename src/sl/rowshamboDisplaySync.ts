@@ -20,10 +20,15 @@ export function rowshamboNamesPipe(state: RowShamBoState): string[] {
   return out
 }
 
+/** Furware shows one number — live match standing (match + this game's points). */
 export function rowshamboScoresPipe(state: RowShamBoState): number[] {
   const out = [0, 0, 0, 0]
+  // After gameEnd, matchScore already includes gameScore — don't double-count.
+  const foldGame = state.phase !== 'gameEnd' && state.phase !== 'matchEnd'
   for (const p of state.players) {
-    if (p.seat >= 0 && p.seat < 4) out[p.seat] = p.matchScore
+    if (p.seat >= 0 && p.seat < 4) {
+      out[p.seat] = foldGame ? p.matchScore + p.gameScore : p.matchScore
+    }
   }
   return out
 }

@@ -185,11 +185,10 @@ integer paintSeat(integer seat)
 {
     string conf = "a=left; w=none; t=on; force=on";
     string body;
+    // Any occupied seat while live — do not require seat < gPlayers.
+    // Solo families remap bots onto physical seats that may sit outside 0..n-1.
     integer showLive = FALSE;
-    if (gLive && seat < gPlayers)
-    {
-        if (!seatVacant(seat)) showLive = TRUE;
-    }
+    if (gLive && !seatVacant(seat)) showLive = TRUE;
     if (!showLive)
     {
         body = (string)(seat + 1) + " P" + (string)(seat + 1);
