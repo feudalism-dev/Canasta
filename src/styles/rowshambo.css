@@ -86,7 +86,7 @@
 }
 
 .rsb-dial.is-spin {
-  animation: rsb-spin 1.1s cubic-bezier(0.15, 0.8, 0.2, 1) both;
+  animation: rsb-spin 2.4s cubic-bezier(0.15, 0.8, 0.2, 1) both;
 }
 
 .rsb-dial.is-cw {

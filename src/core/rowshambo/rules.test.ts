@@ -25,7 +25,7 @@ describe('rowshambo rules', () => {
     expect(pass.state.players.every((p) => p.hand.length === 5)).toBe(true)
   })
 
-  it('keeps non-dueling cards face-down during resolve', () => {
+  it('starts resolve face-down, then flips only the current duel', () => {
     let state = createRowShamBoMatch(['A', 'B', 'C'], [false, true, true], 'classic', 100, 9)
     let res = applyRowShamBoMove(state, { t: 'ackDir' })
     expect(res.ok).toBe(true)
@@ -40,10 +40,17 @@ describe('rowshambo rules', () => {
     if (!res.ok) return
     state = res.state
     expect(state.phase).toBe('resolve')
+    expect(state.resolveStepIndex).toBe(-1)
     expect(state.tablePlays.filter(Boolean).length).toBe(3)
+    expect(state.revealed.every((r) => !r)).toBe(true)
+
+    res = applyRowShamBoMove(state, { t: 'ackResolve' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    expect(state.resolveStepIndex).toBe(0)
     const revealedCount = state.revealed.filter(Boolean).length
     // First duel flips contested + challenger (2), not everyone yet when 3+ players.
-    expect(revealedCount).toBeLessThanOrEqual(2)
-    expect(revealedCount).toBeGreaterThanOrEqual(2)
+    expect(revealedCount).toBe(2)
   })
 })

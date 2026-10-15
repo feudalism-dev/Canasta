@@ -13,6 +13,12 @@ import {
 } from '../core/rowshambo/variants'
 import '../styles/rowshambo.css'
 
+/** Pacing — keep readable on MoAP / HUD. */
+const DIR_SPIN_MS = 2800
+const PRE_DUEL_MS = 2000
+const DUEL_HOLD_MS = 3600
+const BURST_CLEAR_MS = 2000
+
 export type RowShamBoBoardController = {
   state: RowShamBoState
   localIndex: number
@@ -172,16 +178,22 @@ export function RowShamBoBoard({
     }
     if (spinOnce.current) return
     spinOnce.current = true
-    const t = window.setTimeout(() => play({ t: 'ackDir' }), 1200)
+    const t = window.setTimeout(() => play({ t: 'ackDir' }), DIR_SPIN_MS)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.phase, state?.handNumber])
 
-  // Auto-advance resolve steps for comic pacing
+  // Auto-advance resolve: face-down beat, then each duel held so flips + bursts read clearly
   useEffect(() => {
     if (!state || state.phase !== 'resolve') {
       setBurst(null)
       return
+    }
+    // Preamble: all cards still face-down
+    if (state.resolveStepIndex < 0) {
+      setBurst(null)
+      const t = window.setTimeout(() => play({ t: 'ackResolve' }), PRE_DUEL_MS)
+      return () => window.clearTimeout(t)
     }
     const step = state.resolveSteps[state.resolveStepIndex]
     if (!step) return
@@ -196,8 +208,12 @@ export function RowShamBoBoard({
           ? 'burst-pow.png'
           : 'burst-oof.png'
     setBurst({ text, cls, img })
-    const t = window.setTimeout(() => play({ t: 'ackResolve' }), 1100)
-    return () => window.clearTimeout(t)
+    const clearT = window.setTimeout(() => setBurst(null), BURST_CLEAR_MS)
+    const t = window.setTimeout(() => play({ t: 'ackResolve' }), DUEL_HOLD_MS)
+    return () => {
+      window.clearTimeout(clearT)
+      window.clearTimeout(t)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.phase, state?.resolveStepIndex, state?.handNumber])
 
@@ -240,7 +256,9 @@ export function RowShamBoBoard({
         : waitingPlay
           ? 'Select a card to play'
           : state.phase === 'resolve'
-            ? state.lastMessage || 'Battle!'
+            ? state.resolveStepIndex < 0
+              ? 'Cards are down — get ready…'
+              : `Duel ${state.resolveStepIndex + 1} of ${state.resolveSteps.length} — ${state.lastMessage || 'Battle!'}`
             : state.lastMessage || rowShamBoTip(state.config.variant)
 
   return (
@@ -287,19 +305,25 @@ export function RowShamBoBoard({
         {state.phase === 'resolve' && state.tablePlays.some(Boolean) ? (
           <div className="rsb-duel-row" aria-label="Table plays">
             {state.players.map((p, pi) => {
-              const play = state.tablePlays[pi]
-              if (!play) return null
+              const tableCard = state.tablePlays[pi]
+              if (!tableCard) return null
               const faceUp = Boolean(state.revealed[pi])
-              const step = state.resolveSteps[state.resolveStepIndex]
+              const step =
+                state.resolveStepIndex >= 0
+                  ? state.resolveSteps[state.resolveStepIndex]
+                  : null
               const inDuel =
                 step != null && (step.contested.includes(pi) || step.next === pi)
+              const duelN = state.resolveSteps.length
+              const duelI = state.resolveStepIndex + 1
               return (
                 <div
                   key={p.id}
                   className={`rsb-duel-slot${inDuel ? ' is-dueling' : ''}${pi === state.button ? ' is-button' : ''}`}
+                  data-duel={inDuel && duelN ? `${duelI}/${duelN}` : undefined}
                 >
                   <span className="rsb-duel-name">{p.name}</span>
-                  <CardFace card={play} faceDown={!faceUp} disabled />
+                  <CardFace card={tableCard} faceDown={!faceUp} disabled />
                 </div>
               )
             })}

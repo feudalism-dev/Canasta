@@ -102,10 +102,11 @@ function beginReveal(state: RowShamBoState): void {
     return
   }
 
+  // Start on a beat with all cards face-down; first ackResolve flips duel 1.
   state.phase = 'resolve'
-  state.lastMessage = 'Cards are down — duels begin!'
+  state.resolveStepIndex = -1
+  state.lastMessage = 'Cards are down — get ready…'
   state.log.push(state.lastMessage)
-  applyCurrentDuel(state)
 }
 
 function revealSeats(state: RowShamBoState, seats: number[]): void {
