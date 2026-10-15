@@ -444,6 +444,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
       const text = raw.trim()
       if (isRowShamBoBoardPayload(text)) {
         const next = decodeRowShamBoPublicBoard(text)
+        setFamily('rowshambo')
         setRowshamboBoard(next)
         if (next.live) {
           setBoard(idlePublicBoard())
@@ -480,6 +481,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setIchiBoard(idleIchiPublicBoard())
           setSkippoBoard(idleSkippoPublicBoard())
           setYotsyBoard(idleYotsyPublicBoard())
+          setRowshamboBoard(idleRowShamBoPublicBoard())
         }
         return true
       }
@@ -493,6 +495,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setIchiBoard(idleIchiPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
           setYotsyBoard(idleYotsyPublicBoard())
+          setRowshamboBoard(idleRowShamBoPublicBoard())
         }
         return true
       }
@@ -504,6 +507,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setRummyBoard(idleRummyPublicBoard())
           setTrickBoard(idleTrickPublicBoard())
           setSkippoBoard(idleSkippoPublicBoard())
+          setRowshamboBoard(idleRowShamBoPublicBoard())
         }
         return true
       }
@@ -516,6 +520,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setIchiBoard(idleIchiPublicBoard())
           setSkippoBoard(idleSkippoPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
+          setRowshamboBoard(idleRowShamBoPublicBoard())
         }
         return true
       }
@@ -528,6 +533,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setIchiBoard(idleIchiPublicBoard())
           setSkippoBoard(idleSkippoPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
+          setRowshamboBoard(idleRowShamBoPublicBoard())
         }
         return true
       }
@@ -538,8 +544,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         setTrickBoard(idleTrickPublicBoard())
         setIchiBoard(idleIchiPublicBoard())
         setSkippoBoard(idleSkippoPublicBoard())
-          setPhaseitBoard(idlePhaseItPublicBoard())
-          setYotsyBoard(idleYotsyPublicBoard())
+        setPhaseitBoard(idlePhaseItPublicBoard())
+        setYotsyBoard(idleYotsyPublicBoard())
+        setRowshamboBoard(idleRowShamBoPublicBoard())
         return true
       }
       if (isIdleBoardPayload(text)) {
@@ -548,8 +555,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         setTrickBoard(idleTrickPublicBoard())
         setIchiBoard(idleIchiPublicBoard())
         setSkippoBoard(idleSkippoPublicBoard())
-          setPhaseitBoard(idlePhaseItPublicBoard())
-          setYotsyBoard(idleYotsyPublicBoard())
+        setPhaseitBoard(idlePhaseItPublicBoard())
+        setYotsyBoard(idleYotsyPublicBoard())
+        setRowshamboBoard(idleRowShamBoPublicBoard())
         return true
       }
       return false
@@ -570,6 +578,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setSkippoBoard(idleSkippoPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
           setYotsyBoard(idleYotsyPublicBoard())
+          setRowshamboBoard(idleRowShamBoPublicBoard())
           inflight = false
           return
         }
@@ -633,7 +642,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           ? rummyVariantLabel(rummyBoard.variant)
           : variantLabel(board.variant)
   const roundLine = rowshamboLive
-    ? `G${rowshamboBoard.gameNumber} · H${rowshamboBoard.handNumber} · to ${rowshamboBoard.playTo}`
+    ? `G${rowshamboBoard.gameNumber} · R${rowshamboBoard.handNumber} · to ${rowshamboBoard.playTo}`
     : yotsyLive
     ? `T${yotsyBoard.round}`
     : phaseitLive
@@ -920,8 +929,13 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           <div className="spec-mid">
             <div className="spec-trick-center" aria-label="Row! Sham! Bo! table">
               <span className="pile-label">
-                {rowShamBoVariantLabel(rowshamboBoard.variant)} · stock {rowshamboBoard.stockCount}
+                {rowShamBoVariantLabel(rowshamboBoard.variant)}
+                {rowshamboBoard.direction
+                  ? ` · ${directionLabel(rowshamboBoard.direction)}`
+                  : ''}{' '}
+                · stock {rowshamboBoard.stockCount}
               </span>
+              <span className="muted tiny">{rowShamBoSpectatorStatus(rowshamboBoard)}</span>
               {rowshamboBoard.lastMessage ? (
                 <span className="muted tiny">{rowshamboBoard.lastMessage}</span>
               ) : null}
@@ -1298,6 +1312,11 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
               ROOSTER
               <em>parlor</em>
             </h2>
+          ) : isRowshambo ? (
+            <h2 className="spec-parlor-title">
+              ROW! SHAM! BO!
+              <em>parlor</em>
+            </h2>
           ) : (
             <h2 className="spec-parlor-title">
               HAND &amp; FOOT
@@ -1317,7 +1336,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
                       ? 'Sit to play · free-for-all Rummy'
                       : isTrick
                         ? 'Sit to play · Rooster, Hearts, Spades…'
-                        : 'Sit to play · partners sit across'}
+                        : isRowshambo
+                          ? 'Sit to play · directional Rock-Paper-Scissors'
+                          : 'Sit to play · partners sit across'}
           </p>
         </div>
       )}
