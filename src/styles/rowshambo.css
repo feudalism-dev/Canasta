@@ -264,6 +264,24 @@
   outline: 3px solid var(--rsb-blue);
 }
 
+.rsb-card.is-received {
+  outline: 3px solid #f0c14b;
+  transform: translateY(-8px) scale(1.06);
+  box-shadow: 0 0 0 3px rgba(240, 193, 75, 0.35), 6px 8px 0 rgba(0, 0, 0, 0.22);
+  animation: rsb-received-pop 0.55s ease-out;
+}
+
+@keyframes rsb-received-pop {
+  0% {
+    transform: translateY(10px) scale(0.9);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(-8px) scale(1.06);
+    opacity: 1;
+  }
+}
+
 .rsb-card.is-rock {
   background: linear-gradient(160deg, #d9d2c5, #9e9586);
 }

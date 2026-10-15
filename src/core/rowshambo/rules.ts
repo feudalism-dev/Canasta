@@ -47,11 +47,14 @@ function exchangePasses(state: RowShamBoState): void {
     if (!pl.passCardId) continue
     pl.hand = pl.hand.filter((c) => c.id !== pl.passCardId)
   }
+  for (const pl of state.players) pl.receivedCardId = null
   for (let i = 0; i < n; i++) {
     const card = outgoing[i]
     if (!card) continue
     const to = passTargetSeat(i, n, dir)
-    state.players[to]!.hand = sortHand([...state.players[to]!.hand, card])
+    const dest = state.players[to]!
+    dest.hand = sortHand([...dest.hand, card])
+    dest.receivedCardId = card.id
   }
   for (const pl of state.players) pl.passCardId = null
   state.passedThisGame = true
@@ -68,7 +71,17 @@ function beginPassPhase(state: RowShamBoState): void {
 function beginPlayPhase(state: RowShamBoState): void {
   state.phase = 'play'
   state.actionDeadline = Date.now() + ACTION_TIMEOUT_MS
-  state.lastMessage = 'Select a card to play face-down.'
+  const got = state.players
+    .filter((p) => p.receivedCardId)
+    .map((p) => {
+      const card = p.hand.find((c) => c.id === p.receivedCardId)
+      return card ? `${p.name} got ${cardLabel(card)}` : null
+    })
+    .filter(Boolean)
+  state.lastMessage = got.length
+    ? `Pass done — ${got.join('; ')}. Select a card to play face-down.`
+    : 'Select a card to play face-down.'
+  state.log.push(state.lastMessage)
 }
 
 /** Lock plays face-down; flip + score only as each duel step runs. */
@@ -252,6 +265,7 @@ function applyTimeout(state: RowShamBoState): RowShamBoState {
       if (pl.playCardId || !pl.hand.length) continue
       if (!pl.isComputer) {
         pl.playCardId = autoPickCard(pl.hand)
+        pl.receivedCardId = null
         next.log.push(`${pl.name} timed out — random play.`)
       }
     }
@@ -301,10 +315,12 @@ export function applyRowShamBoMove(state: RowShamBoState, move: RowShamBoMove): 
     const pl = next.players.find((p) => p.hand.some((c) => c.id === move.cardId) && !p.playCardId)
     if (!pl) return { ok: false, error: 'Card not available' }
     pl.playCardId = move.cardId
+    pl.receivedCardId = null
     next.log.push(`${pl.name} plays face-down.`)
     for (const bot of next.players) {
       if (!bot.isComputer || bot.playCardId || !bot.hand.length) continue
       bot.playCardId = autoPickCard(bot.hand)
+      bot.receivedCardId = null
     }
     if (allPlayed(next)) beginReveal(next)
     return { ok: true, state: next }
@@ -358,6 +374,7 @@ export function applyRowShamBoSeatMove(
   if (pl.playCardId) return { ok: false, error: 'Already played' }
   if (!pl.hand.some((c) => c.id === move.cardId)) return { ok: false, error: 'Not in hand' }
   pl.playCardId = move.cardId
+  pl.receivedCardId = null
   if (allPlayed(next)) beginReveal(next)
   return { ok: true, state: next }
 }

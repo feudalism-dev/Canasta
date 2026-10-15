@@ -44,6 +44,7 @@ function CardFace({
   card,
   selected,
   legal,
+  received,
   disabled,
   onClick,
   faceDown,
@@ -51,6 +52,8 @@ function CardFace({
   card?: RowShamBoCard | null
   selected?: boolean
   legal?: boolean
+  /** Just arrived from the once-per-game pass. */
+  received?: boolean
   disabled?: boolean
   onClick?: () => void
   faceDown?: boolean
@@ -82,7 +85,7 @@ function CardFace({
   return (
     <button
       type="button"
-      className={`rsb-card is-${card.kind}${imgOk ? ' has-art' : ''}${selected ? ' is-selected' : ''}${legal ? ' is-legal' : ''}`}
+      className={`rsb-card is-${card.kind}${imgOk ? ' has-art' : ''}${selected ? ' is-selected' : ''}${legal ? ' is-legal' : ''}${received ? ' is-received' : ''}`}
       disabled={disabled}
       onClick={onClick}
       aria-label={cardLabel(card)}
@@ -377,6 +380,7 @@ export function RowShamBoBoard({
               card={c}
               selected={locked}
               legal={interactive}
+              received={you.receivedCardId === c.id}
               disabled={!interactive}
               onClick={() => {
                 if (waitingPass) play({ t: 'pass', cardId: c.id })

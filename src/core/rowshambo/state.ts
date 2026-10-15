@@ -34,6 +34,7 @@ export function createRowShamBoMatch(
     isComputer: Boolean(useComp[i]),
     hand: [],
     passCardId: null,
+    receivedCardId: null,
     playCardId: null,
     gameScore: 0,
     matchScore: 0,
@@ -84,6 +85,7 @@ export function dealNewGame(state: RowShamBoState, seed: number): RowShamBoState
   for (const pl of next.players) {
     pl.hand = []
     pl.passCardId = null
+    pl.receivedCardId = null
     pl.playCardId = null
     pl.gameScore = 0
   }
@@ -120,6 +122,7 @@ export function startGame(state: RowShamBoState, seed: number): RowShamBoState {
   next.revealed = next.players.map(() => false)
   for (const pl of next.players) {
     pl.passCardId = null
+    pl.receivedCardId = null
     pl.playCardId = null
   }
   const label = rowShamBoVariantLabel(next.config.variant)
@@ -143,6 +146,7 @@ export function startRound(state: RowShamBoState): RowShamBoState {
   next.revealed = next.players.map(() => false)
   for (const pl of next.players) {
     pl.passCardId = null
+    pl.receivedCardId = null
     pl.playCardId = null
   }
   drawUpToFive(next)

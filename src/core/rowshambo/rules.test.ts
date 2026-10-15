@@ -20,6 +20,9 @@ describe('rowshambo rules', () => {
     expect(state.phase).toBe('pass')
 
     const card = state.players[0]!.hand[0]!
+    const beforeIds = state.players[0]!.hand.map((c) => c.id).sort()
+    const botGave = state.players[1]!.hand[0]! // bot auto-picks random; capture all bot ids
+    const botIdsBefore = new Set(state.players[1]!.hand.map((c) => c.id))
     const pass = applyRowShamBoMove(state, { t: 'pass', cardId: card.id })
     expect(pass.ok).toBe(true)
     if (!pass.ok) return
@@ -27,6 +30,47 @@ describe('rowshambo rules', () => {
     expect(pass.state.passedThisGame).toBe(true)
     expect(pass.state.direction).toBe(dir)
     expect(pass.state.players.every((p) => p.hand.length === 5)).toBe(true)
+
+    const afterIds = pass.state.players[0]!.hand.map((c) => c.id).sort()
+    expect(afterIds).not.toEqual(beforeIds)
+    expect(afterIds.includes(card.id)).toBe(false)
+    // Human received exactly one card that was in the bot's hand before the exchange.
+    const gained = afterIds.filter((id) => !beforeIds.includes(id))
+    expect(gained).toHaveLength(1)
+    expect(botIdsBefore.has(gained[0]!)).toBe(true)
+    expect(pass.state.players[0]!.receivedCardId).toBe(gained[0])
+    void botGave
+  })
+
+  it('swaps concrete cards CW for 3 players', () => {
+    let state = createRowShamBoMatch(['A', 'B', 'C'], [false, false, false], 'classic', 100, 11)
+    let res = applyRowShamBoMove(state, { t: 'ackDir' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    // Force CW so the cycle is deterministic.
+    state.direction = 'cw'
+    const aPass = state.players[0]!.hand[0]!.id
+    const bPass = state.players[1]!.hand[0]!.id
+    const cPass = state.players[2]!.hand[0]!.id
+    res = applyRowShamBoMove(state, { t: 'pass', cardId: aPass })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    res = applyRowShamBoMove(state, { t: 'pass', cardId: bPass })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    res = applyRowShamBoMove(state, { t: 'pass', cardId: cPass })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    expect(state.phase).toBe('play')
+    // CW: A→B, B→C, C→A
+    expect(state.players[0]!.hand.some((c) => c.id === cPass)).toBe(true)
+    expect(state.players[1]!.hand.some((c) => c.id === aPass)).toBe(true)
+    expect(state.players[2]!.hand.some((c) => c.id === bPass)).toBe(true)
+    expect(state.players[0]!.hand.some((c) => c.id === aPass)).toBe(false)
   })
 
   it('keeps direction and skips pass on the next round', () => {

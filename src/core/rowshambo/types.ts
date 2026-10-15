@@ -37,6 +37,8 @@ export type RowShamBoPlayer = {
   hand: RowShamBoCard[]
   /** Card chosen for the once-per-game pass (pending exchange). */
   passCardId: string | null
+  /** Card just received from the pass (UI highlight); cleared on play. */
+  receivedCardId: string | null
   /** Card played face-down this hand. */
   playCardId: string | null
   /** Points scored this game (one full deck play-through). */
