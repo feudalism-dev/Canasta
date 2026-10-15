@@ -42,6 +42,46 @@ function assetUrl(file: string): string {
   return `${import.meta.env.BASE_URL}assets/rowshambo/${file}`
 }
 
+type CompassPoint = 's' | 'w' | 'n' | 'e'
+
+/** Seat the local player at south; walk CW around the table for the rest. */
+function compassForPlayer(
+  playerIndex: number,
+  localIndex: number,
+  seats: number[],
+): CompassPoint {
+  if (playerIndex === localIndex) return 's'
+  if (seats.length === 2) return 'n'
+  const localSeat = seats[localIndex] ?? localIndex
+  const seat = seats[playerIndex] ?? playerIndex
+  const rel = (((seat - localSeat) % 4) + 4) % 4
+  return (['s', 'w', 'n', 'e'] as const)[rel] ?? 'n'
+}
+
+function duelResultForSeat(
+  step: { contested: number[]; next: number; outcome: string; deltas: { seat: number; delta: number }[] } | null,
+  playerIndex: number,
+): { kind: 'win' | 'lose' | 'tie' | 'idle'; label: string } {
+  if (!step) return { kind: 'idle', label: '' }
+  const inContested = step.contested.includes(playerIndex)
+  const isNext = step.next === playerIndex
+  if (!inContested && !isNext) return { kind: 'idle', label: '' }
+  if (step.outcome === 'tie') return { kind: 'tie', label: 'TIE' }
+  if (step.outcome === 'contestedWin') {
+    if (inContested) {
+      const pts = step.deltas.find((d) => d.seat === playerIndex)?.delta ?? 1
+      return { kind: 'win', label: pts > 1 ? `WIN +${pts}` : 'WIN +1' }
+    }
+    return { kind: 'lose', label: 'OUT' }
+  }
+  // nextWin
+  if (isNext) {
+    const pts = step.deltas.find((d) => d.seat === playerIndex)?.delta ?? 1
+    return { kind: 'win', label: pts > 1 ? `WIN +${pts}` : 'WIN' }
+  }
+  return { kind: 'lose', label: 'OUT' }
+}
+
 function CardFace({
   card,
   selected,
@@ -50,6 +90,7 @@ function CardFace({
   disabled,
   onClick,
   faceDown,
+  size = 'md',
 }: {
   card?: RowShamBoCard | null
   selected?: boolean
@@ -59,12 +100,14 @@ function CardFace({
   disabled?: boolean
   onClick?: () => void
   faceDown?: boolean
+  size?: 'md' | 'lg'
 }) {
   const [imgOk, setImgOk] = useState(true)
   const [backOk, setBackOk] = useState(true)
+  const sizeCls = size === 'lg' ? ' is-lg' : ''
   if (faceDown || !card) {
     return (
-      <div className={`rsb-card is-back${backOk ? ' has-art' : ''}`} aria-label="Face down">
+      <div className={`rsb-card is-back${backOk ? ' has-art' : ''}${sizeCls}`} aria-label="Face down">
         {backOk ? (
           <img
             className="rsb-card-face"
@@ -87,7 +130,7 @@ function CardFace({
   return (
     <button
       type="button"
-      className={`rsb-card is-${card.kind}${imgOk ? ' has-art' : ''}${selected ? ' is-selected' : ''}${legal ? ' is-legal' : ''}${received ? ' is-received' : ''}`}
+      className={`rsb-card is-${card.kind}${imgOk ? ' has-art' : ''}${selected ? ' is-selected' : ''}${legal ? ' is-legal' : ''}${received ? ' is-received' : ''}${sizeCls}`}
       disabled={disabled}
       onClick={onClick}
       aria-label={cardLabel(card)}
@@ -202,16 +245,10 @@ export function RowShamBoBoard({
     }
     const step = state.resolveSteps[state.resolveStepIndex]
     if (!step) return
-    const cls =
-      step.outcome === 'tie' ? 'is-tie' : step.outcome === 'nextWin' ? '' : 'is-oof'
-    const text =
-      step.outcome === 'tie' ? 'TIE!' : step.outcome === 'nextWin' ? 'POW!' : 'OOF!'
-    const img =
-      step.outcome === 'tie'
-        ? 'burst-tie.png'
-        : step.outcome === 'nextWin'
-          ? 'burst-pow.png'
-          : 'burst-oof.png'
+    // One center stamp; per-card WIN/OUT badges carry who actually won or lost.
+    const cls = step.outcome === 'tie' ? 'is-tie' : ''
+    const text = step.outcome === 'tie' ? 'TIE!' : 'POW!'
+    const img = step.outcome === 'tie' ? 'burst-tie.png' : 'burst-pow.png'
     // Cards flip with the resolve step — hold them face-up before the result stamp.
     setBurst(null)
     const burstT = window.setTimeout(() => {
@@ -293,7 +330,10 @@ export function RowShamBoBoard({
             <div className={`rsb-timer${secsLeft <= 10 ? ' is-warn' : ''}`}>{secsLeft}s</div>
           ) : null}
           {state.phase === 'resolve' && state.tablePlays.some(Boolean) ? (
-            <div className="rsb-duel-row" aria-label="Table plays">
+            <div
+              className={`rsb-duel-table${state.direction === 'cw' ? ' is-cw' : state.direction === 'ccw' ? ' is-ccw' : ''}`}
+              aria-label="Table plays"
+            >
               {state.players.map((p, pi) => {
                 const tableCard = state.tablePlays[pi]
                 if (!tableCard) return null
@@ -304,19 +344,66 @@ export function RowShamBoBoard({
                     : null
                 const inDuel =
                   step != null && (step.contested.includes(pi) || step.next === pi)
-                const duelN = state.resolveSteps.length
-                const duelI = state.resolveStepIndex + 1
+                const result = burst && step ? duelResultForSeat(step, pi) : { kind: 'idle' as const, label: '' }
+                const compass = compassForPlayer(
+                  pi,
+                  localIndex,
+                  state.players.map((pl) => pl.seat),
+                )
                 return (
                   <div
                     key={p.id}
-                    className={`rsb-duel-slot${inDuel ? ' is-dueling' : ''}${pi === state.button ? ' is-button' : ''}`}
-                    data-duel={inDuel && duelN ? `${duelI}/${duelN}` : undefined}
+                    className={`rsb-duel-slot is-${compass}${inDuel ? ' is-dueling' : ' is-sideline'}${
+                      pi === state.button ? ' is-button' : ''
+                    }${pi === localIndex ? ' is-you' : ''}${result.kind !== 'idle' ? ` is-${result.kind}` : ''}`}
                   >
-                    <span className="rsb-duel-name">{p.name}</span>
-                    <CardFace card={tableCard} faceDown={!faceUp} disabled />
+                    <span className="rsb-duel-name">
+                      {pi === state.button ? '★ ' : ''}
+                      {p.name}
+                      {pi === localIndex ? ' (you)' : ''}
+                    </span>
+                    <div className="rsb-duel-card-wrap">
+                      <CardFace card={tableCard} faceDown={!faceUp} disabled size="lg" />
+                      {result.kind !== 'idle' ? (
+                        <span className={`rsb-duel-badge is-${result.kind}`}>{result.label}</span>
+                      ) : null}
+                    </div>
                   </div>
                 )
               })}
+              <div className="rsb-duel-center" aria-hidden>
+                {burst ? (
+                  <div className="rsb-burst is-center">
+                    <img
+                      className={`rsb-burst-img ${burst.cls}`}
+                      src={assetUrl(burst.img)}
+                      alt={burst.text}
+                      onError={(e) => {
+                        const el = e.currentTarget
+                        el.style.display = 'none'
+                        const fallback = el.nextElementSibling as HTMLElement | null
+                        if (fallback) fallback.hidden = false
+                      }}
+                    />
+                    <div className={`rsb-burst-stamp ${burst.cls}`} hidden>
+                      {burst.text}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rsb-duel-hub">
+                    <span className="rsb-duel-hub-dir">
+                      {state.direction ? directionLabel(state.direction) : 'Fight!'}
+                    </span>
+                    {state.resolveStepIndex >= 0 ? (
+                      <span className="rsb-duel-hub-step">
+                        Duel {state.resolveStepIndex + 1}/{state.resolveSteps.length}
+                      </span>
+                    ) : (
+                      <span className="rsb-duel-hub-step">Cards down…</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div
@@ -332,24 +419,6 @@ export function RowShamBoBoard({
             </div>
           )}
           <div className="rsb-prompt">{prompt}</div>
-          {burst ? (
-            <div className="rsb-burst" aria-hidden>
-              <img
-                className={`rsb-burst-img ${burst.cls}`}
-                src={assetUrl(burst.img)}
-                alt={burst.text}
-                onError={(e) => {
-                  const el = e.currentTarget
-                  el.style.display = 'none'
-                  const fallback = el.nextElementSibling as HTMLElement | null
-                  if (fallback) fallback.hidden = false
-                }}
-              />
-              <div className={`rsb-burst-stamp ${burst.cls}`} hidden>
-                {burst.text}
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <aside className="rsb-scoreboard" aria-label="Scoreboard">
