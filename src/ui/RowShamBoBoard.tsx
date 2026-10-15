@@ -16,8 +16,10 @@ import '../styles/rowshambo.css'
 /** Pacing — keep readable on MoAP / HUD. */
 const DIR_SPIN_MS = 2800
 const PRE_DUEL_MS = 2000
-const DUEL_HOLD_MS = 3600
-const BURST_CLEAR_MS = 2000
+/** Let flipped cards sit before POW/OOF/TIE. */
+const REVEAL_PAUSE_MS = 1000
+const BURST_HOLD_MS = 2000
+const DUEL_HOLD_MS = REVEAL_PAUSE_MS + BURST_HOLD_MS + 600
 
 export type RowShamBoBoardController = {
   state: RowShamBoState
@@ -210,10 +212,15 @@ export function RowShamBoBoard({
         : step.outcome === 'nextWin'
           ? 'burst-pow.png'
           : 'burst-oof.png'
-    setBurst({ text, cls, img })
-    const clearT = window.setTimeout(() => setBurst(null), BURST_CLEAR_MS)
+    // Cards flip with the resolve step — hold them face-up before the result stamp.
+    setBurst(null)
+    const burstT = window.setTimeout(() => {
+      setBurst({ text, cls, img })
+    }, REVEAL_PAUSE_MS)
+    const clearT = window.setTimeout(() => setBurst(null), REVEAL_PAUSE_MS + BURST_HOLD_MS)
     const t = window.setTimeout(() => play({ t: 'ackResolve' }), DUEL_HOLD_MS)
     return () => {
+      window.clearTimeout(burstT)
       window.clearTimeout(clearT)
       window.clearTimeout(t)
     }
