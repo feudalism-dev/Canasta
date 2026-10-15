@@ -830,3 +830,116 @@
   position: relative;
   z-index: 1;
 }
+
+/* —— Table-top MoAP spectator (no hands) —— */
+.rsb-root.is-spectator {
+  position: absolute;
+  inset: 0;
+  min-height: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem 0.55rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.rsb-root.is-spectator .rsb-head {
+  flex: 0 0 auto;
+}
+
+.rsb-root.is-spectator .rsb-title {
+  font-size: clamp(1.15rem, 3.6vw, 1.55rem);
+}
+
+.rsb-root.is-spectator .rsb-sub {
+  font-size: 0.72rem;
+}
+
+.rsb-spec-badge {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  border: 3px solid var(--rsb-ink);
+  border-radius: 0.4rem;
+  padding: 0.2rem 0.45rem;
+  background: var(--rsb-yellow);
+  font-weight: 900;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
+}
+
+.rsb-root.is-spectator .rsb-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0.35rem 0 0;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+.rsb-root.is-spectator .rsb-arena {
+  flex: 1 1 auto;
+  width: auto;
+  max-width: none;
+  min-height: 0;
+  aspect-ratio: auto;
+  height: 100%;
+}
+
+.rsb-root.is-spectator .rsb-scoreboard {
+  flex: 0 0 9.5rem;
+  min-width: 8.5rem;
+  max-width: 10.5rem;
+}
+
+.rsb-root.is-spectator .rsb-dial {
+  width: min(62%, 14rem);
+}
+
+.rsb-root.is-spectator .rsb-prompt {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.rsb-root.is-spectator .rsb-duel-table {
+  inset: 0.3rem 0.3rem 2.6rem;
+}
+
+.rsb-root.is-spectator .rsb-duel-slot .rsb-card.is-lg {
+  width: 3.4rem;
+  height: 4.6rem;
+}
+
+.rsb-spec-status {
+  margin: 0;
+  padding: 0.35rem 0.5rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  opacity: 0.75;
+  border-top: 2px solid var(--rsb-ink);
+}
+
+.rsb-root.is-spectator.is-idle .rsb-arena {
+  place-items: center;
+}
+
+/* Hide Hand & Foot felt when the comic spectator fills the MoAP. */
+.spectator-root.is-rsb {
+  background: transparent;
+  padding: 0;
+}
+
+.spectator-root.is-rsb .table-felt,
+.spectator-root.is-rsb .table-brass {
+  display: none;
+}
+
+.spectator-root.is-rsb .spec-msg {
+  position: absolute;
+  z-index: 5;
+  top: 0.35rem;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+}
