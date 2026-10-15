@@ -1,7 +1,7 @@
-// Yotsy — shout final scores for a nearby (unlinked) scoreboard.
-// Drop in the Yotsy table linkset (root is fine). Compile: Mono.
+// RowShamBo — shout final scores for a nearby (unlinked) scoreboard.
+// Drop in the RowShamBo table linkset (root is fine). Compile: Mono.
 // On GAME_OVER, llShout (100 m): CN_SCORE|<game>|uuid|Name|score
-// Default / unknown → r (standard Yotsy). Gin can use g when wired.
+// Default / unknown → r (standard RowShamBo). Gin can use g when wired.
 // Channel SCORE_CH must match Canasta_Scoreboard.lsl (shared parlor board).
 
 integer DISPLAY_CMD_EVENT = 91001;
@@ -15,7 +15,7 @@ list gName = [];
 list gAv = [];
 integer gPlayers = 4;
 list gScore = [];
-string gGame = "y";
+string gGame = "w";
 
 string cleanName(string s)
 {
@@ -29,7 +29,7 @@ string cleanName(string s)
 
 string normGame(string g)
 {
-    // First a–z / 0–9 character (passthrough). Empty / junk → Yotsy.
+    // First a–z / 0–9 character (passthrough). Empty / junk → RowShamBo.
     g = llToLower(llStringTrim(g, STRING_TRIM));
     integer i;
     integer n = llStringLength(g);
@@ -39,7 +39,7 @@ string normGame(string g)
         string ch = llGetSubString(g, i, i);
         if (llSubStringIndex(ok, ch) >= 0) return ch;
     }
-    return "y";
+    return "w";
 }
 
 integer clearState()
@@ -48,7 +48,7 @@ integer clearState()
     gAv = [NULL_KEY, NULL_KEY, NULL_KEY, NULL_KEY];
     gPlayers = 4;
     gScore = [0, 0, 0, 0];
-    gGame = "y";
+    gGame = "w";
     return TRUE;
 }
 
@@ -170,7 +170,7 @@ default
     state_entry()
     {
         clearState();
-        llOwnerSay("Yotsy scores: llShout CN_SCORE on " + (string)SCORE_CH + ".");
+        llOwnerSay("RowShamBo scores: llShout CN_SCORE on " + (string)SCORE_CH + ".");
     }
 
     on_rez(integer p)

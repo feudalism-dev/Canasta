@@ -42,6 +42,7 @@ string normFamily(string raw)
     if (raw == "skippo") return "skippo";
     if (raw == "phaseit" || raw == "phase_it" || raw == "phase-it") return "phaseit";
     if (raw == "yotsy" || raw == "yahtzee") return "yotsy";
+    if (raw == "rowshambo" || raw == "rsb" || raw == "row-sham-bo" || raw == "row_sham_bo") return "rowshambo";
     return "";
 }
 
@@ -53,6 +54,7 @@ string letterForFamily(string fam)
     if (fam == "skippo") return "o";
     if (fam == "phaseit") return "p";
     if (fam == "yotsy") return "y";
+    if (fam == "rowshambo") return "w";
     return "c";
 }
 

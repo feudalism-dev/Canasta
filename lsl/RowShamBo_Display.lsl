@@ -1,7 +1,7 @@
-// Yotsy — In-world display (Furware per-seat lines + table-top MOAP)
-// Drop on the display child prim (same linkset as Yotsy_Table). Compile: Mono.
-// Same Furware mesh names as Canasta. MoAP URL includes family=yotsy.
-// The table prim (Yotsy_Table+Yotsy_Http+AVsitter) must be the linkset root.
+// RowShamBo — In-world display (Furware per-seat lines + table-top MOAP)
+// Drop on the display child prim (same linkset as RowShamBo_Table). Compile: Mono.
+// Same Furware mesh names as Canasta. MoAP URL includes family=rowshambo.
+// The table prim (RowShamBo_Table+RowShamBo_Http+AVsitter) must be the linkset root.
 
 integer DISPLAY_CMD_EVENT = 91001;
 integer DISPLAY_CMD_START = 91002;
@@ -11,7 +11,7 @@ integer DISPLAY_CMD_CAP = 91005;
 integer DISPLAY_CMD_NEED_CAP = 91006;
 
 // Creator lock for the table-top MoAP page.
-string TABLE_FAMILY = "yotsy";
+string TABLE_FAMILY = "rowshambo";
 
 // Change this if the table-top media is not face 0.
 integer DISPLAY_FACE = 0;
@@ -28,7 +28,7 @@ list gAv = [];
 integer gPlayers = 4;
 integer gLive = FALSE;
 integer gTurnSeat = -1;
-/** Per-seat match scores (free-for-all Yotsy / Gin — not partnership). */
+/** Per-seat match scores (free-for-all RowShamBo / Gin — not partnership). */
 list gScore = [];
 string gSlCap = "";
 string gLastHomeUrl = "";
@@ -37,7 +37,7 @@ key gRevReq = NULL_KEY;
 
 integer debug(string m)
 {
-    if (DEBUG) llOwnerSay("Yotsy DISPLAY: " + m);
+    if (DEBUG) llOwnerSay("RowShamBo DISPLAY: " + m);
     return TRUE;
 }
 
@@ -308,7 +308,7 @@ integer handleStart(string payload)
     }
     if (gTurnSeat < 0 || gTurnSeat >= gPlayers) gTurnSeat = 0;
     paintAll();
-    llOwnerSay("Yotsy display: deal painted (" + kind + ").");
+    llOwnerSay("RowShamBo display: deal painted (" + kind + ").");
     debug("START " + payload);
     return TRUE;
 }
@@ -338,7 +338,7 @@ integer handleEvent(string pipe)
     }
     if (kind == "SCORE")
     {
-        // Yotsy: SCORE|s0|s1|s2|s3  (legacy 2-field team scores still accepted)
+        // RowShamBo: SCORE|s0|s1|s2|s3  (legacy 2-field team scores still accepted)
         if (n >= 5) takeScores(parts, 1);
         else
         {
@@ -374,7 +374,7 @@ default
         askForCap();
         requestAssetRev();
         applyMoap(TRUE);
-        llOwnerSay("Yotsy display: Furware text0–text3 + table-top MOAP face " + (string)DISPLAY_FACE + ".");
+        llOwnerSay("RowShamBo display: Furware text0–text3 + table-top MOAP face " + (string)DISPLAY_FACE + ".");
     }
 
     on_rez(integer p)
@@ -426,7 +426,7 @@ default
         if ((string)id == "fw_ready")
         {
             paintAll();
-            llOwnerSay("Yotsy display: Furware ready — painted idle lines.");
+            llOwnerSay("RowShamBo display: Furware ready — painted idle lines.");
         }
     }
 }

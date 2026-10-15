@@ -46,6 +46,7 @@ string gameLabel(string game)
     if (game == "o") return "Skippo";
     if (game == "p") return "Phase It";
     if (game == "y") return "Yotsy";
+    if (game == "w") return "Row! Sham! Bo!";
     return "Canasta";
 }
 
@@ -130,7 +131,7 @@ integer showGameMore(key av)
     string scope = "This parlor";
     if (gScope == "N") scope = "Network";
     return openDlg(av, 6, scope + " — more games",
-        ["Ichi", "Skippo", "Phase It", "Yotsy", "Back", "Cancel"]);
+        ["Ichi", "Skippo", "Phase It", "Yotsy", "RowShamBo", "Back", "Cancel"]);
 }
 
 integer showPeriod(key av)
@@ -228,6 +229,7 @@ integer handleDlg(key av, string msg)
         else if (msg == "Skippo") gGame = "o";
         else if (msg == "Phase It") gGame = "p";
         else if (msg == "Yotsy") gGame = "y";
+        else if (msg == "RowShamBo") gGame = "w";
         else return showGameMore(av);
         return showPeriod(av);
     }
@@ -235,7 +237,7 @@ integer handleDlg(key av, string msg)
     {
         if (msg == "Back")
         {
-            if (gGame == "i" || gGame == "o" || gGame == "p" || gGame == "y") return showGameMore(av);
+            if (gGame == "i" || gGame == "o" || gGame == "p" || gGame == "y" || gGame == "w") return showGameMore(av);
             return showGame(av);
         }
         if (msg == "Weekly") gPeriod = "w";

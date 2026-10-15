@@ -152,7 +152,7 @@ integer handleDlg(key av, string msg)
         }
         if (msg == "Custom…")
         {
-            return openText(av, 3, "Enter:\ngame|Name|score\nor\ngame|uuid|Name|score\n\ngame = c,h,s,b,r,t,i,o,p,y");
+            return openText(av, 3, "Enter:\ngame|Name|score\nor\ngame|uuid|Name|score\n\ngame = c,h,s,b,r,t,i,o,p,y,w");
         }
         return showRoot(av);
     }

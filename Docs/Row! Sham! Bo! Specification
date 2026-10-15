@@ -1,0 +1,109 @@
+Row! Sham! Bo! — Card Game Design Specification
+1. Executive Summary & Core Concept
+Row! Sham! Bo! is a fast-paced, tactical tabletop card game module designed to be played on a single square HUD or prim interface in a virtual world environment. The game evolves classic Rock-Paper-Scissors with directional hand-passing, dynamic turn flow, strategic wild cards, and high-stakes match play.
+
+2. Deck Composition & Card Mechanics
+Deck Size: 52 Cards
+Rock: 16 Cards
+
+Paper: 16 Cards
+
+Scissors: 16 Cards
+
+Dynamite: 4 Cards (Wild / "Beats Everything")
+
+Resolution Hierarchy
+Rock beats Scissors
+
+Scissors beats Paper
+
+Paper beats Rock
+
+Dynamite beats Rock, Paper, and Scissors
+
+Ties: If two identical non-Dynamite cards clash, or if two Dynamite cards clash, the outcome is a tie (0 points awarded).
+
+3. Game Structure & Flow
+Initial Setup
+Starting Hand: Each player receives 5 cards.
+
+First Player: Designated at random at the beginning of the match. The active lead role rotates clockwise to the next player after every turn/round.
+
+Turn Phases
+Draw Phase
+
+At the start of a turn, players draw back up to 5 cards.
+
+Deck Depletion Rule: Once the draw deck is empty, players do not draw and must continue playing with their remaining hand cards until all cards are played.
+
+Passing Phase
+
+The central UI indicator displays the current passing direction (Clockwise or Counter-Clockwise and only in a 4 person game Across which is you pass to the player opposite you).
+
+A prompt appears: "Select a card to pass".
+
+Players select 1 card from their hand to pass to the player in the indicated direction.
+
+60-Second Timeout: If a player fails to choose within 60 seconds, a random card from their hand is automatically passed. The countdown and warning should be displayed to the user.
+
+Play Phase
+
+Players select 1 card to play face-down.
+
+60-Second Timeout: If a player fails to choose within 60 seconds, a random card from their hand is automatically played. The countdown and warning should be displayed to the user.
+
+Randomizer & Reveal Phase
+
+The central UI displays/animates the turn direction and highlights the active lead player.
+
+All played cards are revealed simultaneously.
+
+Resolution Phase
+
+Played cards are compared according to the Resolution Hierarchy.
+
+Points are awarded to the round winner(s).
+
+Resolution is based on the direction shown (clockwise or counter-clockwise) starting with the active player that hand (which rotates clockwise each hand, like a 'button" in other games... )
+
+In the event of a tie, no points are awarded and all tied players remain in the resolution. Upon winning the winner gets 1 point for each person in the "tied" group.
+
+Example:
+
+Player 1 has the button and played ROCK, resolution direction is CLOCKWISE... Player 2 has ROCK. Player 1 and player 2 tied. Both cards remain on the table. Game indicates P1 and P2 tied. P1 and 2 ROCK are now compared to player 3... who played scissors. P3 card is removed and BOTH p1 and P2 get 1 point. Play now goes to P4 who played PAPER and beats BOTH P1 and P2 and gets 2 points! Points are not based on how many cards you destroy, they are based on how many players you beat.
+
+4. End Conditions & Scoring
+Single Game End Condition
+A single game continues until all 52 cards have been drawn from the deck and all remaining cards in hand have been played.
+
+The player with the highest cumulative score at the end of the full deck play wins the game.
+
+Match Mode
+The table/terminal owner can set a customizable target Match Score (e.g., 500 points).
+
+Players play multiple game rounds, accumulating points across games, until one player reaches or exceeds the target match score to win the match.
+
+If more than one player crossed the winning target, the one with the highest score wins. If tied, the match is a tie.
+
+5. UI & Tabletop Layout Specification
+Form Factor: Designed for a square HUD or tabletop prim.
+
+Central Indicator Box:
+
+Features a prominent circular arrow indicating flow direction (Clockwise vs. Counter-Clockwise) for passing and play order.
+
+Prominently displays action prompts ("Select a card to pass", "Select a card to play").
+
+Highlights the current active/lead player.
+
+Displays a 60-second visual countdown timer for active actions.
+
+Player UI:
+
+Clean, minimal card tray for viewing and selecting hand cards (up to 5 cards).
+
+Victory screens. Must have victory screens or overlays for each "battle" that show the cards win or lose... for each hand.. that shows who got points and how many... for each game... showing who won and the point totals for the game for each player, and cumulative point totals so far in match... and after the match a big epic victory screen showing the scores of all players
+
+6. Scoreboard
+
+Must send scores to our in world scoreboard and the scoreboard should have it added as a game and show the appropriate scoring data

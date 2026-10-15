@@ -17,6 +17,7 @@
 //   Skippo                            "skippo"
 //   Phase It                          "phaseit"
 //   Yotsy                             "yotsy"
+//   Row! Sham! Bo!                    "rowshambo"
 //
 // Free hub table: do NOT include this script (hub only reads entitlements).
 // Idempotent: rezzing again if already registered is safe.
@@ -45,6 +46,7 @@ string normFamily(string raw)
     if (raw == "skippo") return "skippo";
     if (raw == "phaseit" || raw == "phase_it" || raw == "phase-it") return "phaseit";
     if (raw == "yotsy" || raw == "yahtzee") return "yotsy";
+    if (raw == "rowshambo" || raw == "rsb" || raw == "row-sham-bo" || raw == "row_sham_bo") return "rowshambo";
     return "";
 }
 

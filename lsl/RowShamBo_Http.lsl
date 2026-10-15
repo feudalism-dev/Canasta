@@ -1,5 +1,5 @@
-// Yotsy — HTTP-IN JSONP front door (creator-locked family=yotsy).
-// Drop in the SAME prim as Yotsy_Table.lsl (root / AVsitter). Same HUD as Canasta.
+// RowShamBo — HTTP-IN JSONP front door (creator-locked family=rowshambo).
+// Drop in the SAME prim as RowShamBo_Table.lsl (root / AVsitter). Same HUD as Canasta.
 // Compile: Mono. See Docs/PLAN_TRICK.md
 // Owns spectator board snapshot + guest browser mint tokens (keeps Table under Mono heap).
 //
@@ -15,7 +15,7 @@
 //   Table → Http: BGATEOK|op|seat|roomCode  /  BGATEFAIL|err
 
 // Creator lock — buyers cannot change this. Web app gates on status.family.
-string TABLE_FAMILY = "yotsy";
+string TABLE_FAMILY = "rowshambo";
 integer HTTP_CMD = 92001;
 float CAP_RETRY_SEC = 6.0;
 integer MAX_SEATS = 4;
@@ -343,7 +343,7 @@ default
         clearPend();
         requestCap();
         llSetTimerEvent(CAP_RETRY_SEC);
-        llOwnerSay("Yotsy HTTP ready (family=yotsy). Free=" + (string)llGetFreeMemory());
+        llOwnerSay("RowShamBo HTTP ready (family=rowshambo). Free=" + (string)llGetFreeMemory());
     }
 
     on_rez(integer p)

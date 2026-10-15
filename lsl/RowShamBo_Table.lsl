@@ -1,5 +1,5 @@
-    // Yotsy — Table Controller (creator-locked family=yotsy). Same HUD as Canasta.
-    // Pair with Yotsy_Http.lsl. See Docs/PLAN_TRICK.md.
+    // RowShamBo — Table Controller (creator-locked family=rowshambo). Same HUD as Canasta.
+    // Pair with RowShamBo_Http.lsl. See Docs/PLAN_TRICK.md.
     // Drop in the game table root (same object as AVsitter).
     // Roster, HUD rez, one-game lock. JSONP is Canasta_Http.lsl (same prim).
     // Compile: Mono + Experience. See Docs/SECOND_LIFE.md
@@ -8,8 +8,8 @@
     integer AVSITTER_SITTER = 90070;
 
     string HUD_OBJECT_NAME = "Canasta HUD";
-    /** Creator lock — also sent on CN_READY so the shared HUD MoAP gets ?family=yotsy. */
-    string TABLE_FAMILY = "yotsy";
+    /** Creator lock — also sent on CN_READY so the shared HUD MoAP gets ?family=rowshambo. */
+    string TABLE_FAMILY = "rowshambo";
 
     integer DISPLAY_CMD_EVENT = 91001;
     integer DISPLAY_CMD_START = 91002;
@@ -829,7 +829,7 @@
             llSetTimerEvent(2.0);
             llMessageLinked(LINK_THIS, HTTP_CMD, "NEEDCAP", NULL_KEY);
             pushStatus();
-            llOwnerSay("Yotsy table ready (family=yotsy). Free=" + (string)llGetFreeMemory());
+            llOwnerSay("RowShamBo table ready (family=rowshambo). Free=" + (string)llGetFreeMemory());
         }
 
         on_rez(integer p)

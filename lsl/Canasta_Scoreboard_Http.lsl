@@ -164,7 +164,7 @@ appendBundleJson(integer isLocal, string game)
 
 integer knownGame(string game)
 {
-    // c/h/s/b Canasta family · r Rummy · t Rooster · i Ichi · o Skippo · p Phase It · y Yotsy
+    // c/h/s/b Canasta family · r Rummy · t Rooster · i Ichi · o Skippo · p Phase It · y Yotsy · w Row! Sham! Bo!
     if (game == "c") return TRUE;
     if (game == "h") return TRUE;
     if (game == "s") return TRUE;
@@ -175,6 +175,7 @@ integer knownGame(string game)
     if (game == "o") return TRUE;
     if (game == "p") return TRUE;
     if (game == "y") return TRUE;
+    if (game == "w") return TRUE;
     return FALSE;
 }
 
