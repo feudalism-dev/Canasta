@@ -287,90 +287,103 @@ export function RowShamBoBoard({
         </button>
       </header>
 
-      <div className="rsb-scores" aria-label="Scores">
-        {state.players.map((p, pi) => (
-          <div
-            key={p.id}
-            className={`rsb-score-card${pi === state.button ? ' is-button' : ''}${
-              matchOver && p.id === state.winnerId ? ' is-winner' : ''
-            }`}
-          >
-            <span className="rsb-score-name">
-              {p.name}
-              {pi === localIndex ? ' (you)' : ''}
-              {pi === state.button ? ' ★' : ''}
-            </span>
-            <span className="rsb-score-total">{p.matchScore}</span>
-            <span className="rsb-score-delta">
-              game {p.gameScore}
-              {p.passCardId || p.playCardId ? ' · locked' : ''}
-            </span>
-          </div>
-        ))}
-      </div>
+      <div className="rsb-stage">
+        <div className="rsb-arena" aria-label="Arena">
+          {secsLeft != null && (waitingPass || waitingPlay) ? (
+            <div className={`rsb-timer${secsLeft <= 10 ? ' is-warn' : ''}`}>{secsLeft}s</div>
+          ) : null}
+          {state.phase === 'resolve' && state.tablePlays.some(Boolean) ? (
+            <div className="rsb-duel-row" aria-label="Table plays">
+              {state.players.map((p, pi) => {
+                const tableCard = state.tablePlays[pi]
+                if (!tableCard) return null
+                const faceUp = Boolean(state.revealed[pi])
+                const step =
+                  state.resolveStepIndex >= 0
+                    ? state.resolveSteps[state.resolveStepIndex]
+                    : null
+                const inDuel =
+                  step != null && (step.contested.includes(pi) || step.next === pi)
+                const duelN = state.resolveSteps.length
+                const duelI = state.resolveStepIndex + 1
+                return (
+                  <div
+                    key={p.id}
+                    className={`rsb-duel-slot${inDuel ? ' is-dueling' : ''}${pi === state.button ? ' is-button' : ''}`}
+                    data-duel={inDuel && duelN ? `${duelI}/${duelN}` : undefined}
+                  >
+                    <span className="rsb-duel-name">{p.name}</span>
+                    <CardFace card={tableCard} faceDown={!faceUp} disabled />
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div
+              className={`rsb-dial${state.phase === 'chooseDir' ? ' is-spin' : ''}${
+                state.direction === 'cw' ? ' is-cw' : state.direction === 'ccw' ? ' is-ccw' : ''
+              }`}
+            >
+              <div className="rsb-dial-core">
+                {state.direction ? directionLabel(state.direction) : '???'}
+                <br />
+                Stock {state.stock.length}
+              </div>
+            </div>
+          )}
+          <div className="rsb-prompt">{prompt}</div>
+          {burst ? (
+            <div className="rsb-burst" aria-hidden>
+              <img
+                className={`rsb-burst-img ${burst.cls}`}
+                src={assetUrl(burst.img)}
+                alt={burst.text}
+                onError={(e) => {
+                  const el = e.currentTarget
+                  el.style.display = 'none'
+                  const fallback = el.nextElementSibling as HTMLElement | null
+                  if (fallback) fallback.hidden = false
+                }}
+              />
+              <div className={`rsb-burst-stamp ${burst.cls}`} hidden>
+                {burst.text}
+              </div>
+            </div>
+          ) : null}
+        </div>
 
-      <div className="rsb-arena" aria-label="Arena">
-        {secsLeft != null && (waitingPass || waitingPlay) ? (
-          <div className={`rsb-timer${secsLeft <= 10 ? ' is-warn' : ''}`}>{secsLeft}s</div>
-        ) : null}
-        {state.phase === 'resolve' && state.tablePlays.some(Boolean) ? (
-          <div className="rsb-duel-row" aria-label="Table plays">
-            {state.players.map((p, pi) => {
-              const tableCard = state.tablePlays[pi]
-              if (!tableCard) return null
-              const faceUp = Boolean(state.revealed[pi])
-              const step =
-                state.resolveStepIndex >= 0
-                  ? state.resolveSteps[state.resolveStepIndex]
-                  : null
-              const inDuel =
-                step != null && (step.contested.includes(pi) || step.next === pi)
-              const duelN = state.resolveSteps.length
-              const duelI = state.resolveStepIndex + 1
-              return (
-                <div
-                  key={p.id}
-                  className={`rsb-duel-slot${inDuel ? ' is-dueling' : ''}${pi === state.button ? ' is-button' : ''}`}
-                  data-duel={inDuel && duelN ? `${duelI}/${duelN}` : undefined}
-                >
-                  <span className="rsb-duel-name">{p.name}</span>
-                  <CardFace card={tableCard} faceDown={!faceUp} disabled />
-                </div>
-              )
-            })}
+        <aside className="rsb-scoreboard" aria-label="Scoreboard">
+          <div className="rsb-scoreboard-head">
+            <span>Scoreboard</span>
+            <em>to {state.config.playTo}</em>
           </div>
-        ) : (
-          <div
-            className={`rsb-dial${state.phase === 'chooseDir' ? ' is-spin' : ''}${
-              state.direction === 'cw' ? ' is-cw' : state.direction === 'ccw' ? ' is-ccw' : ''
-            }`}
-          >
-            <div className="rsb-dial-core">
-              {state.direction ? directionLabel(state.direction) : '???'}
-              <br />
-              Stock {state.stock.length}
-            </div>
+          <div className="rsb-scoreboard-cols" aria-hidden>
+            <span />
+            <span>Game</span>
+            <span>Match</span>
           </div>
-        )}
-        <div className="rsb-prompt">{prompt}</div>
-        {burst ? (
-          <div className="rsb-burst" aria-hidden>
-            <img
-              className={`rsb-burst-img ${burst.cls}`}
-              src={assetUrl(burst.img)}
-              alt={burst.text}
-              onError={(e) => {
-                const el = e.currentTarget
-                el.style.display = 'none'
-                const fallback = el.nextElementSibling as HTMLElement | null
-                if (fallback) fallback.hidden = false
-              }}
-            />
-            <div className={`rsb-burst-stamp ${burst.cls}`} hidden>
-              {burst.text}
-            </div>
-          </div>
-        ) : null}
+          <ol className="rsb-scoreboard-list">
+            {state.players.map((p, pi) => (
+              <li
+                key={p.id}
+                className={`rsb-score-row${pi === localIndex ? ' is-you' : ''}${
+                  pi === state.button ? ' is-button' : ''
+                }${matchOver && p.id === state.winnerId ? ' is-winner' : ''}`}
+              >
+                <span className="rsb-score-name">
+                  {pi === state.button ? '★ ' : ''}
+                  {p.name}
+                  {pi === localIndex ? ' (you)' : ''}
+                  {p.passCardId || p.playCardId ? (
+                    <small className="rsb-score-lock"> locked</small>
+                  ) : null}
+                </span>
+                <span className="rsb-score-game">{p.gameScore}</span>
+                <span className="rsb-score-match">{p.matchScore}</span>
+              </li>
+            ))}
+          </ol>
+        </aside>
       </div>
 
       {err ? <p className="error">{err}</p> : null}
