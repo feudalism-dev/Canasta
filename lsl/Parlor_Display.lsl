@@ -10,6 +10,8 @@ integer DISPLAY_RSP_RESET_DONE = 91004;
 integer DISPLAY_CMD_CAP = 91005;
 integer DISPLAY_CMD_NEED_CAP = 91006;
 integer DISPLAY_CMD_FAMILY = 91007;
+/** "1" = load table-top MoAP; "0"/"" = clear media (show default texture). */
+integer DISPLAY_CMD_MEDIA = 91008;
 
 string LSD_FAM = "cn.fam";
 string gFamily = "";
@@ -35,6 +37,8 @@ string gSlCap = "";
 string gLastHomeUrl = "";
 integer gPageRev = 0;
 key gRevReq = NULL_KEY;
+/** TRUE while table-top MoAP is supposed to be loaded (someone seated / game live). */
+integer gMoapOn = FALSE;
 
 integer debug(string m)
 {
@@ -101,6 +105,15 @@ string sessionHome()
     return home;
 }
 
+integer clearMoap()
+{
+    llClearPrimMedia(DISPLAY_FACE);
+    gLastHomeUrl = "";
+    gMoapOn = FALSE;
+    debug("MoAP cleared — default texture");
+    return TRUE;
+}
+
 integer applyMoap(integer force)
 {
     if (gSlCap == "") return FALSE;
@@ -127,6 +140,7 @@ integer applyMoap(integer force)
         PRIM_MEDIA_PERMS_INTERACT, PRIM_MEDIA_PERM_NONE
     ]);
     gLastHomeUrl = home;
+    gMoapOn = TRUE;
     debug("MoAP " + llGetSubString(cur, 0, 180));
     return TRUE;
 }
@@ -261,6 +275,7 @@ integer idleAttract()
 {
     clearState();
     paintAll();
+    clearMoap();
     debug("attract / idle");
     return TRUE;
 }
@@ -400,10 +415,10 @@ default
         clearState();
         loadFamily();
         llMessageLinked(LINK_SET, 0, "", "fw_reset");
+        clearMoap();
         askForCap();
         requestAssetRev();
-        applyMoap(TRUE);
-        llOwnerSay("Parlor display: Furware text0–text3 + table-top MOAP face " + (string)DISPLAY_FACE + ".");
+        llOwnerSay("Parlor display: Furware text0–text3; table MoAP face " + (string)DISPLAY_FACE + " loads when seated.");
     }
 
     on_rez(integer p)
@@ -431,7 +446,7 @@ default
             if (r > 0 && r != gPageRev)
             {
                 gPageRev = r;
-                applyMoap(TRUE);
+                if (gMoapOn) applyMoap(TRUE);
             }
             else if (r > 0) gPageRev = r;
         }
@@ -448,6 +463,7 @@ default
         if (num == DISPLAY_CMD_START)
         {
             handleStart(str);
+            applyMoap(TRUE);
             return;
         }
         if (num == DISPLAY_CMD_EVENT)
@@ -459,14 +475,21 @@ default
         {
             gSlCap = str;
             requestAssetRev();
-            applyMoap(TRUE);
+            // Cap alone does not load MoAP — wait for sit / START / MEDIA|1.
+            if (gMoapOn) applyMoap(TRUE);
             return;
         }
         if (num == DISPLAY_CMD_FAMILY)
         {
             gFamily = normFamily(str);
             llLinksetDataWrite(LSD_FAM, gFamily);
-            applyMoap(TRUE);
+            if (gMoapOn) applyMoap(TRUE);
+            return;
+        }
+        if (num == DISPLAY_CMD_MEDIA)
+        {
+            if (str == "1") applyMoap(TRUE);
+            else clearMoap();
             return;
         }
         if ((string)id == "fw_ready")

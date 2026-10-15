@@ -14,6 +14,7 @@ integer DISPLAY_CMD_RESET = 91003;
 integer DISPLAY_RSP_RESET_DONE = 91004;
 integer DISPLAY_CMD_CAP = 91005;
 integer DISPLAY_CMD_NEED_CAP = 91006;
+integer DISPLAY_CMD_MEDIA = 91008;
 integer HTTP_CMD = 92001;
 
 string LSD_FAM = "cn.fam";
@@ -203,6 +204,27 @@ sendDisplayCap()
     llMessageLinked(LINK_SET, DISPLAY_CMD_CAP, gCapUrl, NULL_KEY);
 }
 
+/** Table-top MoAP on while anyone is seated; off when empty (default texture). */
+setDisplayMedia(integer on)
+{
+    if (on) llMessageLinked(LINK_SET, DISPLAY_CMD_MEDIA, "1", NULL_KEY);
+    else llMessageLinked(LINK_SET, DISPLAY_CMD_MEDIA, "0", NULL_KEY);
+}
+
+integer othersSeated(integer exceptSeat)
+{
+    integer n = 0;
+    integer i;
+    for (i = 0; i < MAX_SEATS; i++)
+    {
+        if (i != exceptSeat)
+        {
+            if (llList2Key(gSeatAv, i) != NULL_KEY) n++;
+        }
+    }
+    return n;
+}
+
 clearPendingHttp()
 {
     gPendingHttp = NULL_KEY;
@@ -386,6 +408,7 @@ integer clearSeat(integer seat)
         forfeitAvatar(av);
     }
     clearSeatRoster(seat);
+    if (seatedCount() == 0) setDisplayMedia(FALSE);
     pushStatus();
     return TRUE;
 }
@@ -418,6 +441,7 @@ integer onSit(key av, integer seat)
     if (gMode == MODE_IDLE) llMessageLinked(LINK_THIS, HTTP_CMD, "ENTNEED|1", NULL_KEY);
     rezHudFor(av, seat);
     llRegionSayTo(av, 0, "Parlor: HUD attaching…");
+    setDisplayMedia(TRUE);
     pushStatus();
     return TRUE;
 }
@@ -940,6 +964,7 @@ default
                 else
                 {
                     llMessageLinked(LINK_SET, DISPLAY_CMD_EVENT, "CLEARSEAT|" + (string)seat, NULL_KEY);
+                    if (othersSeated(seat) == 0) setDisplayMedia(FALSE);
                 }
                 pushStatus();
                 return;
@@ -961,6 +986,8 @@ default
         {
             llMessageLinked(LINK_SET, DISPLAY_CMD_EVENT, "CLEARSEAT|" + (string)seat, NULL_KEY);
         }
+        // Empty table → unload MoAP so the default texture shows (not Hand & Foot attract).
+        if (seat < 0 || othersSeated(seat) == 0) setDisplayMedia(FALSE);
         pushStatus();
     }
 
