@@ -305,8 +305,10 @@ export function RowShamBoBoard({
           : state.phase === 'resolve'
             ? state.resolveStepIndex < 0
               ? 'Cards are down — get ready…'
-              : `Duel ${state.resolveStepIndex + 1} of ${state.resolveSteps.length} — ${state.lastMessage || 'Battle!'}`
-            : state.lastMessage || rowShamBoTip(state.config.variant)
+              : `Duel ${state.resolveStepIndex + 1} of ${state.resolveSteps.length}`
+            : state.phase === 'handEnd'
+              ? 'Round over — tap Next round'
+              : state.lastMessage || rowShamBoTip(state.config.variant)
 
   return (
     <div className="rsb-root">

@@ -67,21 +67,24 @@
   align-items: stretch;
   justify-content: center;
   gap: 0.65rem;
-  margin: 0.75rem 0 0.5rem;
+  margin: 0.55rem 0 0.25rem;
 }
 
 .rsb-arena {
   position: relative;
-  flex: 1 1 14rem;
+  flex: 1 1 16rem;
   width: min(100%, 28rem);
   max-width: 28rem;
-  aspect-ratio: 1;
+  /* Taller than square so compass cards + prompt fit without clipping the south seat. */
+  aspect-ratio: 3 / 4;
+  min-height: min(72vh, 34rem);
   border: 4px solid var(--rsb-ink);
   border-radius: 1.1rem;
   background: radial-gradient(circle at 50% 45%, #fff 0%, #ffe9b8 55%, #ffc978 100%);
   box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
   display: grid;
   place-items: center;
+  overflow: hidden;
 }
 
 .rsb-dial {
@@ -165,19 +168,20 @@
 
 .rsb-prompt {
   position: absolute;
-  bottom: 0.65rem;
+  bottom: 0.5rem;
   left: 50%;
   transform: translateX(-50%);
-  width: 90%;
+  width: 92%;
   z-index: 6;
   text-align: center;
   font-weight: 900;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
+  line-height: 1.2;
   text-transform: uppercase;
   background: #fff;
   border: 3px solid var(--rsb-ink);
   border-radius: 0.45rem;
-  padding: 0.35rem 0.5rem;
+  padding: 0.3rem 0.45rem;
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
 }
 
@@ -319,7 +323,8 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.45rem;
-  margin: 0.5rem 0;
+  margin: 1.1rem 0 0.65rem;
+  padding-top: 0.25rem;
   position: relative;
   z-index: 1;
 }
@@ -345,8 +350,8 @@
 }
 
 .rsb-card.is-lg {
-  width: clamp(5.6rem, 18vw, 7.2rem);
-  height: clamp(7.4rem, 24vw, 9.5rem);
+  width: clamp(5.2rem, 15vw, 6.6rem);
+  height: clamp(6.9rem, 20vw, 8.7rem);
   border-width: 4px;
   border-radius: 0.7rem;
 }
@@ -430,11 +435,11 @@
 
 .rsb-duel-table {
   position: absolute;
-  inset: 0.35rem 0.35rem 2.4rem;
+  inset: 0.4rem 0.4rem 3.4rem;
   z-index: 1;
   display: grid;
-  grid-template-columns: 1fr 1.15fr 1fr;
-  grid-template-rows: 1fr 1.05fr 1fr;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  grid-template-rows: 1.05fr 1fr 1.15fr;
   grid-template-areas:
     '. n .'
     'w c e'

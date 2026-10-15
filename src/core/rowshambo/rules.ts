@@ -197,7 +197,7 @@ function finishHand(state: RowShamBoState): void {
     endGame(state)
     return
   }
-  state.lastMessage = `Round over. Scores: ${state.players.map((p) => `${p.name} ${p.gameScore}`).join(', ')}`
+  state.lastMessage = 'Round over — tap Next round.'
 }
 
 function endGame(state: RowShamBoState): void {
