@@ -3,7 +3,7 @@ Row! Sham! Bo! — Card Game Design Specification
 Row! Sham! Bo! is a fast-paced, tactical tabletop card game module designed to be played on a single square HUD or prim interface in a virtual world environment. The game evolves classic Rock-Paper-Scissors with directional hand-passing, dynamic turn flow, strategic wild cards, and high-stakes match play.
 
 2. Deck Composition & Card Mechanics
-Deck Size: 52 Cards
+Deck Size: 52 Cards (Classic) / 64 Cards (Elements)
 Rock: 16 Cards
 
 Paper: 16 Cards
@@ -12,6 +12,8 @@ Scissors: 16 Cards
 
 Dynamite: 4 Cards (Wild / "Beats Everything")
 
+Elements variant adds: Water 4, Earth 4, Fire 4
+
 Resolution Hierarchy
 Rock beats Scissors
 
@@ -19,7 +21,9 @@ Scissors beats Paper
 
 Paper beats Rock
 
-Dynamite beats Rock, Paper, and Scissors
+Dynamite beats Rock, Paper, Scissors, and (in Elements) Water/Earth/Fire
+
+Elements: Water beats Rock/Paper/Earth; Earth beats Rock/Scissors/Fire; Fire beats Paper/Scissors/Water. Triad Water→Earth→Fire→Water. Basics that beat elements: Scissors>Water, Paper>Earth, Rock>Fire.
 
 Ties: If two identical non-Dynamite cards clash, or if two Dynamite cards clash, the outcome is a tie (0 points awarded).
 

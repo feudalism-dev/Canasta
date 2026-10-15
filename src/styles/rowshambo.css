@@ -185,6 +185,88 @@
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
 }
 
+.rsb-beat-key {
+  flex: 0 1 10.5rem;
+  min-width: 8.75rem;
+  max-width: 12rem;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  border: 4px solid var(--rsb-ink);
+  border-radius: 1rem;
+  background: var(--rsb-paper);
+  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  order: -1;
+}
+
+.rsb-beat-key-head {
+  padding: 0.4rem 0.5rem;
+  background: var(--rsb-ink);
+  color: #fff;
+  font-weight: 900;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rsb-beat-key-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem 0.4rem 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  overflow: auto;
+  flex: 1;
+}
+
+.rsb-beat-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  border: 2px solid var(--rsb-ink);
+  border-radius: 0.4rem;
+  background: #fff;
+  padding: 0.28rem 0.35rem;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.08);
+}
+
+.rsb-beat-row strong {
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.rsb-beat-row span {
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.2;
+  opacity: 0.9;
+}
+
+.rsb-beat-row em {
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 600;
+  opacity: 0.55;
+  line-height: 1.15;
+}
+
+.rsb-beat-row.is-rock strong { color: #5a4632; }
+.rsb-beat-row.is-paper strong { color: #2b6cff; }
+.rsb-beat-row.is-scissors strong { color: #2faf5a; }
+.rsb-beat-row.is-dynamite strong { color: var(--rsb-red); }
+.rsb-beat-row.is-water strong { color: #1a7a9c; }
+.rsb-beat-row.is-earth strong { color: #7a5a28; }
+.rsb-beat-row.is-fire strong { color: #e23b2e; }
+
+.rsb-root.is-elements .rsb-beat-key {
+  max-width: 12.5rem;
+  flex-basis: 11.5rem;
+}
+
 .rsb-scoreboard {
   flex: 0 1 11.5rem;
   min-width: 9.5rem;
@@ -890,6 +972,16 @@
   flex: 0 0 9.5rem;
   min-width: 8.5rem;
   max-width: 10.5rem;
+}
+
+.rsb-root.is-spectator .rsb-beat-key {
+  flex: 0 0 8.25rem;
+  min-width: 7.5rem;
+  max-width: 9rem;
+}
+
+.rsb-root.is-spectator .rsb-beat-row em {
+  display: none;
 }
 
 .rsb-root.is-spectator .rsb-dial {

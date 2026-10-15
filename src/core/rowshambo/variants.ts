@@ -50,8 +50,8 @@ export function rowShamBoVariantOptions(): {
     },
     {
       value: 'elements',
-      label: 'Elements — Water / Earth / Fire (coming soon)',
-      ready: false,
+      label: 'Elements — Water / Earth / Fire',
+      ready: true,
     },
   ]
 }
@@ -67,9 +67,35 @@ export function rowShamBoTip(v: RowShamBoVariant): string {
     return 'Play three cards into slots each hand; resolve slot-by-slot. Coming soon.'
   }
   if (v === 'elements') {
-    return '64-card deck with Water, Earth, and Fire. Coming soon.'
+    return '64-card deck: Rock/Paper/Scissors/Dynamite plus Water, Earth, and Fire. Check the beat key.'
   }
   return 'Pass once on turn 1. Fight direction re-rolls every round. Draw → play → duel until the deck is gone. First to the match score wins.'
+}
+
+/** Compact “what beats what” lines for the in-game key panel. */
+export function rowShamBoBeatKey(
+  variant: RowShamBoVariant,
+): { kind: string; beats: string; note?: string }[] {
+  const classic = [
+    { kind: 'Rock', beats: 'Scissors · Fire' },
+    { kind: 'Paper', beats: 'Rock · Earth' },
+    { kind: 'Scissors', beats: 'Paper · Water' },
+    { kind: 'Dynamite', beats: 'Everything' },
+  ]
+  if (variant !== 'elements') {
+    return [
+      { kind: 'Rock', beats: 'Scissors' },
+      { kind: 'Paper', beats: 'Rock' },
+      { kind: 'Scissors', beats: 'Paper' },
+      { kind: 'Dynamite', beats: 'Everything' },
+    ]
+  }
+  return [
+    ...classic,
+    { kind: 'Water', beats: 'Rock · Paper · Earth', note: 'loses to Scissors · Fire' },
+    { kind: 'Earth', beats: 'Rock · Scissors · Fire', note: 'loses to Paper · Water' },
+    { kind: 'Fire', beats: 'Paper · Scissors · Water', note: 'loses to Rock · Earth' },
+  ]
 }
 
 export function directionLabel(d: 'cw' | 'ccw'): string {

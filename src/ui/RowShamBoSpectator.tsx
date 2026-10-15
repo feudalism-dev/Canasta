@@ -3,7 +3,7 @@ import {
   rowShamBoVariantLabel,
   type RowShamBoPublicBoard,
 } from '../core/rowshambo/publicBoard'
-import { directionLabel } from '../core/rowshambo/variants'
+import { directionLabel, rowShamBoBeatKey } from '../core/rowshambo/variants'
 import '../styles/rowshambo.css'
 
 type CompassPoint = 'n' | 'e' | 's' | 'w'
@@ -62,8 +62,13 @@ export function RowShamBoSpectator({ board }: { board: RowShamBoPublicBoard }) {
     )
   }
 
+  const beatKey = rowShamBoBeatKey(board.variant)
+
   return (
-    <div className="rsb-root is-spectator" aria-label="Row! Sham! Bo! table top">
+    <div
+      className={`rsb-root is-spectator${board.variant === 'elements' ? ' is-elements' : ''}`}
+      aria-label="Row! Sham! Bo! table top"
+    >
       <header className="rsb-head">
         <div>
           <h2 className="rsb-title">Row! Sham! Bo!</h2>
@@ -77,6 +82,17 @@ export function RowShamBoSpectator({ board }: { board: RowShamBoPublicBoard }) {
       </header>
 
       <div className="rsb-stage">
+        <aside className="rsb-beat-key" aria-label="What beats what">
+          <div className="rsb-beat-key-head">Beat key</div>
+          <ul className="rsb-beat-key-list">
+            {beatKey.map((row) => (
+              <li key={row.kind} className={`rsb-beat-row is-${row.kind.toLowerCase()}`}>
+                <strong>{row.kind}</strong>
+                <span>beats {row.beats}</span>
+              </li>
+            ))}
+          </ul>
+        </aside>
         <div className="rsb-arena" aria-label="Arena">
           {fighting ? (
             <div

@@ -3,6 +3,20 @@ import { applyRowShamBoMove } from './rules'
 import { createRowShamBoMatch } from './state'
 
 describe('rowshambo rules', () => {
+  it('deals a 64-card Elements deck', () => {
+    const state = createRowShamBoMatch(['You', 'Bot'], [false, true], 'elements', 100, 5)
+    expect(state.players[0]!.hand).toHaveLength(5)
+    expect(state.players[1]!.hand).toHaveLength(5)
+    expect(state.stock.length).toBe(64 - 10)
+    const kinds = new Set([
+      ...state.players.flatMap((p) => p.hand.map((c) => c.kind)),
+      ...state.stock.map((c) => c.kind),
+    ])
+    expect(kinds.has('water')).toBe(true)
+    expect(kinds.has('earth')).toBe(true)
+    expect(kinds.has('fire')).toBe(true)
+  })
+
   it('deals 5, direction once, pass once, then play', () => {
     let state = createRowShamBoMatch(['You', 'Bot'], [false, true], 'classic', 100, 42)
     expect(state.players[0]!.hand).toHaveLength(5)

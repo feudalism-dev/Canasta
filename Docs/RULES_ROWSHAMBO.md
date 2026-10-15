@@ -35,9 +35,17 @@ Rock beats Scissors · Scissors beats Paper · Paper beats Rock · Dynamite beat
 - **Game:** stock empty and all hands empty → highest game score wins the game (points add to match totals). Next game includes one new pass and a fresh turn-1 direction.
 - **Match:** first to reach/exceed the match target; if several crossed, highest wins; still tied → match tie.
 
-## Future: Elements
+## Elements
 
-64-card deck adds 4 Water, 4 Earth, 4 Fire. Water beats Rock/Paper/Earth; Earth beats Rock/Scissors/Fire; Fire beats Paper/Scissors/Water. Dynamite still beats all.
+64-card deck adds **4 Water, 4 Earth, 4 Fire** to the classic 52.
+
+- **Water** beats Rock, Paper, Earth (loses to Scissors, Fire, Dynamite)
+- **Earth** beats Rock, Scissors, Fire (loses to Paper, Water, Dynamite)
+- **Fire** beats Paper, Scissors, Water (loses to Rock, Earth, Dynamite)
+- Element triad: Water → Earth → Fire → Water
+- **Dynamite** still beats everything (Dynamite vs Dynamite = tie)
+
+The HUD shows a beat key on the left during Elements games.
 
 ## Art assets
 
@@ -50,11 +58,11 @@ Drop files under `public/assets/`:
 | `rowshambo/paper.png` | Transparent PNG |
 | `rowshambo/scissors.png` | Transparent PNG |
 | `rowshambo/dynamite.png` | Transparent PNG |
-| `rowshambo/water.png` | (Elements later) |
-| `rowshambo/earth.png` | (Elements later) |
-| `rowshambo/fire.png` | (Elements later) |
-| `rowshambo/burst-pow.png` | Optional comic stamp |
-| `rowshambo/burst-oof.png` | Optional |
-| `rowshambo/burst-tie.png` | Optional |
+| `rowshambo/water.png` | Elements |
+| `rowshambo/earth.png` | Elements |
+| `rowshambo/fire.png` | Elements |
+| `rowshambo/burst-pow.png` | Comic stamp |
+| `rowshambo/burst-oof.png` | Comic stamp |
+| `rowshambo/burst-tie.png` | Comic stamp |
 
 Until card PNGs exist, the UI uses bold color faces + glyphs.

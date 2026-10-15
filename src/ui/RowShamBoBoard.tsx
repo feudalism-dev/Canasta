@@ -8,6 +8,7 @@ import type { RowShamBoCard, RowShamBoMove, RowShamBoState, RowShamBoVariant } f
 import {
   directionLabel,
   MATCH_TARGETS,
+  rowShamBoBeatKey,
   rowShamBoTip,
   rowShamBoVariantLabel,
 } from '../core/rowshambo/variants'
@@ -397,11 +398,28 @@ export function RowShamBoBoard({
   const canPick = (state.phase === 'pass' || state.phase === 'play') && !you.isComputer
   const waitingPass = state.phase === 'pass' && !you.passCardId && you.hand.length > 0
   const waitingPlay = state.phase === 'play' && !you.playCardId && you.hand.length > 0
+  const othersStillOpen = state.players.some((p, i) => {
+    if (i === localIndex || !p.hand.length) return false
+    if (state.phase === 'pass') return !p.passCardId
+    if (state.phase === 'play') return !p.playCardId
+    return false
+  })
+  const lockedWaitingOthers =
+    othersStillOpen &&
+    ((state.phase === 'pass' && Boolean(you.passCardId)) ||
+      (state.phase === 'play' && Boolean(you.playCardId)))
+  const waitedSecs =
+    secsLeft != null ? Math.max(0, ACTION_TIMEOUT_MS / 1000 - secsLeft) : 0
+  const showWaitingOthers = lockedWaitingOthers && waitedSecs >= 10
+  const showTimer =
+    secsLeft != null && (waitingPass || waitingPlay || lockedWaitingOthers)
   const receivedCard = you.receivedCardId
     ? you.hand.find((c) => c.id === you.receivedCardId) ?? null
     : null
-  const prompt =
-    state.phase === 'chooseDir'
+  const beatKey = rowShamBoBeatKey(state.config.variant)
+  const prompt = showWaitingOthers
+    ? 'Waiting on other player(s)…'
+    : state.phase === 'chooseDir'
       ? 'Randomizer!'
       : waitingPass
         ? 'Pass 1 card (once this game)'
@@ -409,22 +427,24 @@ export function RowShamBoBoard({
           ? `You received ${cardLabel(receivedCard)} — select a card to play`
           : waitingPlay
             ? 'Select a card to play'
-            : state.phase === 'resolve'
-              ? state.resolveStepIndex < 0
-                ? 'Cards are down — get ready…'
-                : `Duel ${state.resolveStepIndex + 1} of ${state.resolveSteps.length}`
-              : state.phase === 'handEnd'
-                ? roundCountdown != null
-                  ? `Round over — next round in ${roundCountdown}`
-                  : roundDwelling
-                    ? state.lastMessage
-                      ? `Round over — ${state.lastMessage}`
-                      : 'Round over — check the scores'
-                    : 'Round over…'
-                : state.lastMessage || rowShamBoTip(state.config.variant)
+            : lockedWaitingOthers
+              ? 'Locked in — waiting…'
+              : state.phase === 'resolve'
+                ? state.resolveStepIndex < 0
+                  ? 'Cards are down — get ready…'
+                  : `Duel ${state.resolveStepIndex + 1} of ${state.resolveSteps.length}`
+                : state.phase === 'handEnd'
+                  ? roundCountdown != null
+                    ? `Round over — next round in ${roundCountdown}`
+                    : roundDwelling
+                      ? state.lastMessage
+                        ? `Round over — ${state.lastMessage}`
+                        : 'Round over — check the scores'
+                      : 'Round over…'
+                  : state.lastMessage || rowShamBoTip(state.config.variant)
 
   return (
-    <div className="rsb-root">
+    <div className={`rsb-root${state.config.variant === 'elements' ? ' is-elements' : ''}`}>
       <header className="rsb-head">
         <div>
           <h2 className="rsb-title">Row! Sham! Bo!</h2>
@@ -440,9 +460,24 @@ export function RowShamBoBoard({
       </header>
 
       <div className="rsb-stage">
+        <aside className="rsb-beat-key" aria-label="What beats what">
+          <div className="rsb-beat-key-head">Beat key</div>
+          <ul className="rsb-beat-key-list">
+            {beatKey.map((row) => (
+              <li key={row.kind} className={`rsb-beat-row is-${row.kind.toLowerCase()}`}>
+                <strong>{row.kind}</strong>
+                <span>beats {row.beats}</span>
+                {row.note ? <em>{row.note}</em> : null}
+              </li>
+            ))}
+          </ul>
+        </aside>
+
         <div className="rsb-arena" aria-label="Arena">
-          {secsLeft != null && (waitingPass || waitingPlay) ? (
-            <div className={`rsb-timer${secsLeft <= 10 ? ' is-warn' : ''}`}>{secsLeft}s</div>
+          {showTimer ? (
+            <div className={`rsb-timer${secsLeft != null && secsLeft <= 10 ? ' is-warn' : ''}`}>
+              {secsLeft}s
+            </div>
           ) : null}
           {state.phase === 'resolve' && state.tablePlays.some(Boolean) ? (
             <div
