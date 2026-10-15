@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { HouseRules, Variant } from '../core/types'
 import {
   familyHintPresent,
+  familyLabel,
   parseEntitlements,
   resolveTableFamily,
   type GameFamily,
@@ -399,6 +400,13 @@ export function SlTableScreens({
           <GamePicker
             owned={ownedFamilies}
             busy={busy}
+            onLockedPick={(fam) => {
+              setErr(
+                `${familyLabel(fam)} is not registered for this table owner yet. ` +
+                  `Wear a Register box with GRANT_FAMILY set to "${fam}", complete registration, ` +
+                  `then use Refresh entitlements (or re-sit). Also recompile Parlor_Http if you just added this family.`,
+              )
+            }}
             onPick={(fam) => {
               void (async () => {
                 setBusy(true)
@@ -444,6 +452,8 @@ export function SlTableScreens({
                       ? 'Phase It'
                       : isYotsyTable
                         ? 'Yotsy'
+                        : isRowshamboTable
+                          ? 'Row! Sham! Bo!'
                     : 'Hand & Foot / Canasta'}
         </h1>
         {isHub && mode === 'idle' ? (
