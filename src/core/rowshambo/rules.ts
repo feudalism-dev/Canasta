@@ -180,6 +180,7 @@ function advanceResolve(state: RowShamBoState): void {
 
 function finishHand(state: RowShamBoState): void {
   state.phase = 'handEnd'
+  state.actionDeadline = null
   state.resolveStepIndex = -1
   state.resolveSteps = []
   state.lastHandScores = state.players.map((p) => ({
@@ -246,6 +247,13 @@ function autoPickCard(hand: { id: string }[]): string | null {
 
 function applyTimeout(state: RowShamBoState): RowShamBoState {
   const next = cloneRowShamBo(state)
+  if (next.phase !== 'pass' && next.phase !== 'play') return next
+  const dl = next.actionDeadline
+  // Stale deadline left over from an earlier phase — refresh instead of auto-picking.
+  if (dl == null || Date.now() - dl > 2000) {
+    next.actionDeadline = Date.now() + ACTION_TIMEOUT_MS
+    return next
+  }
   if (next.phase === 'pass') {
     for (const pl of next.players) {
       if (pl.passCardId || !pl.hand.length) continue
@@ -260,18 +268,15 @@ function applyTimeout(state: RowShamBoState): RowShamBoState {
     }
     return next
   }
-  if (next.phase === 'play') {
-    for (const pl of next.players) {
-      if (pl.playCardId || !pl.hand.length) continue
-      if (!pl.isComputer) {
-        pl.playCardId = autoPickCard(pl.hand)
-        pl.receivedCardId = null
-        next.log.push(`${pl.name} timed out — random play.`)
-      }
+  for (const pl of next.players) {
+    if (pl.playCardId || !pl.hand.length) continue
+    if (!pl.isComputer) {
+      pl.playCardId = autoPickCard(pl.hand)
+      pl.receivedCardId = null
+      next.log.push(`${pl.name} timed out — random play.`)
     }
-    if (allPlayed(next)) beginReveal(next)
-    return next
   }
+  if (allPlayed(next)) beginReveal(next)
   return next
 }
 

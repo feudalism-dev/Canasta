@@ -169,10 +169,15 @@ export function RowShamBoBoard({
   const [err, setErr] = useState('')
   const [burst, setBurst] = useState<{ text: string; cls: string; img: string } | null>(null)
   const [now, setNow] = useState(Date.now())
-  const [roundCountdown, setRoundCountdown] = useState<number | null>(null)
+  const [roundEndAt, setRoundEndAt] = useState<number | null>(null)
   const fallbackRef = useRef(fallback)
   fallbackRef.current = fallback
   const spinOnce = useRef(false)
+  const playRef = useRef<(move: RowShamBoMove) => void>(() => {})
+  const timedOutDeadlineRef = useRef<number | null>(null)
+  /** `${gameNumber}:${handNumber}` — once per handEnd, never across games. */
+  const handEndAckedKeyRef = useRef<string | null>(null)
+  const handEndArmedKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!controller?.onChange) return
@@ -220,6 +225,7 @@ export function RowShamBoBoard({
     setFallback(next)
     fallbackRef.current = next
   }
+  playRef.current = play
 
   // Auto-advance chooseDir after spin
   useEffect(() => {
@@ -229,9 +235,8 @@ export function RowShamBoBoard({
     }
     if (spinOnce.current) return
     spinOnce.current = true
-    const t = window.setTimeout(() => play({ t: 'ackDir' }), DIR_SPIN_MS)
+    const t = window.setTimeout(() => playRef.current({ t: 'ackDir' }), DIR_SPIN_MS)
     return () => window.clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.phase, state?.handNumber])
 
   // Auto-advance resolve: face-down beat, then each duel held so flips + bursts read clearly
@@ -243,7 +248,7 @@ export function RowShamBoBoard({
     // Preamble: all cards still face-down
     if (state.resolveStepIndex < 0) {
       setBurst(null)
-      const t = window.setTimeout(() => play({ t: 'ackResolve' }), PRE_DUEL_MS)
+      const t = window.setTimeout(() => playRef.current({ t: 'ackResolve' }), PRE_DUEL_MS)
       return () => window.clearTimeout(t)
     }
     const step = state.resolveSteps[state.resolveStepIndex]
@@ -258,50 +263,61 @@ export function RowShamBoBoard({
       setBurst({ text, cls, img })
     }, REVEAL_PAUSE_MS)
     const clearT = window.setTimeout(() => setBurst(null), REVEAL_PAUSE_MS + BURST_HOLD_MS)
-    const t = window.setTimeout(() => play({ t: 'ackResolve' }), DUEL_HOLD_MS)
+    const t = window.setTimeout(() => playRef.current({ t: 'ackResolve' }), DUEL_HOLD_MS)
     return () => {
       window.clearTimeout(burstT)
       window.clearTimeout(clearT)
       window.clearTimeout(t)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.phase, state?.resolveStepIndex, state?.handNumber])
+  }, [state?.phase, state?.resolveStepIndex])
 
-  // Human timeout
+  // Human timeout — once per deadline only (never a multi-fire auto-play loop)
   useEffect(() => {
     if (!state?.actionDeadline) return
-    if (state.phase !== 'pass' && state.phase !== 'play') return
-    if (now < state.actionDeadline) return
-    play({ t: 'timeout' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [now, state?.actionDeadline, state?.phase])
-
-  // Auto next round: 3…2…1 then advance (no manual click)
-  useEffect(() => {
-    if (!state || state.phase !== 'handEnd') {
-      setRoundCountdown(null)
+    if (state.phase !== 'pass' && state.phase !== 'play') {
+      timedOutDeadlineRef.current = null
       return
     }
-    let left = ROUND_COUNTDOWN_SEC
-    setRoundCountdown(left)
-    const id = window.setInterval(() => {
-      left -= 1
-      if (left <= 0) {
-        window.clearInterval(id)
-        setRoundCountdown(null)
-        play({ t: 'ackHandEnd' })
-        return
-      }
-      setRoundCountdown(left)
-    }, 1000)
-    return () => window.clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.phase, state?.handNumber])
+    if (now < state.actionDeadline) return
+    if (timedOutDeadlineRef.current === state.actionDeadline) return
+    timedOutDeadlineRef.current = state.actionDeadline
+    playRef.current({ t: 'timeout' })
+  }, [now, state?.actionDeadline, state?.phase])
+
+  // Auto next round: arm a 3s end time once per handEnd (no setInterval storms)
+  useEffect(() => {
+    if (!state || state.phase !== 'handEnd') {
+      setRoundEndAt(null)
+      handEndArmedKeyRef.current = null
+      return
+    }
+    const key = `${state.gameNumber}:${state.handNumber}`
+    if (handEndAckedKeyRef.current === key) return
+    if (handEndArmedKeyRef.current === key) return
+    handEndArmedKeyRef.current = key
+    setRoundEndAt(Date.now() + ROUND_COUNTDOWN_SEC * 1000)
+  }, [state?.phase, state?.gameNumber, state?.handNumber])
+
+  useEffect(() => {
+    if (roundEndAt == null || !state || state.phase !== 'handEnd') return
+    if (now < roundEndAt) return
+    const key = `${state.gameNumber}:${state.handNumber}`
+    if (handEndAckedKeyRef.current === key) return
+    handEndAckedKeyRef.current = key
+    setRoundEndAt(null)
+    playRef.current({ t: 'ackHandEnd' })
+  }, [now, roundEndAt, state?.phase, state?.gameNumber, state?.handNumber])
+
+  const roundCountdown =
+    roundEndAt != null && state?.phase === 'handEnd'
+      ? Math.max(1, Math.ceil((roundEndAt - now) / 1000))
+      : null
 
   const secsLeft = useMemo(() => {
     if (!state?.actionDeadline) return null
+    if (state.phase !== 'pass' && state.phase !== 'play') return null
     return Math.max(0, Math.ceil((state.actionDeadline - now) / 1000))
-  }, [state?.actionDeadline, now])
+  }, [state?.actionDeadline, state?.phase, now])
 
   if (!state || !you) {
     return (
@@ -527,7 +543,7 @@ export function RowShamBoBoard({
       <div className="rsb-actions">
         {handOver && roundCountdown != null ? (
           <div className="rsb-countdown" aria-live="polite">
-            Next round in <strong>{roundCountdown}</strong>
+            Next round in <strong key={roundCountdown}>{roundCountdown}</strong>
           </div>
         ) : null}
         {gameOver ? (

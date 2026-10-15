@@ -110,6 +110,25 @@ describe('rowshambo rules', () => {
     expect(state.passedThisGame).toBe(true)
   })
 
+  it('refreshes a stale action deadline on timeout instead of auto-picking', () => {
+    let state = createRowShamBoMatch(['You', 'Bot'], [false, true], 'classic', 100, 3)
+    let res = applyRowShamBoMove(state, { t: 'ackDir' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    expect(state.phase).toBe('pass')
+    const handBefore = state.players[0]!.hand.map((c) => c.id).slice().sort()
+    state = { ...state, actionDeadline: Date.now() - 60_000 }
+    res = applyRowShamBoMove(state, { t: 'timeout' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
+    expect(state.phase).toBe('pass')
+    expect(state.players[0]!.passCardId).toBeNull()
+    expect(state.players[0]!.hand.map((c) => c.id).slice().sort()).toEqual(handBefore)
+    expect(state.actionDeadline).toBeGreaterThan(Date.now() + 50_000)
+  })
+
   it('starts resolve face-down, then flips only the current duel', () => {
     let state = createRowShamBoMatch(['A', 'B', 'C'], [false, true, true], 'classic', 100, 9)
     let res = applyRowShamBoMove(state, { t: 'ackDir' })
