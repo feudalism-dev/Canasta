@@ -1,8 +1,13 @@
+import { useState } from 'react'
 import {
+  kindGlyph,
   rowShamBoSpectatorStatus,
   rowShamBoVariantLabel,
   type RowShamBoPublicBoard,
+  type RowShamBoPublicPlay,
 } from '../core/rowshambo/publicBoard'
+import type { RowShamBoKind } from '../core/rowshambo/types'
+import { cardLabel } from '../core/rowshambo/deck'
 import { directionLabel, rowShamBoBeatKey } from '../core/rowshambo/variants'
 import '../styles/rowshambo.css'
 
@@ -27,6 +32,50 @@ function CardBack() {
   )
 }
 
+function CardFace({ kind }: { kind: RowShamBoKind }) {
+  const [imgOk, setImgOk] = useState(true)
+  const src = assetUrl(`${kind}.png`)
+  return (
+    <div
+      className={`rsb-card is-${kind}${imgOk ? ' has-art' : ''} is-lg`}
+      aria-label={cardLabel({ id: kind, kind })}
+    >
+      {imgOk ? (
+        <img className="rsb-card-face" src={src} alt="" onError={() => setImgOk(false)} />
+      ) : (
+        <>
+          <span className="rsb-card-glyph" aria-hidden>
+            {kindGlyph(kind)}
+          </span>
+          <span className="rsb-card-label">{cardLabel({ id: kind, kind })}</span>
+        </>
+      )}
+    </div>
+  )
+}
+
+function TableCard({ play }: { play: RowShamBoPublicPlay }) {
+  if (play == null) return null
+  if (play === 'down') return <CardBack />
+  return <CardFace kind={play} />
+}
+
+function duelBadge(
+  board: RowShamBoPublicBoard,
+  seat: number,
+): { kind: 'win' | 'lose' | 'tie' | 'idle'; label: string } {
+  const d = board.duel
+  if (!d || d.subphase !== 'result' || !d.outcome) return { kind: 'idle', label: '' }
+  const inContested = d.contestedSeats.includes(seat)
+  const isNext = d.nextSeat === seat
+  if (!inContested && !isNext) return { kind: 'idle', label: '' }
+  if (d.outcome === 'tie') return { kind: 'tie', label: 'TIE' }
+  if (d.outcome === 'contestedWin') {
+    return inContested ? { kind: 'win', label: 'WIN' } : { kind: 'lose', label: 'OUT' }
+  }
+  return isNext ? { kind: 'win', label: 'WIN' } : { kind: 'lose', label: 'OUT' }
+}
+
 /**
  * Parlor MoAP table-top view — same comic chrome as the HUD game,
  * without private hands.
@@ -36,6 +85,8 @@ export function RowShamBoSpectator({ board }: { board: RowShamBoPublicBoard }) {
   const prompt = board.lastMessage || status
   const fighting = board.phase === 'resolve' || board.phase === 'reveal'
   const sorted = [...board.players].sort((a, b) => a.seat - b.seat)
+  const duel = board.duel
+  const showBurst = fighting && duel?.subphase === 'result' && duel.outcome
 
   if (!board.live) {
     return (
@@ -63,6 +114,14 @@ export function RowShamBoSpectator({ board }: { board: RowShamBoPublicBoard }) {
   }
 
   const beatKey = rowShamBoBeatKey(board.variant)
+  const burst =
+    showBurst && duel
+      ? duel.outcome === 'tie'
+        ? { text: 'TIE!', cls: 'is-tie', img: 'burst-tie.png' }
+        : duel.outcome === 'contestedWin'
+          ? { text: 'OOF!', cls: 'is-oof', img: 'burst-oof.png' }
+          : { text: 'POW!', cls: '', img: 'burst-pow.png' }
+      : null
 
   return (
     <div
@@ -104,28 +163,61 @@ export function RowShamBoSpectator({ board }: { board: RowShamBoPublicBoard }) {
               {sorted.map((p) => {
                 const compass = compassFromSeat0(p.seat, board.playerCount)
                 const isButton = board.buttonSeat === p.seat
+                const play = board.tablePlays[p.seat] ?? null
+                const inContested = Boolean(duel?.contestedSeats.includes(p.seat))
+                const isChallenger = Boolean(duel && duel.nextSeat === p.seat)
+                const inDuel = inContested || isChallenger
+                const result = duelBadge(board, p.seat)
                 return (
                   <div
                     key={p.seat}
-                    className={`rsb-duel-slot is-${compass} is-dueling${isButton ? ' is-button' : ''}`}
+                    className={`rsb-duel-slot is-${compass}${inDuel ? ' is-dueling' : ' is-sideline'}${
+                      isButton ? ' is-button' : ''
+                    }${result.kind !== 'idle' ? ` is-${result.kind}` : ''}`}
                   >
                     <span className="rsb-duel-name">
                       {isButton ? '★ ' : ''}
                       {p.name}
                     </span>
                     <div className="rsb-duel-card-wrap">
-                      <CardBack />
+                      {play != null ? <TableCard play={play} /> : <CardBack />}
+                      {result.kind !== 'idle' ? (
+                        <span className={`rsb-duel-badge is-${result.kind}`}>{result.label}</span>
+                      ) : null}
                     </div>
                   </div>
                 )
               })}
               <div className="rsb-duel-center" aria-hidden>
-                <div className="rsb-duel-hub">
-                  <span className="rsb-duel-hub-dir">
-                    {board.direction ? directionLabel(board.direction) : 'Fight!'}
-                  </span>
-                  <span className="rsb-duel-hub-step">Battle!</span>
-                </div>
+                {burst ? (
+                  <div className="rsb-burst is-center">
+                    <img
+                      className={`rsb-burst-img ${burst.cls}`}
+                      src={assetUrl(burst.img)}
+                      alt={burst.text}
+                      onError={(e) => {
+                        const el = e.currentTarget
+                        el.style.display = 'none'
+                        const fallback = el.nextElementSibling as HTMLElement | null
+                        if (fallback) fallback.hidden = false
+                      }}
+                    />
+                    <div className={`rsb-burst-stamp ${burst.cls}`} hidden>
+                      {burst.text}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rsb-duel-hub">
+                    <span className="rsb-duel-hub-dir">
+                      {board.direction ? directionLabel(board.direction) : 'Fight!'}
+                    </span>
+                    <span className="rsb-duel-hub-step">
+                      {duel && duel.stepIndex >= 0
+                        ? `Duel ${duel.stepIndex + 1}`
+                        : 'Cards down…'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
