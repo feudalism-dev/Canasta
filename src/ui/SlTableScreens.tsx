@@ -15,7 +15,7 @@ import type { SkippoVariant } from '../core/skippo/types'
 import type { PhaseItVariant } from '../core/phaseit/types'
 import type { YotsyVariant } from '../core/yotsy/types'
 import type { RowShamBoVariant } from '../core/rowshambo/types'
-import { rowShamBoTip } from '../core/rowshambo/variants'
+import { rowShamBoTip, rowShamBoVariantOptions } from '../core/rowshambo/variants'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
 import { BetaVariantNotice } from './BetaVariantNotice'
@@ -886,7 +886,8 @@ export function SlTableScreens({
               (isPhaseitTable && !['classic', 'masters', 'sprint'].includes(phaseitVariant)) ||
               (isYotsyTable &&
                 !['classic', 'kismet', 'yacht', 'generala'].includes(yotsyVariant)) ||
-              (isRowshamboTable && rowshamboVariant !== 'classic')
+              (isRowshamboTable &&
+                !rowShamBoVariantOptions().some((o) => o.value === rowshamboVariant && o.ready))
             }
             onClick={async () => {
               setBusy(true)
