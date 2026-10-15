@@ -73,9 +73,8 @@ describe('rowshambo rules', () => {
     expect(state.players[0]!.hand.some((c) => c.id === aPass)).toBe(false)
   })
 
-  it('keeps direction and skips pass on the next round', () => {
+  it('re-rolls fight direction each round and skips pass after turn 1', () => {
     let state = createRowShamBoMatch(['You', 'Bot'], [false, true], 'classic', 100, 7)
-    const dir = state.direction
     let res = applyRowShamBoMove(state, { t: 'ackDir' })
     expect(res.ok).toBe(true)
     if (!res.ok) return
@@ -99,10 +98,16 @@ describe('rowshambo rules', () => {
     expect(res.ok).toBe(true)
     if (!res.ok) return
     state = res.state
+    expect(state.phase).toBe('chooseDir')
+    expect(state.passedThisGame).toBe(true)
+    expect(state.handNumber).toBe(2)
+    expect(state.direction).toBeTruthy()
+    res = applyRowShamBoMove(state, { t: 'ackDir' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = res.state
     expect(state.phase).toBe('play')
     expect(state.passedThisGame).toBe(true)
-    expect(state.direction).toBe(dir)
-    expect(state.handNumber).toBe(2)
   })
 
   it('starts resolve face-down, then flips only the current duel', () => {

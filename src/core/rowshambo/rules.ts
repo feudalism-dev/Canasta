@@ -286,7 +286,15 @@ export function applyRowShamBoMove(state: RowShamBoState, move: RowShamBoMove): 
 
   if (move.t === 'ackDir') {
     if (next.phase !== 'chooseDir') return { ok: false, error: 'Not choosing direction' }
-    beginPassPhase(next)
+    // Turn 1 of a game: pass once. Later rounds: direction was re-rolled for fights only.
+    if (!next.passedThisGame) {
+      beginPassPhase(next)
+    } else {
+      drawUpToFive(next)
+      if (next.handNumber < 1) next.handNumber = 1
+      beginPlayPhase(next)
+      next.lastMessage = `Round ${next.handNumber} — ${directionLabel(next.direction!)}. Select a card to play face-down.`
+    }
     return { ok: true, state: next }
   }
 
@@ -334,8 +342,8 @@ export function applyRowShamBoMove(state: RowShamBoState, move: RowShamBoMove): 
 
   if (move.t === 'ackHandEnd') {
     if (next.phase !== 'handEnd') return { ok: false, error: 'Hand not over' }
-    // Same game: keep direction, skip pass — just the next play round.
-    return { ok: true, state: startRound(next) }
+    // Same game: re-roll fight direction; pass already done for this game.
+    return { ok: true, state: startRound(next, Date.now() % 1e9) }
   }
 
   if (move.t === 'ackGameEnd') {

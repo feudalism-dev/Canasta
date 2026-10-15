@@ -69,7 +69,7 @@ export function rowShamBoTip(v: RowShamBoVariant): string {
   if (v === 'elements') {
     return '64-card deck with Water, Earth, and Fire. Coming soon.'
   }
-  return 'Direction is set once per game. Pass once, then keep playing rounds (draw → play → duel). First to the match score wins.'
+  return 'Pass once on turn 1. Fight direction re-rolls every round. Draw → play → duel until the deck is gone. First to the match score wins.'
 }
 
 export function directionLabel(d: 'cw' | 'ccw'): string {

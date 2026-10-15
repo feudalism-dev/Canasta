@@ -38,7 +38,7 @@ Deck Depletion Rule: Once the draw deck is empty, players do not draw and must c
 
 Passing Phase (once per game)
 
-At the start of each game, the randomizer picks Clockwise or Counter-Clockwise for the whole game (pass and resolution). Players pass once in that direction, then play rounds without further passing until the next game.
+At the start of each game, the randomizer picks Clockwise or Counter-Clockwise for turn 1 (pass direction and that round’s fights). Players pass once in that direction. Every later round re-rolls fight direction; there is no further passing until the next game.
 
 A prompt appears: "Pass 1 card (once this game)".
 

@@ -107,7 +107,7 @@ export function pickDirection(seed: number): RowShamBoDirection {
   return seed % 2 === 0 ? 'cw' : 'ccw'
 }
 
-/** Once per game: pick CW/CCW, then pass once, then play rounds. */
+/** Game open: randomize direction for the once-per-game pass (and round 1 fights). */
 export function startGame(state: RowShamBoState, seed: number): RowShamBoState {
   const next = cloneRowShamBo(state)
   next.direction = pickDirection(seed)
@@ -128,16 +128,19 @@ export function startGame(state: RowShamBoState, seed: number): RowShamBoState {
   const label = rowShamBoVariantLabel(next.config.variant)
   const dir = directionLabel(next.direction)
   const lead = next.players[next.button]!
-  next.log.push(`Game ${next.gameNumber} — ${label}. Direction for this game: ${dir}. Button: ${lead.name}.`)
-  next.lastMessage = `Randomizer… ${dir}! Pass once, then play. ${lead.name} has the button.`
+  next.log.push(
+    `Game ${next.gameNumber} — ${label}. Pass/fight direction: ${dir}. Button: ${lead.name}.`,
+  )
+  next.lastMessage = `Randomizer… ${dir}! Pass once this game, then fight. ${lead.name} has the button.`
   return next
 }
 
-/** Later rounds in the same game: keep direction, no pass — just draw & play. */
-export function startRound(state: RowShamBoState): RowShamBoState {
+/** Later rounds: re-roll fight direction (no pass). UI spins via chooseDir → ackDir → play. */
+export function startRound(state: RowShamBoState, seed = Date.now()): RowShamBoState {
   const next = cloneRowShamBo(state)
   next.handNumber += 1
-  next.phase = 'play'
+  next.direction = pickDirection(seed)
+  next.phase = 'chooseDir'
   next.resolveSteps = []
   next.resolveStepIndex = -1
   next.lastHandScores = null
@@ -149,12 +152,10 @@ export function startRound(state: RowShamBoState): RowShamBoState {
     pl.receivedCardId = null
     pl.playCardId = null
   }
-  drawUpToFive(next)
-  next.actionDeadline = Date.now() + ACTION_TIMEOUT_MS
-  const dir = next.direction ? directionLabel(next.direction) : '?'
+  const dir = directionLabel(next.direction)
   const lead = next.players[next.button]!
-  next.log.push(`Round ${next.handNumber} — still ${dir}. Button: ${lead.name}.`)
-  next.lastMessage = `Round ${next.handNumber} — select a card to play face-down.`
+  next.log.push(`Round ${next.handNumber} — fight direction: ${dir}. Button: ${lead.name}.`)
+  next.lastMessage = `Randomizer… ${dir}! Round ${next.handNumber} — ready to fight.`
   return next
 }
 
