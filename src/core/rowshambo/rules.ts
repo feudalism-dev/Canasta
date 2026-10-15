@@ -248,12 +248,16 @@ function autoPickCard(hand: { id: string }[]): string | null {
 function applyTimeout(state: RowShamBoState): RowShamBoState {
   const next = cloneRowShamBo(state)
   if (next.phase !== 'pass' && next.phase !== 'play') return next
+  const t = Date.now()
   const dl = next.actionDeadline
-  // Stale deadline left over from an earlier phase — refresh instead of auto-picking.
-  if (dl == null || Date.now() - dl > 2000) {
-    next.actionDeadline = Date.now() + ACTION_TIMEOUT_MS
+  // Missing / invalid deadline — arm a full window; never pick.
+  if (dl == null || !Number.isFinite(dl)) {
+    next.actionDeadline = t + ACTION_TIMEOUT_MS
     return next
   }
+  // Premature timeout (deadline still in the future) — ignore; never auto-pick early.
+  if (t < dl) return next
+
   if (next.phase === 'pass') {
     for (const pl of next.players) {
       if (pl.passCardId || !pl.hand.length) continue

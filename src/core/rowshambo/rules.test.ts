@@ -110,15 +110,16 @@ describe('rowshambo rules', () => {
     expect(state.passedThisGame).toBe(true)
   })
 
-  it('refreshes a stale action deadline on timeout instead of auto-picking', () => {
+  it('ignores premature timeout while the action deadline is still in the future', () => {
     let state = createRowShamBoMatch(['You', 'Bot'], [false, true], 'classic', 100, 3)
     let res = applyRowShamBoMove(state, { t: 'ackDir' })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     state = res.state
     expect(state.phase).toBe('pass')
+    expect(state.actionDeadline).toBeGreaterThan(Date.now() + 50_000)
     const handBefore = state.players[0]!.hand.map((c) => c.id).slice().sort()
-    state = { ...state, actionDeadline: Date.now() - 60_000 }
+    const dl = state.actionDeadline
     res = applyRowShamBoMove(state, { t: 'timeout' })
     expect(res.ok).toBe(true)
     if (!res.ok) return
@@ -126,7 +127,19 @@ describe('rowshambo rules', () => {
     expect(state.phase).toBe('pass')
     expect(state.players[0]!.passCardId).toBeNull()
     expect(state.players[0]!.hand.map((c) => c.id).slice().sort()).toEqual(handBefore)
-    expect(state.actionDeadline).toBeGreaterThan(Date.now() + 50_000)
+    expect(state.actionDeadline).toBe(dl)
+  })
+
+  it('auto-picks the human only after the action deadline has expired', () => {
+    let state = createRowShamBoMatch(['You', 'Bot'], [false, true], 'classic', 100, 3)
+    let res = applyRowShamBoMove(state, { t: 'ackDir' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    state = { ...res.state, actionDeadline: Date.now() - 1 }
+    res = applyRowShamBoMove(state, { t: 'timeout' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.state.players[0]!.passCardId).toBeTruthy()
   })
 
   it('starts resolve face-down, then flips only the current duel', () => {

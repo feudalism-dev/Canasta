@@ -175,6 +175,8 @@ export function RowShamBoBoard({
   const spinOnce = useRef(false)
   const playRef = useRef<(move: RowShamBoMove) => void>(() => {})
   const timedOutDeadlineRef = useRef<number | null>(null)
+  /** Only deadlines we observed while still in the future may auto-timeout. */
+  const armedDeadlineRef = useRef<number | null>(null)
   /** `${gameNumber}:${handNumber}` — once per handEnd, never across games. */
   const handEndAckedKeyRef = useRef<string | null>(null)
   const handEndArmedKeyRef = useRef<string | null>(null)
@@ -271,16 +273,23 @@ export function RowShamBoBoard({
     }
   }, [state?.phase, state?.resolveStepIndex])
 
-  // Human timeout — once per deadline only (never a multi-fire auto-play loop)
+  // Human timeout — full ACTION_TIMEOUT_MS window; never fire on a deadline we never armed
   useEffect(() => {
-    if (!state?.actionDeadline) return
-    if (state.phase !== 'pass' && state.phase !== 'play') {
+    if (state?.phase !== 'pass' && state?.phase !== 'play') {
       timedOutDeadlineRef.current = null
+      armedDeadlineRef.current = null
       return
     }
-    if (now < state.actionDeadline) return
-    if (timedOutDeadlineRef.current === state.actionDeadline) return
-    timedOutDeadlineRef.current = state.actionDeadline
+    const dl = state?.actionDeadline
+    if (dl == null || !Number.isFinite(dl)) return
+    // Arm only while the window is still open (blocks instant fire on stale/expired dl).
+    if (now < dl) {
+      armedDeadlineRef.current = dl
+      return
+    }
+    if (armedDeadlineRef.current !== dl) return
+    if (timedOutDeadlineRef.current === dl) return
+    timedOutDeadlineRef.current = dl
     playRef.current({ t: 'timeout' })
   }, [now, state?.actionDeadline, state?.phase])
 
