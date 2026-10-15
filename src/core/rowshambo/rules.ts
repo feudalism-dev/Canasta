@@ -79,7 +79,7 @@ function beginPlayPhase(state: RowShamBoState): void {
     })
     .filter(Boolean)
   state.lastMessage = got.length
-    ? `Pass done — ${got.join('; ')}. Select a card to play face-down.`
+    ? `Pass done — ${got.join('; ')}. Select a card to play.`
     : 'Select a card to play face-down.'
   state.log.push(state.lastMessage)
 }

@@ -322,11 +322,39 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.45rem;
+  align-items: flex-end;
+  gap: 0.55rem;
   margin: 1.1rem 0 0.65rem;
   padding-top: 0.25rem;
   position: relative;
   z-index: 1;
+}
+
+.rsb-hand-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.rsb-hand-slot.is-received {
+  z-index: 2;
+}
+
+.rsb-hand-new {
+  border: 2px solid var(--rsb-ink);
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+  background: #f0c14b;
+  color: var(--rsb-ink);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.18);
+  animation: rsb-received-pop 0.55s ease-out;
 }
 
 .rsb-card {
@@ -383,11 +411,16 @@
   outline: 3px solid var(--rsb-blue);
 }
 
-.rsb-card.is-received {
-  outline: 3px solid #f0c14b;
-  transform: translateY(-8px) scale(1.06);
-  box-shadow: 0 0 0 3px rgba(240, 193, 75, 0.35), 6px 8px 0 rgba(0, 0, 0, 0.22);
-  animation: rsb-received-pop 0.55s ease-out;
+.rsb-card.is-received,
+.rsb-hand-slot.is-received .rsb-card {
+  outline: 4px solid #f0c14b;
+  outline-offset: 2px;
+  transform: translateY(-10px) scale(1.08);
+  box-shadow:
+    0 0 0 4px rgba(240, 193, 75, 0.45),
+    6px 8px 0 rgba(0, 0, 0, 0.22);
+  animation: rsb-received-pulse 1.1s ease-in-out infinite alternate;
+  opacity: 1 !important;
 }
 
 @keyframes rsb-received-pop {
@@ -396,8 +429,23 @@
     opacity: 0.4;
   }
   100% {
-    transform: translateY(-8px) scale(1.06);
+    transform: translateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes rsb-received-pulse {
+  from {
+    transform: translateY(-8px) scale(1.05);
+    box-shadow:
+      0 0 0 3px rgba(240, 193, 75, 0.35),
+      6px 8px 0 rgba(0, 0, 0, 0.22);
+  }
+  to {
+    transform: translateY(-12px) scale(1.1);
+    box-shadow:
+      0 0 0 6px rgba(240, 193, 75, 0.55),
+      6px 10px 0 rgba(0, 0, 0, 0.22);
   }
 }
 

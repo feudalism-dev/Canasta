@@ -295,20 +295,25 @@ export function RowShamBoBoard({
   const canPick = (state.phase === 'pass' || state.phase === 'play') && !you.isComputer
   const waitingPass = state.phase === 'pass' && !you.passCardId && you.hand.length > 0
   const waitingPlay = state.phase === 'play' && !you.playCardId && you.hand.length > 0
+  const receivedCard = you.receivedCardId
+    ? you.hand.find((c) => c.id === you.receivedCardId) ?? null
+    : null
   const prompt =
     state.phase === 'chooseDir'
       ? 'Randomizer!'
       : waitingPass
         ? 'Pass 1 card (once this game)'
-        : waitingPlay
-          ? 'Select a card to play'
-          : state.phase === 'resolve'
-            ? state.resolveStepIndex < 0
-              ? 'Cards are down — get ready…'
-              : `Duel ${state.resolveStepIndex + 1} of ${state.resolveSteps.length}`
-            : state.phase === 'handEnd'
-              ? 'Round over — tap Next round'
-              : state.lastMessage || rowShamBoTip(state.config.variant)
+        : waitingPlay && receivedCard
+          ? `You received ${cardLabel(receivedCard)} — select a card to play`
+          : waitingPlay
+            ? 'Select a card to play'
+            : state.phase === 'resolve'
+              ? state.resolveStepIndex < 0
+                ? 'Cards are down — get ready…'
+                : `Duel ${state.resolveStepIndex + 1} of ${state.resolveSteps.length}`
+              : state.phase === 'handEnd'
+                ? 'Round over — tap Next round'
+                : state.lastMessage || rowShamBoTip(state.config.variant)
 
   return (
     <div className="rsb-root">
@@ -464,20 +469,30 @@ export function RowShamBoBoard({
           const locked =
             (state.phase === 'pass' && you.passCardId === c.id) ||
             (state.phase === 'play' && you.playCardId === c.id)
+          const isReceived = you.receivedCardId === c.id
           const interactive = canPick && (waitingPass || waitingPlay) && !you.passCardId && !you.playCardId
           return (
-            <CardFace
+            <div
               key={c.id}
-              card={c}
-              selected={locked}
-              legal={interactive}
-              received={you.receivedCardId === c.id}
-              disabled={!interactive}
-              onClick={() => {
-                if (waitingPass) play({ t: 'pass', cardId: c.id })
-                else if (waitingPlay) play({ t: 'play', cardId: c.id })
-              }}
-            />
+              className={`rsb-hand-slot${isReceived ? ' is-received' : ''}`}
+            >
+              <CardFace
+                card={c}
+                selected={locked}
+                legal={interactive}
+                received={isReceived}
+                disabled={!interactive}
+                onClick={() => {
+                  if (waitingPass) play({ t: 'pass', cardId: c.id })
+                  else if (waitingPlay) play({ t: 'play', cardId: c.id })
+                }}
+              />
+              {isReceived ? (
+                <span className="rsb-hand-new" aria-label={`Received ${cardLabel(c)}`}>
+                  New · {cardLabel(c)}
+                </span>
+              ) : null}
+            </div>
           )
         })}
       </div>
