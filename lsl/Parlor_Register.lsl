@@ -18,6 +18,7 @@
 //   Phase It                          "phaseit"
 //   Yotsy                             "yotsy"
 //   Row! Sham! Bo!                    "rowshambo"
+//   (any new hub family)              lowercase a–z0-9_ slug matching the web family id
 //
 // Free hub table: do NOT include this script (hub only reads entitlements).
 // Idempotent: rezzing again if already registered is safe.
@@ -36,18 +37,29 @@ integer gBusy = FALSE;
 integer gRetries = 0;
 integer MAX_RETRIES = 4;
 
+// Accept any safe slug so a new product box only changes GRANT_FAMILY —
+// no allowlist edit required. Tables no longer need a recompile per family.
+string sanitizeFamilySlug(string raw)
+{
+    raw = llToLower(llStringTrim(raw, STRING_TRIM));
+    if (raw == "" || llStringLength(raw) > 24) return "";
+    string ok = "abcdefghijklmnopqrstuvwxyz0123456789_";
+    integer i;
+    integer n = llStringLength(raw);
+    for (i = 0; i < n; i++)
+    {
+        if (llSubStringIndex(ok, llGetSubString(raw, i, i)) < 0) return "";
+    }
+    return raw;
+}
+
 string normFamily(string raw)
 {
     raw = llToLower(llStringTrim(raw, STRING_TRIM));
-    if (raw == "canasta") return "canasta";
-    if (raw == "rummy") return "rummy";
-    if (raw == "trick") return "trick";
-    if (raw == "ichi") return "ichi";
-    if (raw == "skippo") return "skippo";
-    if (raw == "phaseit" || raw == "phase_it" || raw == "phase-it") return "phaseit";
-    if (raw == "yotsy" || raw == "yahtzee") return "yotsy";
-    if (raw == "rowshambo" || raw == "rsb" || raw == "row-sham-bo" || raw == "row_sham_bo") return "rowshambo";
-    return "";
+    if (raw == "phase_it" || raw == "phase-it") return "phaseit";
+    if (raw == "yahtzee") return "yotsy";
+    if (raw == "rsb" || raw == "row-sham-bo" || raw == "row_sham_bo") return "rowshambo";
+    return sanitizeFamilySlug(raw);
 }
 
 string entKey()

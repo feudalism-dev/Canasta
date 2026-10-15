@@ -53,18 +53,31 @@ string jsonEscape(string s)
     return llDumpList2String(llParseStringKeepNulls(s, ["\n"], []), "\\n");
 }
 
+// Safe slug for hub modules: a–z / 0–9 / _ only, 1–24 chars.
+// Unknown families are NOT rejected — entitlement check is the gate.
+// That way new web families do not require recompiling every parlor table.
+string sanitizeFamilySlug(string raw)
+{
+    raw = llToLower(llStringTrim(raw, STRING_TRIM));
+    if (raw == "" || llStringLength(raw) > 24) return "";
+    string ok = "abcdefghijklmnopqrstuvwxyz0123456789_";
+    integer i;
+    integer n = llStringLength(raw);
+    for (i = 0; i < n; i++)
+    {
+        if (llSubStringIndex(ok, llGetSubString(raw, i, i)) < 0) return "";
+    }
+    return raw;
+}
+
 string normFamily(string raw)
 {
     raw = llToLower(llStringTrim(raw, STRING_TRIM));
-    if (raw == "canasta") return "canasta";
-    if (raw == "rummy") return "rummy";
-    if (raw == "trick") return "trick";
-    if (raw == "ichi") return "ichi";
-    if (raw == "skippo") return "skippo";
-    if (raw == "phaseit" || raw == "phase_it" || raw == "phase-it") return "phaseit";
-    if (raw == "yotsy" || raw == "yahtzee") return "yotsy";
-    if (raw == "rowshambo" || raw == "rsb" || raw == "row-sham-bo" || raw == "row_sham_bo") return "rowshambo";
-    return "";
+    // Aliases (optional convenience). Fall through to slug for anything else.
+    if (raw == "phase_it" || raw == "phase-it") return "phaseit";
+    if (raw == "yahtzee") return "yotsy";
+    if (raw == "rsb" || raw == "row-sham-bo" || raw == "row_sham_bo") return "rowshambo";
+    return sanitizeFamilySlug(raw);
 }
 
 string packedBody(string packed)
