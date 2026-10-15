@@ -242,6 +242,14 @@
   text-transform: uppercase;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
   padding: 0.25rem;
+  overflow: hidden;
+}
+
+.rsb-card.has-art {
+  border: none;
+  background: transparent;
+  padding: 0;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.22);
 }
 
 .rsb-card:disabled {
@@ -381,6 +389,15 @@
   display: grid;
   place-items: center;
   pointer-events: none;
+}
+
+.rsb-burst-img {
+  width: min(70%, 14rem);
+  height: auto;
+  object-fit: contain;
+  transform: rotate(-8deg);
+  animation: rsb-stamp 0.45s cubic-bezier(0.2, 1.6, 0.3, 1) both;
+  filter: drop-shadow(4px 4px 0 rgba(0, 0, 0, 0.25));
 }
 
 .rsb-burst-stamp {

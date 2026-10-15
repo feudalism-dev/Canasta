@@ -50,13 +50,25 @@ function CardFace({
   faceDown?: boolean
 }) {
   const [imgOk, setImgOk] = useState(true)
+  const [backOk, setBackOk] = useState(true)
   if (faceDown || !card) {
     return (
-      <div className="rsb-card is-back" aria-label="Face down">
-        <span className="rsb-card-glyph" aria-hidden>
-          ?
-        </span>
-        <span className="rsb-card-label">Hidden</span>
+      <div className={`rsb-card is-back${backOk ? ' has-art' : ''}`} aria-label="Face down">
+        {backOk ? (
+          <img
+            className="rsb-card-face"
+            src={assetUrl('card-back.png')}
+            alt=""
+            onError={() => setBackOk(false)}
+          />
+        ) : (
+          <>
+            <span className="rsb-card-glyph" aria-hidden>
+              ?
+            </span>
+            <span className="rsb-card-label">Hidden</span>
+          </>
+        )}
       </div>
     )
   }
@@ -64,7 +76,7 @@ function CardFace({
   return (
     <button
       type="button"
-      className={`rsb-card is-${card.kind}${selected ? ' is-selected' : ''}${legal ? ' is-legal' : ''}`}
+      className={`rsb-card is-${card.kind}${imgOk ? ' has-art' : ''}${selected ? ' is-selected' : ''}${legal ? ' is-legal' : ''}`}
       disabled={disabled}
       onClick={onClick}
       aria-label={cardLabel(card)}
@@ -99,7 +111,7 @@ export function RowShamBoBoard({
   const [tick, setTick] = useState(0)
   const [fallback, setFallback] = useState<RowShamBoState | null>(null)
   const [err, setErr] = useState('')
-  const [burst, setBurst] = useState<{ text: string; cls: string } | null>(null)
+  const [burst, setBurst] = useState<{ text: string; cls: string; img: string } | null>(null)
   const [now, setNow] = useState(Date.now())
   const fallbackRef = useRef(fallback)
   fallbackRef.current = fallback
@@ -177,7 +189,13 @@ export function RowShamBoBoard({
       step.outcome === 'tie' ? 'is-tie' : step.outcome === 'nextWin' ? '' : 'is-oof'
     const text =
       step.outcome === 'tie' ? 'TIE!' : step.outcome === 'nextWin' ? 'POW!' : 'OOF!'
-    setBurst({ text, cls })
+    const img =
+      step.outcome === 'tie'
+        ? 'burst-tie.png'
+        : step.outcome === 'nextWin'
+          ? 'burst-pow.png'
+          : 'burst-oof.png'
+    setBurst({ text, cls, img })
     const t = window.setTimeout(() => play({ t: 'ackResolve' }), 1100)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -302,7 +320,20 @@ export function RowShamBoBoard({
         <div className="rsb-prompt">{prompt}</div>
         {burst ? (
           <div className="rsb-burst" aria-hidden>
-            <div className={`rsb-burst-stamp ${burst.cls}`}>{burst.text}</div>
+            <img
+              className={`rsb-burst-img ${burst.cls}`}
+              src={assetUrl(burst.img)}
+              alt={burst.text}
+              onError={(e) => {
+                const el = e.currentTarget
+                el.style.display = 'none'
+                const fallback = el.nextElementSibling as HTMLElement | null
+                if (fallback) fallback.hidden = false
+              }}
+            />
+            <div className={`rsb-burst-stamp ${burst.cls}`} hidden>
+              {burst.text}
+            </div>
           </div>
         ) : null}
       </div>
