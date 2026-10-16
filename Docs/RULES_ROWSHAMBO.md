@@ -39,10 +39,10 @@ Rock beats Scissors · Scissors beats Paper · Paper beats Rock · Dynamite beat
 
 64-card deck adds **4 Water, 4 Earth, 4 Fire** to the classic 52.
 
-- **Water** beats Rock, Paper, Earth (loses to Scissors, Fire, Dynamite)
-- **Earth** beats Rock, Scissors, Fire (loses to Paper, Water, Dynamite)
-- **Fire** beats Paper, Scissors, Water (loses to Rock, Earth, Dynamite)
-- Element triad: Water → Earth → Fire → Water
+- **Water** beats Rock, Paper, Fire (loses to Scissors, Earth, Dynamite)
+- **Earth** beats Rock, Scissors, Water (loses to Paper, Fire, Dynamite)
+- **Fire** beats Paper, Scissors, Earth (loses to Rock, Water, Dynamite)
+- Element triad: Water → Fire → Earth → Water
 - **Dynamite** still beats everything (Dynamite vs Dynamite = tie)
 
 The HUD shows a beat key on the left during Elements games.

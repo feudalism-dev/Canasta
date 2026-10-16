@@ -12,10 +12,10 @@ export function beats(a: RowShamBoKind, b: RowShamBoKind, variant: RowShamBoVari
   if (a === 'paper' && b === 'rock') return true
 
   if (variant === 'elements' || variant === 'triples') {
-    // Elements triad among themselves: Water→Earth→Fire→Water
-    if (a === 'water' && b === 'earth') return true
-    if (a === 'earth' && b === 'fire') return true
-    if (a === 'fire' && b === 'water') return true
+    // Elements triad among themselves: Water→Fire→Earth→Water
+    if (a === 'water' && b === 'fire') return true
+    if (a === 'fire' && b === 'earth') return true
+    if (a === 'earth' && b === 'water') return true
 
     // Elements vs basics
     if (a === 'water' && (b === 'rock' || b === 'paper')) return true

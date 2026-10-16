@@ -87,9 +87,9 @@ export function rowShamBoBeatKey(
   }
   return [
     ...classic,
-    { kind: 'Water', beats: 'Rock · Paper · Earth', note: 'loses to Scissors · Fire' },
-    { kind: 'Earth', beats: 'Rock · Scissors · Fire', note: 'loses to Paper · Water' },
-    { kind: 'Fire', beats: 'Paper · Scissors · Water', note: 'loses to Rock · Earth' },
+    { kind: 'Water', beats: 'Rock · Paper · Fire', note: 'loses to Scissors · Earth' },
+    { kind: 'Earth', beats: 'Rock · Scissors · Water', note: 'loses to Paper · Fire' },
+    { kind: 'Fire', beats: 'Paper · Scissors · Earth', note: 'loses to Rock · Water' },
   ]
 }
 

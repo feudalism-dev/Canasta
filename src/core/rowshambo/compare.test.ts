@@ -18,9 +18,12 @@ describe('rowshambo compare', () => {
   })
 
   it('elements triad and vs basics', () => {
-    expect(beats('water', 'earth', 'elements')).toBe(true)
-    expect(beats('earth', 'fire', 'elements')).toBe(true)
-    expect(beats('fire', 'water', 'elements')).toBe(true)
+    expect(beats('water', 'fire', 'elements')).toBe(true)
+    expect(beats('fire', 'earth', 'elements')).toBe(true)
+    expect(beats('earth', 'water', 'elements')).toBe(true)
+    expect(beats('water', 'earth', 'elements')).toBe(false)
+    expect(beats('earth', 'fire', 'elements')).toBe(false)
+    expect(beats('fire', 'water', 'elements')).toBe(false)
     expect(beats('water', 'rock', 'elements')).toBe(true)
     expect(beats('water', 'paper', 'elements')).toBe(true)
     expect(beats('earth', 'rock', 'elements')).toBe(true)
