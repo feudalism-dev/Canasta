@@ -125,7 +125,7 @@ export function familyAdSrc(family: GameFamily): string {
     case 'rowshambo':
       return `${base}assets/rowshambo_ad.jpg`
     case 'battlefleet':
-      return `${base}assets/canasta_ad.jpg`
+      return `${base}assets/battlefleet_ad.png`
     default:
       return `${base}assets/canasta_ad.jpg`
   }
