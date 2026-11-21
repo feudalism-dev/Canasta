@@ -74,6 +74,11 @@ import {
   joinRowShamBoPeerRoom,
   type RowShamBoPeerSession,
 } from './net/rowshamboPeerSession'
+import {
+  createBattleFleetPeerHost,
+  joinBattleFleetPeerRoom,
+  type BattleFleetPeerSession,
+} from './net/battlefleetPeerSession'
 import { startRummySolo, type RummyLocalSession } from './ui/rummyLocalSession'
 import { startTrickSolo, type TrickLocalSession } from './ui/trickLocalSession'
 import { startIchiSolo, type IchiLocalSession } from './ui/ichiLocalSession'
@@ -203,6 +208,7 @@ function AppInner() {
     useState<BattleFleetDifficulty>('normal')
   const [battlefleetPlay, setBattlefleetPlay] = useState(urlPlayBattleFleet)
   const [battlefleetLocal, setBattlefleetLocal] = useState<BattleFleetLocalSession | null>(null)
+  const [battlefleetPeer, setBattlefleetPeer] = useState<BattleFleetPeerSession | null>(null)
   const [battlefleetError, setBattlefleetError] = useState<string | null>(null)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
@@ -324,7 +330,10 @@ function AppInner() {
     const rowshamboUi =
       family === 'rowshambo' || rowshamboPlay || Boolean(rowshamboLocal) || Boolean(rowshamboPeer)
     const battlefleetUi =
-      family === 'battlefleet' || battlefleetPlay || Boolean(battlefleetLocal)
+      family === 'battlefleet' ||
+      battlefleetPlay ||
+      Boolean(battlefleetLocal) ||
+      Boolean(battlefleetPeer)
     const hideCanastaChrome =
       rummyUi ||
       trickUi ||
@@ -341,6 +350,7 @@ function AppInner() {
           family={family}
           parked={Boolean(slBoot?.parked)}
           roomCode={
+            battlefleetPeer?.roomCode ||
             rowshamboPeer?.roomCode ||
             yotsyPeer?.roomCode ||
             phaseitPeer?.roomCode ||
@@ -422,7 +432,9 @@ function AppInner() {
         yotsyLocal ||
         yotsyPeer?.state ||
         rowshamboLocal ||
-        rowshamboPeer?.state) &&
+        rowshamboPeer?.state ||
+        battlefleetLocal ||
+        battlefleetPeer?.state) &&
       screen === 'sl'
     )
       setScreen('game')
@@ -442,6 +454,8 @@ function AppInner() {
     yotsyPeer?.state,
     rowshamboLocal,
     rowshamboPeer?.state,
+    battlefleetLocal,
+    battlefleetPeer?.state,
     screen,
     tick,
   ])
@@ -552,11 +566,23 @@ function AppInner() {
   }, [rowshamboPeer])
 
   useEffect(() => {
+    if (!battlefleetPeer) return
+    return battlefleetPeer.onChange(() => setTick((t) => t + 1))
+  }, [battlefleetPeer])
+
+  useEffect(() => {
     if (!rowshamboPeer || rowshamboPeer.isHost) return
     setRowshamboVariant(rowshamboPeer.variant)
     setRowshamboPlayerCount(rowshamboPeer.playerCount)
     setRowshamboPlayTo(rowshamboPeer.playTo)
   }, [rowshamboPeer, tick])
+
+  useEffect(() => {
+    if (!battlefleetPeer || battlefleetPeer.isHost) return
+    setBattlefleetMode(battlefleetPeer.mode)
+    setBattlefleetPlayerCount(battlefleetPeer.playerCount)
+    setBattlefleetDifficulty(battlefleetPeer.difficulty)
+  }, [battlefleetPeer, tick])
 
   useEffect(() => {
     if (!state?.lastMessage) return
@@ -646,10 +672,12 @@ function AppInner() {
   }, [tick, rowshamboLocal, rowshamboPeer, slBoot, tableHud])
 
   useEffect(() => {
-    const bfState = battlefleetLocal?.state
+    const bfState = battlefleetLocal?.state ?? battlefleetPeer?.state
     if (!bfState || !tableHud || !slBoot?.slCap) return
+    const isEmitter = Boolean(battlefleetLocal) || battlefleetPeer?.isHost === true
+    if (!isEmitter) return
     syncBattleFleetDisplay(bfState, slBoot.slCap, slBoot.uid, slBoot.seat)
-  }, [tick, battlefleetLocal, slBoot, tableHud])
+  }, [tick, battlefleetLocal, battlefleetPeer, slBoot, tableHud])
 
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
@@ -692,6 +720,7 @@ function AppInner() {
     rowshamboLocal?.destroy()
     rowshamboPeer?.destroy()
     battlefleetLocal?.destroy()
+    battlefleetPeer?.destroy()
     if (family === 'battlefleet') {
       const n = battlefleetMode === 'teams' ? 4 : battlefleetPlayerCount
       if (tableHud && slBoot?.slCap) {
@@ -726,6 +755,7 @@ function AppInner() {
       setYotsyLocal(null)
       setRowshamboPeer(null)
       setRowshamboLocal(null)
+      setBattlefleetPeer(null)
       setBattlefleetLocal(ctrl)
       setBattlefleetError(null)
       setRummyPlay(false)
@@ -1078,6 +1108,7 @@ function AppInner() {
     rowshamboLocal?.destroy()
     rowshamboPeer?.destroy()
     battlefleetLocal?.destroy()
+    battlefleetPeer?.destroy()
     setPeer(null)
     setLocal(null)
     setRummyPeer(null)
@@ -1095,6 +1126,7 @@ function AppInner() {
     setRowshamboLocal(null)
     setRowshamboPeer(null)
     setBattlefleetLocal(null)
+    setBattlefleetPeer(null)
     setBattlefleetPlay(false)
     setRummyPlay(false)
     setTrickPlay(false)
@@ -1205,7 +1237,8 @@ function AppInner() {
     !yotsyPeer?.state &&
     !rowshamboLocal &&
     !rowshamboPeer?.state &&
-    !battlefleetLocal
+    !battlefleetLocal &&
+    !battlefleetPeer?.state
   ) {
     return wrap(
       <SlTableScreens
@@ -1330,11 +1363,18 @@ function AppInner() {
         onBattlefleetMode={(m) => {
           setBattlefleetMode(m)
           if (m === 'teams') setBattlefleetPlayerCount(4)
+          battlefleetPeer?.setMode(m)
         }}
         battlefleetPlayerCount={battlefleetPlayerCount}
-        onBattlefleetPlayerCount={setBattlefleetPlayerCount}
+        onBattlefleetPlayerCount={(n) => {
+          setBattlefleetPlayerCount(n)
+          battlefleetPeer?.setPlayerCount(n)
+        }}
         battlefleetDifficulty={battlefleetDifficulty}
-        onBattlefleetDifficulty={setBattlefleetDifficulty}
+        onBattlefleetDifficulty={(d) => {
+          setBattlefleetDifficulty(d)
+          battlefleetPeer?.setDifficulty(d)
+        }}
         onCreatedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
@@ -1345,6 +1385,38 @@ function AppInner() {
           phaseitPeer?.destroy()
           yotsyPeer?.destroy()
           rowshamboPeer?.destroy()
+          battlefleetPeer?.destroy()
+          if (family === 'battlefleet') {
+            const session = await createBattleFleetPeerHost(name, {
+              roomCode,
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+              mode: battlefleetMode,
+              playerCount: battlefleetMode === 'teams' ? 4 : battlefleetPlayerCount,
+              difficulty: battlefleetDifficulty,
+            })
+            resetBattleFleetDisplaySync()
+            setBattlefleetPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
+            setYotsyPeer(null)
+            setYotsyLocal(null)
+            setRowshamboPeer(null)
+            setRowshamboLocal(null)
+            setBattlefleetLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'rowshambo') {
             const session = await createRowShamBoPeerHost(name, {
               roomCode,
@@ -1533,6 +1605,33 @@ function AppInner() {
           phaseitPeer?.destroy()
           yotsyPeer?.destroy()
           rowshamboPeer?.destroy()
+          battlefleetPeer?.destroy()
+          if (family === 'battlefleet') {
+            const session = await joinBattleFleetPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setBattlefleetPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
+            setYotsyPeer(null)
+            setYotsyLocal(null)
+            setRowshamboPeer(null)
+            setRowshamboLocal(null)
+            setBattlefleetLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'rowshambo') {
             const session = await joinRowShamBoPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -1554,6 +1653,7 @@ function AppInner() {
             setYotsyPeer(null)
             setYotsyLocal(null)
             setRowshamboLocal(null)
+            setBattlefleetPeer(null)
             slMatchKind.current = 'mp'
             return
           }
@@ -1684,7 +1784,9 @@ function AppInner() {
           const occupants = (tableStatus?.roster || [])
             .filter((r) => r.seat >= 0 && r.joined)
             .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid, joined: true }))
-          if (family === 'rowshambo') {
+          if (family === 'battlefleet') {
+            battlefleetPeer?.startMatch(occupants)
+          } else if (family === 'rowshambo') {
             rowshamboPeer?.startMatch(occupants)
           } else if (family === 'yotsy') {
             yotsyPeer?.startMatch(occupants)
@@ -1712,6 +1814,7 @@ function AppInner() {
           phaseitPeer?.destroy()
           yotsyPeer?.destroy()
           rowshamboPeer?.destroy()
+          battlefleetPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
@@ -1720,6 +1823,7 @@ function AppInner() {
           setPhaseitPeer(null)
           setYotsyPeer(null)
           setRowshamboPeer(null)
+          setBattlefleetPeer(null)
           slMatchKind.current = 'none'
         }}
         onDetachPeer={() => {
@@ -1731,6 +1835,7 @@ function AppInner() {
           phaseitPeer?.destroy()
           yotsyPeer?.destroy()
           rowshamboPeer?.destroy()
+          battlefleetPeer?.destroy()
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
@@ -1739,6 +1844,7 @@ function AppInner() {
           setPhaseitPeer(null)
           setYotsyPeer(null)
           setRowshamboPeer(null)
+          setBattlefleetPeer(null)
           slMatchKind.current = 'none'
         }}
         peerHasState={Boolean(
@@ -1749,7 +1855,8 @@ function AppInner() {
             skippoPeer?.state ||
             phaseitPeer?.state ||
             yotsyPeer?.state ||
-            rowshamboPeer?.state,
+            rowshamboPeer?.state ||
+            battlefleetPeer?.state,
         )}
         onRejoinPeer={async (roomCode) => {
           peer?.destroy()
@@ -1761,6 +1868,33 @@ function AppInner() {
           phaseitPeer?.destroy()
           yotsyPeer?.destroy()
           rowshamboPeer?.destroy()
+          battlefleetPeer?.destroy()
+          if (family === 'battlefleet') {
+            const session = await joinBattleFleetPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setBattlefleetPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setRummyLocal(null)
+            setTrickPeer(null)
+            setTrickLocal(null)
+            setIchiPeer(null)
+            setIchiLocal(null)
+            setSkippoPeer(null)
+            setSkippoLocal(null)
+            setPhaseitPeer(null)
+            setPhaseitLocal(null)
+            setYotsyPeer(null)
+            setYotsyLocal(null)
+            setRowshamboPeer(null)
+            setRowshamboLocal(null)
+            setBattlefleetLocal(null)
+            slMatchKind.current = 'mp'
+            return
+          }
           if (family === 'rowshambo') {
             const session = await joinRowShamBoPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -1902,6 +2036,7 @@ function AppInner() {
           slMatchKind.current = 'mp'
         }}
         peerRoomCode={
+          battlefleetPeer?.roomCode ||
           rowshamboPeer?.roomCode ||
           yotsyPeer?.roomCode ||
           skippoPeer?.roomCode ||
@@ -1911,6 +2046,7 @@ function AppInner() {
           peer?.roomCode
         }
         peerSeats={
+          battlefleetPeer?.seats ||
           rowshamboPeer?.seats ||
           yotsyPeer?.seats ||
           phaseitPeer?.seats ||
@@ -1921,6 +2057,7 @@ function AppInner() {
           peer?.seats
         }
         isPeerHost={
+          battlefleetPeer?.isHost ??
           rowshamboPeer?.isHost ??
           yotsyPeer?.isHost ??
           phaseitPeer?.isHost ??
@@ -1931,6 +2068,7 @@ function AppInner() {
           peer?.isHost
         }
         onPeerReadyToggle={(ready) => {
+          battlefleetPeer?.setReady(ready)
           rowshamboPeer?.setReady(ready)
           yotsyPeer?.setReady(ready)
           phaseitPeer?.setReady(ready)
@@ -1950,21 +2088,26 @@ function AppInner() {
     )
   }
 
-  if (battlefleetLocal || (battlefleetPlay && screen === 'game')) {
-    if (battlefleetLocal) {
-      const localId = battlefleetLocal.state.players[battlefleetLocal.localIndex]?.id ?? 'p0'
+  if (battlefleetLocal || battlefleetPeer?.state || (battlefleetPlay && screen === 'game')) {
+    const bfCtrl = battlefleetLocal || battlefleetPeer
+    if (bfCtrl?.state) {
+      const localId = bfCtrl.state.players[bfCtrl.localIndex]?.id ?? 'p0'
       return wrap(
         <BattleFleetBoard
-          state={battlefleetLocal.state}
+          state={bfCtrl.state}
           localPlayerId={localId}
           error={battlefleetError}
-          onNewMatch={() => {
-            battlefleetLocal.newMatch()
-            setBattlefleetError(null)
-            setTick((t) => t + 1)
-          }}
+          onNewMatch={
+            battlefleetLocal
+              ? () => {
+                  battlefleetLocal.newMatch()
+                  setBattlefleetError(null)
+                  setTick((t) => t + 1)
+                }
+              : undefined
+          }
           onMove={(move) => {
-            const res = battlefleetLocal.submit(move)
+            const res = bfCtrl.submit(move)
             if (!res.ok) setBattlefleetError(res.error)
             else setBattlefleetError(null)
             setTick((t) => t + 1)

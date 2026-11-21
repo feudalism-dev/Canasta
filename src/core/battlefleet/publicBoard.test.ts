@@ -4,6 +4,7 @@ import {
   decodeBattleFleetPublicBoard,
   encodeBattleFleetPublicBoard,
   isBattleFleetBoardPayload,
+  sanitizeBattleFleetForViewer,
 } from './publicBoard'
 import { applyBattleFleetMove } from './rules'
 import { createBattleFleetMatch } from './state'
@@ -81,5 +82,20 @@ describe('battlefleet compact board wire', () => {
     }
     const wire = encodeBattleFleetPublicBoard(battleFleetPublicBoardFromState(s))
     expect(wire.length).toBeLessThan(1800)
+  })
+
+  it('sanitize hides living enemy ships but keeps own fleet', () => {
+    let s = createBattleFleetMatch(['You', 'Bot'], [false, true], 'ffa', 'easy', 3)
+    for (const id of ['p0', 'p1']) {
+      let r = applyBattleFleetMove(s, { type: 'randomPlace', playerId: id })
+      if (!r.ok) throw new Error(r.error)
+      s = r.state
+      r = applyBattleFleetMove(s, { type: 'confirmFleet', playerId: id })
+      if (!r.ok) throw new Error(r.error)
+      s = r.state
+    }
+    const view = sanitizeBattleFleetForViewer(s, 'p0')
+    expect(view.players[0]!.fleet!.ships.length).toBe(5)
+    expect(view.players[1]!.fleet!.ships.length).toBe(0)
   })
 })

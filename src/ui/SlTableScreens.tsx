@@ -899,7 +899,7 @@ export function SlTableScreens({
                       isRowshamboTable
                     ? 'Solo fills empty seats with bots. Multiplayer: Create with 2+ humans, pick seat count, Start fills the rest with bots.'
                     : isBattlefleetTable
-                      ? 'Solo fills empty seats with bots. Use All games when idle to switch families.'
+                      ? 'Solo fills empty seats with bots. Multiplayer: Create room, Ready up, host Starts — empty chairs become bots. Teams use opposite seats as partners.'
                     : isRummyTable
                       ? 'Solo and multiplayer use your player count — empty chairs are computers.'
                       : 'Multiplayer is always four hands. Seating picks teams — empty chairs are computers.'}

@@ -1,3 +1,4 @@
+import { teamOfSeat } from '../variants'
 import { ffaTerritory, teamTerritory } from './board'
 import { emptyFleet } from './fleet'
 import type {
@@ -6,6 +7,7 @@ import type {
   BattleFleetMode,
   BattleFleetPlayer,
   BattleFleetState,
+  Fleet,
   TeamSide,
 } from './types'
 
@@ -114,6 +116,44 @@ export function withPhysicalSeats(
   for (let i = 0; i < next.players.length; i++) {
     next.players[i]!.seat = seats[i] ?? i
   }
+  if (next.config.mode === 'teams') {
+    return assignBattleFleetTeamsBySeat(next)
+  }
+  return next
+}
+
+/**
+ * Map parlor opposite-seat partners onto Team A/B (A = even seats, B = odd).
+ * Preserves each team's fleet when reassigning membership.
+ */
+export function assignBattleFleetTeamsBySeat(
+  state: BattleFleetState,
+): BattleFleetState {
+  if (state.config.mode !== 'teams') return state
+  const next = cloneBattleFleet(state)
+  const fleetByOld: Record<string, Fleet> = {}
+  for (const t of next.teams ?? []) fleetByOld[t.id] = t.fleet
+
+  for (const p of next.players) {
+    p.teamId = teamOfSeat(p.seat) === 0 ? 'A' : 'B'
+  }
+  const aIds = next.players.filter((p) => p.teamId === 'A').map((p) => p.id)
+  const bIds = next.players.filter((p) => p.teamId === 'B').map((p) => p.id)
+  next.teams = [
+    {
+      id: 'A',
+      memberIds: aIds,
+      fleet: fleetByOld.A ?? emptyFleet(),
+      eliminated: false,
+    },
+    {
+      id: 'B',
+      memberIds: bIds,
+      fleet: fleetByOld.B ?? emptyFleet(),
+      eliminated: false,
+    },
+  ]
+  next.turnOrder = buildTeamTurnOrder(next.players, next.seed)
   return next
 }
 

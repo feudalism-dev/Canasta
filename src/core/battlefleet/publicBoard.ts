@@ -411,3 +411,36 @@ export function battleFleetPrivateView(
   }
   return { public: pub, ownShipCells, ownHits }
 }
+
+/**
+ * Strip living enemy ships before sending state over the peer wire.
+ * Sunk ships stay (already public). Viewer keeps own / team fleet intact.
+ */
+export function sanitizeBattleFleetForViewer(
+  state: BattleFleetState,
+  viewerId: string,
+): BattleFleetState {
+  const next = structuredClone(state)
+  const viewer = next.players.find((p) => p.id === viewerId)
+  const viewerSide =
+    next.config.mode === 'teams' && viewer?.teamId ? viewer.teamId : viewerId
+
+  if (next.config.mode === 'teams') {
+    for (const team of next.teams ?? []) {
+      if (team.id === viewerSide) continue
+      team.fleet = {
+        confirmed: team.fleet.confirmed,
+        ships: team.fleet.ships.filter((s) => s.sunk),
+      }
+    }
+  } else {
+    for (const p of next.players) {
+      if (p.id === viewerId || !p.fleet) continue
+      p.fleet = {
+        confirmed: p.fleet.confirmed,
+        ships: p.fleet.ships.filter((s) => s.sunk),
+      }
+    }
+  }
+  return next
+}
