@@ -78,7 +78,8 @@ export function BattleFleetSpectator({ board }: Props) {
             {board.players.map((p) => (
               <li key={p.id}>
                 {p.name}
-                {p.teamId ? ` [${p.teamId}]` : ''}: {p.score} · {p.shipsLeft} ships
+                {p.teamId ? ` [${p.teamId}]` : ''}: {p.score} · {p.shipsSunk} sunk ·{' '}
+                {p.shipsLeft} left
               </li>
             ))}
           </ul>

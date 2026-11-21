@@ -247,7 +247,7 @@ export function BattleFleetBoard({
                 <li key={p.id}>
                   {p.name}
                   {p.teamId ? ` [${p.teamId}]` : ''}: {p.score} pts ·{' '}
-                  {p.shipsLeft} ships
+                  {p.shipsSunk} sunk · {p.shipsLeft} left
                   {p.eliminated ? ' (out)' : ''}
                 </li>
               ))}
