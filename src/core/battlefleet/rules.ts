@@ -340,6 +340,25 @@ export function ensureFleet(state: BattleFleetState, playerId: string): BattleFl
   return next
 }
 
+/**
+ * Human left mid-match: computer takes their seat (fleet intact).
+ * Team fleets are never removed because one teammate disconnected.
+ */
+export function markBattleFleetDeparture(
+  state: BattleFleetState,
+  playerId: string,
+): BattleFleetState {
+  const next = cloneBattleFleet(state)
+  const pl = next.players.find((p) => p.id === playerId)
+  if (!pl || pl.isComputer || pl.eliminated) return next
+  const label = pl.name
+  pl.isComputer = true
+  if (!/\(AI\)$/i.test(pl.name)) pl.name = `${pl.name} (AI)`
+  next.lastMessage = `${label} left — computer takes over.`
+  next.log.push(next.lastMessage)
+  return next
+}
+
 export function resetFleets(state: BattleFleetState): BattleFleetState {
   const next = cloneBattleFleet(state)
   if (next.config.mode === 'teams') {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { battleFleetPublicBoardFromState } from './publicBoard'
-import { applyBattleFleetMove } from './rules'
-import { createBattleFleetMatch } from './state'
+import { applyBattleFleetMove, markBattleFleetDeparture } from './rules'
+import { assignBattleFleetTeamsBySeat, createBattleFleetMatch, withPhysicalSeats } from './state'
 import { SHIP_DEFS } from './types'
 
 describe('battlefleet placement', () => {
@@ -152,5 +152,103 @@ describe('battlefleet combat', () => {
       orientation: 'H',
     })
     expect(r.ok).toBe(true)
+  })
+})
+
+describe('battlefleet acceptance modes', () => {
+  function placeAndConfirm(s: ReturnType<typeof createBattleFleetMatch>, id: string) {
+    let cur = s
+    let r = applyBattleFleetMove(cur, { type: 'randomPlace', playerId: id })
+    if (!r.ok) throw new Error(r.error)
+    cur = r.state
+    r = applyBattleFleetMove(cur, { type: 'confirmFleet', playerId: id })
+    if (!r.ok) throw new Error(r.error)
+    return r.state
+  }
+
+  it('three-player FFA reaches battle with three fleets', () => {
+    let s = createBattleFleetMatch(
+      ['A', 'B', 'C'],
+      [false, true, true],
+      'ffa',
+      'easy',
+      21,
+    )
+    expect(s.config.playerCount).toBe(3)
+    for (const id of ['p0', 'p1', 'p2']) s = placeAndConfirm(s, id)
+    expect(s.phase).toBe('battle')
+    expect(s.players.every((p) => (p.fleet?.ships.length ?? 0) === 5)).toBe(true)
+  })
+
+  it('four-player FFA reaches battle', () => {
+    let s = createBattleFleetMatch(
+      ['A', 'B', 'C', 'D'],
+      [false, true, true, true],
+      'ffa',
+      'normal',
+      22,
+    )
+    for (const id of ['p0', 'p1', 'p2', 'p3']) s = placeAndConfirm(s, id)
+    expect(s.phase).toBe('battle')
+    expect(s.players).toHaveLength(4)
+  })
+
+  it('team elimination awards win to opposing team', () => {
+    let s = createBattleFleetMatch(
+      ['A1', 'A2', 'B1', 'B2'],
+      [false, false, true, true],
+      'teams',
+      'easy',
+      23,
+    )
+    s = placeAndConfirm(s, 'p0')
+    s = placeAndConfirm(s, 'p2')
+    expect(s.phase).toBe('battle')
+
+    // Sink every Team B ship as p0 (force turn)
+    const victimFleet = s.teams!.find((t) => t.id === 'B')!.fleet
+    for (const ship of victimFleet.ships) {
+      for (const c of ship.cells) {
+        s = { ...s, turnPlayerId: 'p0' }
+        const r = applyBattleFleetMove(s, {
+          type: 'fire',
+          playerId: 'p0',
+          x: c.x,
+          y: c.y,
+        })
+        if (!r.ok) throw new Error(r.error)
+        s = r.state
+      }
+    }
+    expect(s.phase).toBe('gameEnd')
+    expect(s.winnerTeamId).toBe('A')
+    expect(s.teams!.find((t) => t.id === 'B')!.eliminated).toBe(true)
+  })
+
+  it('departure converts human to computer without wiping fleet', () => {
+    let s = createBattleFleetMatch(['You', 'Bot'], [false, true], 'ffa', 'easy', 24)
+    s = placeAndConfirm(s, 'p0')
+    s = placeAndConfirm(s, 'p1')
+    const before = s.players[0]!.fleet!.ships.length
+    s = markBattleFleetDeparture(s, 'p0')
+    expect(s.players[0]!.isComputer).toBe(true)
+    expect(s.players[0]!.fleet!.ships.length).toBe(before)
+    expect(s.players[0]!.eliminated).toBe(false)
+  })
+
+  it('assigns opposite seats as team partners', () => {
+    let s = createBattleFleetMatch(
+      ['P0', 'P1', 'P2', 'P3'],
+      [false, false, false, false],
+      'teams',
+      'easy',
+      25,
+    )
+    s = withPhysicalSeats(s, [0, 1, 2, 3])
+    s = assignBattleFleetTeamsBySeat(s)
+    expect(s.players.find((p) => p.seat === 0)?.teamId).toBe('A')
+    expect(s.players.find((p) => p.seat === 2)?.teamId).toBe('A')
+    expect(s.players.find((p) => p.seat === 1)?.teamId).toBe('B')
+    expect(s.players.find((p) => p.seat === 3)?.teamId).toBe('B')
   })
 })

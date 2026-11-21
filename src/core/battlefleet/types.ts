@@ -103,6 +103,8 @@ export type BattleFleetState = {
   winnerTeamId: 'A' | 'B' | null
   log: string[]
   seed: number
+  /** Epoch ms when the match was created (for end-game duration). */
+  startedAt: number
 }
 
 export type BattleFleetMove =

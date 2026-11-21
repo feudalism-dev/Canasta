@@ -1,4 +1,8 @@
-import { fillBattleFleetBots } from '../ai/battlefleetBot'
+import {
+  BATTLEFLEET_BOT_SHOT_MS,
+  battleFleetBotShouldAct,
+  fillBattleFleetBots,
+} from '../ai/battlefleetBot'
 import { COMPUTER_NAMES } from '../core/tableSeating'
 import { applyBattleFleetMove } from '../core/battlefleet/rules'
 import { createBattleFleetMatch, withPhysicalSeats } from '../core/battlefleet/state'
@@ -63,10 +67,39 @@ export function startBattleFleetSolo(
     createBattleFleetMatch(roster.names, roster.computers, mode, difficulty),
     seats,
   )
-  state = fillBattleFleetBots(state)
+  state = fillBattleFleetBots(state, { maxBattleShots: 0 })
   const localIndex = roster.localIndex
   const listeners = new Set<() => void>()
   const notify = () => listeners.forEach((l) => l())
+  let botTimer: ReturnType<typeof setTimeout> | null = null
+
+  const clearBotTimer = () => {
+    if (botTimer != null) {
+      clearTimeout(botTimer)
+      botTimer = null
+    }
+  }
+
+  const scheduleBattleBots = () => {
+    clearBotTimer()
+    const step = () => {
+      botTimer = null
+      if (!battleFleetBotShouldAct(state)) return
+      const next = fillBattleFleetBots(state, { maxBattleShots: 1 })
+      if (next === state) return
+      state = next
+      notify()
+      if (battleFleetBotShouldAct(state)) {
+        botTimer = setTimeout(step, BATTLEFLEET_BOT_SHOT_MS)
+      }
+    }
+    if (battleFleetBotShouldAct(state)) {
+      botTimer = setTimeout(step, BATTLEFLEET_BOT_SHOT_MS)
+    }
+  }
+
+  // If bots fire first after placement
+  scheduleBattleBots()
 
   return {
     get state() {
@@ -78,23 +111,27 @@ export function startBattleFleetSolo(
     submit: (move) => {
       const res = applyBattleFleetMove(state, move)
       if (!res.ok) return res
-      state = fillBattleFleetBots(res.state)
+      state = fillBattleFleetBots(res.state, { maxBattleShots: 0 })
       notify()
+      scheduleBattleBots()
       return { ok: true }
     },
     newMatch: () => {
+      clearBotTimer()
       state = withPhysicalSeats(
         createBattleFleetMatch(roster.names, roster.computers, mode, difficulty),
         seats,
       )
-      state = fillBattleFleetBots(state)
+      state = fillBattleFleetBots(state, { maxBattleShots: 0 })
       notify()
+      scheduleBattleBots()
     },
     onChange: (cb) => {
       listeners.add(cb)
       return () => listeners.delete(cb)
     },
     destroy: () => {
+      clearBotTimer()
       listeners.clear()
     },
   }

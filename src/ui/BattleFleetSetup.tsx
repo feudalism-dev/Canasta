@@ -68,8 +68,8 @@ export function BattleFleetSetup({
         Start solo vs bots
       </button>
       <p style={{ fontSize: '0.8rem', opacity: 0.75, margin: 0 }}>
-        Place five ships, then battle. Use <strong>All games</strong> above to return to the
-        picker. If controls stay locked, tap <strong>Free table</strong> first.
+        Solo vs bots here, or Create room for multiplayer (empty seats = bots). Teams: opposite
+        seats are partners sharing one fleet. Use <strong>All games</strong> to leave.
       </p>
     </div>
   )

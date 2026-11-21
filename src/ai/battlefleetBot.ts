@@ -106,8 +106,21 @@ export function chooseBattleFleetAttack(
   return pick ? { type: 'fire', playerId, x: pick.x, y: pick.y } : null
 }
 
+/** Pause between computer shots so HUD / table can show each result. */
+export const BATTLEFLEET_BOT_SHOT_MS = 700
+
+export type FillBattleFleetBotsOpts = {
+  /** Cap battle-phase shots this call (default unlimited). Use 0 for placement-only. */
+  maxBattleShots?: number
+}
+
 /** Run computer placement + confirms + attacks until a human must act or game ends. */
-export function fillBattleFleetBots(state: BattleFleetState): BattleFleetState {
+export function fillBattleFleetBots(
+  state: BattleFleetState,
+  opts?: FillBattleFleetBotsOpts,
+): BattleFleetState {
+  const maxBattle = opts?.maxBattleShots ?? 999
+  let battleShots = 0
   let cur = state
   for (let guard = 0; guard < 80; guard++) {
     if (cur.phase === 'gameEnd') return cur
@@ -152,6 +165,7 @@ export function fillBattleFleetBots(state: BattleFleetState): BattleFleetState {
     }
 
     if (cur.phase === 'battle' && cur.turnPlayerId) {
+      if (battleShots >= maxBattle) return cur
       const pl = cur.players.find((p) => p.id === cur.turnPlayerId)
       if (!pl || !pl.isComputer) return cur
       const move = chooseBattleFleetAttack(cur, pl.id, cur.config.difficulty)
@@ -159,10 +173,18 @@ export function fillBattleFleetBots(state: BattleFleetState): BattleFleetState {
       const r = applyBattleFleetMove(cur, move)
       if (!r.ok) return cur
       cur = r.state
+      battleShots += 1
       continue
     }
 
     return cur
   }
   return cur
+}
+
+/** True when the current battle turn belongs to a computer. */
+export function battleFleetBotShouldAct(state: BattleFleetState): boolean {
+  if (state.phase !== 'battle' || !state.turnPlayerId) return false
+  const pl = state.players.find((p) => p.id === state.turnPlayerId)
+  return Boolean(pl?.isComputer && !pl.eliminated)
 }

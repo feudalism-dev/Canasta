@@ -1,8 +1,15 @@
 import Peer, { type DataConnection } from 'peerjs'
-import { fillBattleFleetBots } from '../ai/battlefleetBot'
+import {
+  BATTLEFLEET_BOT_SHOT_MS,
+  battleFleetBotShouldAct,
+  fillBattleFleetBots,
+} from '../ai/battlefleetBot'
 import { COMPUTER_NAMES } from '../core/tableSeating'
 import { sanitizeBattleFleetForViewer } from '../core/battlefleet/publicBoard'
-import { applyBattleFleetMove } from '../core/battlefleet/rules'
+import {
+  applyBattleFleetMove,
+  markBattleFleetDeparture,
+} from '../core/battlefleet/rules'
 import { createBattleFleetMatch, withPhysicalSeats } from '../core/battlefleet/state'
 import type {
   BattleFleetDifficulty,
@@ -231,12 +238,19 @@ function buildBattleFleetSession(
   let difficulty: BattleFleetDifficulty = normalizeDifficulty(opts?.difficulty)
   const listeners = new Set<() => void>()
   const conns = new Map<string, DataConnection>()
+  let botTimer: ReturnType<typeof setTimeout> | null = null
   const allowed = opts?.allowedAvatarUids
     ? new Set(opts.allowedAvatarUids.map((u) => u.toLowerCase()))
     : null
   const notify = () => listeners.forEach((l) => l())
   const send = (conn: DataConnection, msg: Wire) => conn.send(msg)
   const broadcast = (msg: Wire) => conns.forEach((c) => send(c, msg))
+  const clearBotTimer = () => {
+    if (botTimer != null) {
+      clearTimeout(botTimer)
+      botTimer = null
+    }
+  }
 
   const syncLobby = () => {
     if (!isHost) return
@@ -296,12 +310,40 @@ function buildBattleFleetSession(
     notify()
   }
 
+  const scheduleBattleBots = () => {
+    if (!isHost) return
+    clearBotTimer()
+    const step = () => {
+      botTimer = null
+      if (!authState || !battleFleetBotShouldAct(authState)) {
+        pushViews()
+        return
+      }
+      const next = fillBattleFleetBots(authState, { maxBattleShots: 1 })
+      if (next === authState) {
+        pushViews()
+        return
+      }
+      authState = next
+      pushViews()
+      if (battleFleetBotShouldAct(authState)) {
+        botTimer = setTimeout(step, BATTLEFLEET_BOT_SHOT_MS)
+      }
+    }
+    if (authState && battleFleetBotShouldAct(authState)) {
+      botTimer = setTimeout(step, BATTLEFLEET_BOT_SHOT_MS)
+    } else {
+      pushViews()
+    }
+  }
+
   const applyHostMove = (move: BattleFleetMove): { ok: true } | { ok: false; error: string } => {
     if (!authState) return { ok: false, error: 'No match' }
     const res = applyBattleFleetMove(authState, move)
     if (!res.ok) return res
-    authState = fillBattleFleetBots(res.state)
+    authState = fillBattleFleetBots(res.state, { maxBattleShots: 0 })
     pushViews()
+    scheduleBattleBots()
     return { ok: true }
   }
 
@@ -404,8 +446,9 @@ function buildBattleFleetSession(
         if (c) send(c, { t: 'info', message: res.error })
         return
       }
-      authState = fillBattleFleetBots(res.state)
+      authState = fillBattleFleetBots(res.state, { maxBattleShots: 0 })
       pushViews()
+      scheduleBattleBots()
       return
     }
     if (msg.t === 'info') {
@@ -419,9 +462,15 @@ function buildBattleFleetSession(
     conns.set(id, conn)
     conn.on('data', (raw) => onMessage(id, raw as Wire))
     conn.on('close', () => {
+      const departedId = viewerIdForPeer(id)
       conns.delete(id)
-      if (isHost) {
-        seats = seats.filter((s) => s.id !== id)
+      if (!isHost) return
+      seats = seats.filter((s) => s.id !== id)
+      if (authState && departedId) {
+        authState = markBattleFleetDeparture(authState, departedId)
+        pushViews()
+        scheduleBattleBots()
+      } else {
         syncLobby()
       }
     })
@@ -517,9 +566,10 @@ function buildBattleFleetSession(
         createBattleFleetMatch(roster.names, roster.computers, mode, difficulty),
         roster.seats,
       )
-      authState = fillBattleFleetBots(authState)
+      authState = fillBattleFleetBots(authState, { maxBattleShots: 0 })
       status = 'Match started'
       pushStart()
+      scheduleBattleBots()
     },
     submit: (move) => {
       if (isHost) {
@@ -533,6 +583,7 @@ function buildBattleFleetSession(
       return { ok: true }
     },
     destroy: () => {
+      clearBotTimer()
       conns.forEach((c) => c.close())
       conns.clear()
       try {

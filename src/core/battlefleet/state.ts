@@ -95,6 +95,7 @@ export function createBattleFleetMatch(
     winnerTeamId: null,
     log: ['Game started — place fleets.'],
     seed,
+    startedAt: Date.now(),
   }
 }
 

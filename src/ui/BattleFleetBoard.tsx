@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { battleFleetPrivateView } from '../core/battlefleet/publicBoard'
 import { cellKey, ffaTerritory } from '../core/battlefleet/board'
-import { shipCells, shipDef } from '../core/battlefleet/fleet'
-import { territoryForPlayer } from '../core/battlefleet/state'
+import { shipCells, shipDef, survivingShipCount } from '../core/battlefleet/fleet'
+import { fleetForSide, sideIdForPlayer, territoryForPlayer } from '../core/battlefleet/state'
 import type {
   BattleFleetMove,
   BattleFleetState,
@@ -18,6 +18,18 @@ type Props = {
   onMove: (move: BattleFleetMove) => void
   onNewMatch?: () => void
   error?: string | null
+}
+
+function hitPct(hits: number, attacks: number): string {
+  if (attacks <= 0) return '—'
+  return `${Math.round((hits / attacks) * 100)}%`
+}
+
+function formatDuration(startedAt: number): string {
+  const sec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return m > 0 ? `${m}m ${s}s` : `${s}s`
 }
 
 export function BattleFleetBoard({
@@ -36,6 +48,16 @@ export function BattleFleetBoard({
     [state, localPlayerId],
   )
   const terr = territoryForPlayer(state, localPlayerId)
+  const me = state.players.find((p) => p.id === localPlayerId)
+  const mySideId = sideIdForPlayer(state, localPlayerId)
+  const myFleet = mySideId ? fleetForSide(state, mySideId) : null
+  const fleetConfirmed = Boolean(myFleet?.confirmed)
+  const partner =
+    state.config.mode === 'teams' && me?.teamId
+      ? state.players.find(
+          (p) => p.teamId === me.teamId && p.id !== localPlayerId,
+        )
+      : null
   const myTurn = state.turnPlayerId === localPlayerId && state.phase === 'battle'
   const placing = state.phase === 'placement'
 
@@ -50,8 +72,12 @@ export function BattleFleetBoard({
     return s
   }, [view.ownShipCells])
 
+  const ownHitSet = useMemo(() => {
+    return new Set(view.ownHits.map((c) => cellKey(c.x, c.y)))
+  }, [view.ownHits])
+
   const preview = useMemo(() => {
-    if (!placing || !hover || !terr) return new Set<string>()
+    if (!placing || fleetConfirmed || !hover || !terr) return new Set<string>()
     const cells = shipCells(
       hover.x,
       hover.y,
@@ -59,7 +85,7 @@ export function BattleFleetBoard({
       orientation,
     )
     return new Set(cells.map((c) => cellKey(c.x, c.y)))
-  }, [placing, hover, selectedKind, orientation, terr])
+  }, [placing, fleetConfirmed, hover, selectedKind, orientation, terr])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -73,6 +99,7 @@ export function BattleFleetBoard({
 
   const onCellClick = (x: number, y: number) => {
     if (placing) {
+      if (fleetConfirmed) return
       onMove({
         type: 'placeShip',
         playerId: localPlayerId,
@@ -104,6 +131,22 @@ export function BattleFleetBoard({
       )
     })(),
   )
+
+  const teamStatus =
+    state.config.mode === 'teams'
+      ? (state.teams ?? []).map((t) => {
+          const names = t.memberIds
+            .map((id) => state.players.find((p) => p.id === id)?.name ?? id)
+            .join(' + ')
+          return {
+            id: t.id,
+            names,
+            confirmed: t.fleet.confirmed,
+            left: survivingShipCount(t.fleet),
+            eliminated: t.eliminated,
+          }
+        })
+      : []
 
   return (
     <div className="bf-root">
@@ -154,12 +197,14 @@ export function BattleFleetBoard({
               const cls = [
                 'bf-cell',
                 !seaActive ? 'inactive' : '',
-                ownSet.has(k) && placing ? 'own' : '',
+                ownSet.has(k) && !mark ? 'own' : '',
+                ownHitSet.has(k) && !mark ? 'hit' : '',
                 mark === 'miss' ? 'miss' : '',
                 mark === 'hit' ? 'hit' : '',
                 mark === 'sunk' ? 'sunk' : '',
                 preview.has(k) ? 'ship-preview' : '',
-                (placing && inTerr) || (myTurn && seaActive && !inTerr && !ownSet.has(k))
+                (placing && !fleetConfirmed && inTerr) ||
+                (myTurn && seaActive && !inTerr && !ownSet.has(k))
                   ? 'targetable'
                   : '',
               ]
@@ -177,7 +222,7 @@ export function BattleFleetBoard({
                   onClick={() => onCellClick(x, y)}
                   disabled={
                     placing
-                      ? !inTerr
+                      ? !inTerr || fleetConfirmed
                       : !(myTurn && seaActive && !(terr && inTerr))
                   }
                 />
@@ -190,69 +235,145 @@ export function BattleFleetBoard({
             Phase: <strong>{state.phase}</strong>
             {state.config.mode === 'teams' ? ' · Teams' : ' · FFA'}
           </div>
+          {state.config.mode === 'teams' && me?.teamId && (
+            <div className="bf-team-line">
+              You: Team {me.teamId}
+              {partner ? ` with ${partner.name}` : ' (solo on team)'}
+              {fleetConfirmed ? ' · fleet locked' : ' · shared fleet'}
+            </div>
+          )}
           {placing && (
             <>
-              <div className="bf-ships">
-                {SHIP_DEFS.map((d) => (
+              {fleetConfirmed ? (
+                <div className="bf-team-line">
+                  Fleet confirmed — waiting for opponents
+                  {state.config.mode === 'teams' ? ' / other team' : ''}.
+                </div>
+              ) : (
+                <>
+                  <div className="bf-ships">
+                    {SHIP_DEFS.map((d) => (
+                      <button
+                        key={d.kind}
+                        type="button"
+                        className={selectedKind === d.kind ? 'active' : ''}
+                        onClick={() => setSelectedKind(d.kind)}
+                      >
+                        {d.label} ({d.length})
+                        {placedKinds.has(d.kind) ? ' ✓' : ''}
+                      </button>
+                    ))}
+                  </div>
                   <button
-                    key={d.kind}
                     type="button"
-                    className={selectedKind === d.kind ? 'active' : ''}
-                    onClick={() => setSelectedKind(d.kind)}
+                    onClick={() => setOrientation((o) => (o === 'H' ? 'V' : 'H'))}
                   >
-                    {d.label} ({d.length})
-                    {placedKinds.has(d.kind) ? ' ✓' : ''}
+                    Rotate ({orientation}) — R
                   </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setOrientation((o) => (o === 'H' ? 'V' : 'H'))}
-              >
-                Rotate ({orientation}) — R
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  onMove({ type: 'randomPlace', playerId: localPlayerId })
-                }
-              >
-                Random fleet
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  onMove({ type: 'confirmFleet', playerId: localPlayerId })
-                }
-              >
-                Confirm fleet
-              </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onMove({ type: 'randomPlace', playerId: localPlayerId })
+                    }
+                  >
+                    Random fleet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onMove({ type: 'confirmFleet', playerId: localPlayerId })
+                    }
+                  >
+                    Confirm fleet
+                  </button>
+                  {state.config.mode === 'teams' && (
+                    <p className="bf-hint">
+                      Either teammate may place or confirm the shared fleet.
+                    </p>
+                  )}
+                </>
+              )}
+              {teamStatus.length > 0 && (
+                <ul className="bf-scores">
+                  {teamStatus.map((t) => (
+                    <li key={t.id}>
+                      Team {t.id} ({t.names}):{' '}
+                      {t.confirmed ? 'ready' : 'placing…'}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </>
           )}
           {state.phase === 'battle' && (
             <div>{myTurn ? 'Your turn — click enemy waters.' : 'Waiting…'}</div>
           )}
           {state.phase === 'gameEnd' && (
-            <div>
+            <div className="bf-results">
               <strong>
                 {state.winnerTeamId
                   ? `Team ${state.winnerTeamId} wins`
                   : `${state.players.find((p) => p.id === state.winnerId)?.name ?? 'Winner'} wins`}
               </strong>
+              <div className="bf-hint">Duration {formatDuration(state.startedAt)}</div>
+              <table className="bf-stats">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>Pts</th>
+                    <th>Hit%</th>
+                    <th>Sunk</th>
+                    <th>Left</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...state.players]
+                    .sort((a, b) => b.score - a.score)
+                    .map((p) => {
+                      const side =
+                        state.config.mode === 'teams' && p.teamId
+                          ? p.teamId
+                          : p.id
+                      const fleet = fleetForSide(state, side)
+                      const left = fleet ? survivingShipCount(fleet) : 0
+                      return (
+                        <tr key={p.id}>
+                          <td>
+                            {p.name}
+                            {p.teamId ? ` [${p.teamId}]` : ''}
+                          </td>
+                          <td>{p.score}</td>
+                          <td>{hitPct(p.hits, p.attacks)}</td>
+                          <td>{p.shipsSunk}</td>
+                          <td>{left}</td>
+                        </tr>
+                      )
+                    })}
+                </tbody>
+              </table>
+              <ul className="bf-scores">
+                {state.players.map((p) => (
+                  <li key={`d-${p.id}`}>
+                    {p.name}: {p.hits}H / {p.misses}M · {p.attacks} attacks
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
-          <div className="bf-scores">
-            <ul>
-              {view.public.players.map((p) => (
-                <li key={p.id}>
-                  {p.name}
-                  {p.teamId ? ` [${p.teamId}]` : ''}: {p.score} pts ·{' '}
-                  {p.shipsSunk} sunk · {p.shipsLeft} left
-                  {p.eliminated ? ' (out)' : ''}
-                </li>
-              ))}
-            </ul>
-          </div>
+          {state.phase !== 'gameEnd' && (
+            <div className="bf-scores">
+              <ul>
+                {view.public.players.map((p) => (
+                  <li key={p.id}>
+                    {p.name}
+                    {p.teamId ? ` [${p.teamId}]` : ''}: {p.score} pts ·{' '}
+                    {p.shipsSunk} sunk · {p.shipsLeft} left
+                    {p.eliminated ? ' (out)' : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {onNewMatch && (
             <button type="button" onClick={onNewMatch}>
               New match

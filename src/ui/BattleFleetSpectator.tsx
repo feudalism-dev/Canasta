@@ -74,12 +74,22 @@ export function BattleFleetSpectator({ board }: Props) {
             {board.phase}
             {board.turnName ? ` · ${board.turnName}` : ''}
           </div>
+          {board.phase === 'gameEnd' && (
+            <div>
+              <strong>
+                {board.winnerTeamId
+                  ? `Team ${board.winnerTeamId} wins`
+                  : `${board.players.find((p) => p.id === board.winnerId)?.name ?? 'Winner'} wins`}
+              </strong>
+            </div>
+          )}
           <ul className="bf-scores">
             {board.players.map((p) => (
               <li key={p.id}>
                 {p.name}
                 {p.teamId ? ` [${p.teamId}]` : ''}: {p.score} · {p.shipsSunk} sunk ·{' '}
                 {p.shipsLeft} left
+                {p.eliminated ? ' (out)' : ''}
               </li>
             ))}
           </ul>
