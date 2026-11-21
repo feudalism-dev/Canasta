@@ -70,6 +70,20 @@
   background: linear-gradient(90deg, rgba(212, 181, 106, 0.06), transparent 40%);
 }
 
+.bf-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.bf-chrome-compass {
+  width: 1.55rem;
+  height: 1.55rem;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
 .bf-header h2 {
   margin: 0;
   font-size: 1.02rem;
@@ -122,12 +136,45 @@
     linear-gradient(165deg, #0b4060 0%, #0a5278 45%, #083a58 100%);
   border: 1px solid rgba(180, 160, 100, 0.45);
   border-radius: 3px;
-  padding: 0.4rem 0.5rem 0.5rem;
+  padding: 0.55rem 0.65rem 0.55rem;
   box-shadow:
     inset 0 0 48px rgba(0, 15, 30, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     0 2px 8px rgba(0, 0, 0, 0.35);
   overflow: hidden;
+}
+
+.bf-corner-deco {
+  position: absolute;
+  width: 2.1rem;
+  height: 2.1rem;
+  background: url('/assets/battlefleet/chrome/metal-corner.png') no-repeat;
+  background-size: 200% 200%;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0.9;
+}
+.bf-corner-deco.tl {
+  top: 2px;
+  left: 2px;
+  background-position: 0 0;
+}
+.bf-corner-deco.tr {
+  top: 2px;
+  right: 2px;
+  background-position: 100% 0;
+  transform: scaleX(-1);
+}
+.bf-corner-deco.bl {
+  bottom: 2px;
+  left: 2px;
+  background-position: 0 100%;
+}
+.bf-corner-deco.br {
+  bottom: 2px;
+  right: 2px;
+  background-position: 100% 100%;
+  transform: scaleX(-1);
 }
 
 .bf-board-frame {
@@ -192,6 +239,86 @@
     0 0 0 3px rgba(0, 0, 0, 0.25);
 }
 
+/* Ship sprite overlay (under cell markers so hits stay visible) */
+.bf-ship-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.bf-ship-slot {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.bf-ship-slot img {
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
+}
+
+.bf-ship-slot.is-v img {
+  width: 86%;
+  height: 96%;
+}
+
+/* Art is bow-up; size as vertical then rotate −90° into the H footprint */
+.bf-ship-slot.is-h img {
+  width: calc(var(--bf-sh) * 0.9);
+  height: calc(var(--bf-sw) * 0.94);
+  max-width: none;
+  max-height: none;
+  transform: rotate(-90deg);
+}
+
+.bf-ship-slot.is-ghost {
+  opacity: 0.48;
+}
+
+.bf-ship-slot.is-ghost img {
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.35));
+}
+
+.bf-ship-slot.is-sunk img {
+  filter: drop-shadow(0 0 3px rgba(255, 120, 40, 0.35)) brightness(0.95);
+}
+
+.bf-fx-sprite {
+  position: absolute;
+  z-index: 6;
+  width: calc(var(--bf-cell) * 2.4);
+  height: calc(var(--bf-cell) * 2.4);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  object-fit: contain;
+  animation: bf-fx-pop 0.58s ease-out forwards;
+}
+
+.bf-fx-sprite.bf-fx-miss {
+  width: calc(var(--bf-cell) * 2.1);
+  height: calc(var(--bf-cell) * 2.1);
+}
+
+@keyframes bf-fx-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.35);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+}
+
 .bf-grid::after {
   content: '';
   pointer-events: none;
@@ -235,8 +362,36 @@
   margin: 0;
   cursor: default;
   box-sizing: border-box;
-  z-index: 1;
+  z-index: 2;
   overflow: hidden;
+}
+
+/* Sprites under markers: keep ocean/own cells clear so hull art shows */
+.bf-sprites .bf-cell.own:not(.hit):not(.miss):not(.sunk) {
+  background: transparent !important;
+}
+
+.bf-sprites .bf-cell.hit {
+  background: transparent !important;
+}
+
+.bf-sprites .bf-cell.sunk {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1.25px rgba(212, 176, 106, 0.55);
+}
+
+.bf-sprites .bf-cell.sunk::after {
+  opacity: 0.38;
+  inset: 28%;
+}
+
+.bf-sprites .bf-cell.sunk.bf-id-seat-0,
+.bf-sprites .bf-cell.sunk.bf-id-seat-1,
+.bf-sprites .bf-cell.sunk.bf-id-seat-2,
+.bf-sprites .bf-cell.sunk.bf-id-seat-3,
+.bf-sprites .bf-cell.sunk.bf-id-team-a,
+.bf-sprites .bf-cell.sunk.bf-id-team-b {
+  background: transparent !important;
 }
 
 /* Ocean depth checker */
@@ -584,6 +739,7 @@
   .bf-cell.bf-fx-hit::before,
   .bf-cell.bf-fx-miss::before,
   .bf-cell.bf-fx-sunk::before,
+  .bf-fx-sprite,
   .bf-msg.bf-msg-pulse,
   .bf-victory {
     animation: none !important;
@@ -622,11 +778,41 @@
 
 .bf-section-title {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.62rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--bf-brass);
   font-weight: 750;
+}
+
+.bf-chrome-radar,
+.bf-chrome-anchor {
+  width: 1.15rem;
+  height: 1.15rem;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
+.bf-chrome-divider {
+  display: block;
+  width: 100%;
+  height: 0.55rem;
+  object-fit: contain;
+  opacity: 0.85;
+  margin: 0.05rem 0 0.1rem;
+  pointer-events: none;
+}
+
+.bf-ship-thumb {
+  width: 1.35rem;
+  height: 2.1rem;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
 }
 
 .bf-side button {

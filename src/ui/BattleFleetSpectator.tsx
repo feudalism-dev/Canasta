@@ -10,13 +10,20 @@ import {
   colLabels,
   rowLabels,
 } from './battlefleetVisual'
+import { BattleFleetShipLayer } from './BattleFleetShipLayer'
+import {
+  BF_CHROME,
+  BF_FX,
+  orientFromCells,
+  type BfSpriteShip,
+} from './battlefleetSprites'
 import '../styles/battlefleet.css'
 
 type Props = {
   board: BattleFleetPublicBoard
 }
 
-type CellFx = { key: string; kind: 'hit' | 'miss' | 'sunk' }
+type CellFx = { key: string; kind: 'hit' | 'miss' | 'sunk'; x: number; y: number }
 
 export function BattleFleetSpectator({ board }: Props) {
   const [fx, setFx] = useState<CellFx | null>(null)
@@ -47,6 +54,16 @@ export function BattleFleetSpectator({ board }: Props) {
     return m
   }, [board.sunkShips, board.mode, board.players])
 
+  const spriteShips = useMemo((): BfSpriteShip[] => {
+    return board.sunkShips.map((ship) => ({
+      key: `sunk-${ship.sideId}-${ship.kind}`,
+      kind: ship.kind,
+      cells: ship.cells,
+      orient: orientFromCells(ship.cells),
+      sunk: true,
+    }))
+  }, [board.sunkShips])
+
   useEffect(() => {
     const shot = board.recentShot
     if (!shot) return
@@ -55,8 +72,8 @@ export function BattleFleetSpectator({ board }: Props) {
     prevShot.current = id
     const kind: CellFx['kind'] =
       shot.result === 'miss' ? 'miss' : shot.result === 'sunk' ? 'sunk' : 'hit'
-    setFx({ key: cellKey(shot.x, shot.y), kind })
-    const t = window.setTimeout(() => setFx(null), 560)
+    setFx({ key: cellKey(shot.x, shot.y), kind, x: shot.x, y: shot.y })
+    const t = window.setTimeout(() => setFx(null), 620)
     return () => window.clearTimeout(t)
   }, [board.recentShot, board.marks.length])
 
@@ -78,6 +95,7 @@ export function BattleFleetSpectator({ board }: Props) {
 
   const rootClass = [
     'bf-root',
+    'bf-sprites',
     board.phase === 'gameEnd' ? 'is-victory' : '',
   ]
     .filter(Boolean)
@@ -86,13 +104,20 @@ export function BattleFleetSpectator({ board }: Props) {
   return (
     <div className={rootClass}>
       <div className="bf-header">
-        <h2>Battle Fleet — Table</h2>
+        <div className="bf-header-brand">
+          <img className="bf-chrome-compass" src={BF_CHROME.compass} alt="" />
+          <h2>Battle Fleet — Table</h2>
+        </div>
         <div className={`bf-msg${msgPulse ? ' bf-msg-pulse' : ''}`}>
           {board.lastMessage}
         </div>
       </div>
       <div className="bf-layout">
         <div className="bf-board-wrap">
+          <span className="bf-corner-deco tl" />
+          <span className="bf-corner-deco tr" />
+          <span className="bf-corner-deco bl" />
+          <span className="bf-corner-deco br" />
           <div className="bf-board-frame">
             <div className="bf-corner" />
             <div className="bf-col-labels">
@@ -106,6 +131,18 @@ export function BattleFleetSpectator({ board }: Props) {
               ))}
             </div>
             <div className={`bf-grid ${gridModeClass}`}>
+              <BattleFleetShipLayer ships={spriteShips} />
+              {fx ? (
+                <img
+                  className={`bf-fx-sprite bf-fx-${fx.kind}`}
+                  src={fx.kind === 'miss' ? BF_FX.ripple : BF_FX.explosion}
+                  alt=""
+                  style={{
+                    left: `calc(${fx.x} * (var(--bf-cell) + 1px) + var(--bf-cell) / 2)`,
+                    top: `calc(${fx.y} * (var(--bf-cell) + 1px) + var(--bf-cell) / 2)`,
+                  }}
+                />
+              ) : null}
               {Array.from({ length: BOARD_SIZE * BOARD_SIZE }, (_, i) => {
                 const x = i % BOARD_SIZE
                 const y = Math.floor(i / BOARD_SIZE)
@@ -127,7 +164,6 @@ export function BattleFleetSpectator({ board }: Props) {
                   mark === 'miss' ? 'miss' : '',
                   mark === 'hit' ? 'hit' : '',
                   mark === 'sunk' ? `sunk ${sunkOwner.get(k) || ''}` : '',
-                  fx && fx.key === k ? `bf-fx-${fx.kind}` : '',
                 ]
                   .filter(Boolean)
                   .join(' ')
@@ -145,7 +181,10 @@ export function BattleFleetSpectator({ board }: Props) {
         </div>
         <aside className="bf-side">
           <section className="bf-section">
-            <h3 className="bf-section-title">Status</h3>
+            <h3 className="bf-section-title">
+              <img className="bf-chrome-radar" src={BF_CHROME.radar} alt="" />
+              Status
+            </h3>
             <div className="bf-status-row">
               <span className="bf-pill">{board.phase}</span>
               <span className="bf-pill">{board.mode === 'teams' ? 'Teams' : 'FFA'}</span>
@@ -155,9 +194,14 @@ export function BattleFleetSpectator({ board }: Props) {
             </div>
           </section>
 
+          <img className="bf-chrome-divider" src={BF_CHROME.divider} alt="" />
+
           {board.phase === 'gameEnd' && (
             <section className="bf-section">
-              <h3 className="bf-section-title">Victory</h3>
+              <h3 className="bf-section-title">
+                <img className="bf-chrome-anchor" src={BF_CHROME.anchor} alt="" />
+                Victory
+              </h3>
               <div className="bf-victory">
                 <strong>
                   {board.winnerTeamId
