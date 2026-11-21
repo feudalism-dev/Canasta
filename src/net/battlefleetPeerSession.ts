@@ -270,12 +270,6 @@ function buildBattleFleetSession(
     return idx >= 0 ? idx : 0
   }
 
-  const localPlayerId = (): string | null => {
-    const st = authState ?? viewState
-    if (!st) return null
-    return st.players[localIndexOf()]?.id ?? null
-  }
-
   const viewerIdForPeer = (peerId: string): string | null => {
     if (!authState) return null
     const lobby = seats.find((s) => s.id === peerId)
