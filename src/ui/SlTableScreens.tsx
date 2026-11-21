@@ -431,9 +431,11 @@ export function SlTableScreens({
                 try {
                   const st = await tableSetFamily(boot.slCap, boot.uid, youSeat, fam)
                   if (!st.ok) throw new Error(st.error || 'Could not select game')
-                  setTable(st)
+                  // Optimistic family: set_family responds with status that can lag LSD
+                  // by a tick, which used to flash Hand & Foot for Battle Fleet.
+                  setTable({ ...st, hub: true, family: fam })
                   onFamily(fam)
-                  setStatus(`Selected ${fam}`)
+                  setStatus(`Selected ${familyLabel(fam)}`)
                 } catch (e) {
                   setErr(e instanceof Error ? e.message : 'Could not select game')
                 } finally {
@@ -471,7 +473,9 @@ export function SlTableScreens({
                         ? 'Yotsy'
                         : isRowshamboTable
                           ? 'Row! Sham! Bo!'
-                    : 'Hand & Foot / Canasta'}
+                          : isBattlefleetTable
+                            ? 'Battle Fleet'
+                            : 'Hand & Foot / Canasta'}
         </h1>
         {isHub && mode === 'idle' ? (
           <button
@@ -485,7 +489,7 @@ export function SlTableScreens({
                 try {
                   const st = await tableSetFamily(boot.slCap, boot.uid, youSeat, null)
                   if (!st.ok) throw new Error(st.error || 'Could not open game selection')
-                  setTable(st)
+                  setTable({ ...st, hub: true, family: '' })
                   setStatus('Choose a game')
                 } catch (e) {
                   setErr(e instanceof Error ? e.message : 'Could not open game selection')
