@@ -1,12 +1,14 @@
 import type { BattleFleetState } from '../core/battlefleet/types'
 import {
   battleFleetPublicBoardFromState,
-  type BattleFleetPublicBoard,
+  encodeBattleFleetPublicBoard,
 } from '../core/battlefleet/publicBoard'
 import { tableEvent, tableSetBoard, tableSetNames } from './tableApi'
 
 let lastTurn = -2
 let lastBoardPosted = ''
+let lastNames = ''
+let lastScores = ''
 let timer: ReturnType<typeof setTimeout> | null = null
 let flushing = false
 let pending: {
@@ -32,11 +34,6 @@ export function battlefleetScoresPipe(state: BattleFleetState): number[] {
   return out
 }
 
-/** Compact public board for MoAP tableSetBoard (JSON). */
-export function encodeBattleFleetPublicBoard(board: BattleFleetPublicBoard): string {
-  return JSON.stringify(board)
-}
-
 async function flush(
   state: BattleFleetState,
   slCap: string,
@@ -44,17 +41,25 @@ async function flush(
   seat: number,
 ): Promise<void> {
   const names = battlefleetNamesPipe(state)
-  try {
-    await tableSetNames(slCap, uid, seat, names)
-  } catch {
-    /* CEF */
+  const namesKey = names.join('|')
+  if (namesKey !== lastNames) {
+    try {
+      await tableSetNames(slCap, uid, seat, names)
+      lastNames = namesKey
+    } catch {
+      /* CEF */
+    }
   }
 
   const scores = battlefleetScoresPipe(state)
-  try {
-    await tableEvent(slCap, uid, seat, `SCORE|${scores.join('|')}`)
-  } catch {
-    /* CEF */
+  const scoresKey = scores.join('|')
+  if (scoresKey !== lastScores) {
+    try {
+      await tableEvent(slCap, uid, seat, `SCORE|${scores.join('|')}`)
+      lastScores = scoresKey
+    } catch {
+      /* CEF */
+    }
   }
 
   const turnSeat =
@@ -74,11 +79,13 @@ async function flush(
     }
   }
 
-  const board =
-    state.phase === 'gameEnd'
-      ? battleFleetPublicBoardFromState(state)
-      : battleFleetPublicBoardFromState(state)
+  const board = battleFleetPublicBoardFromState(state)
   const compact = encodeBattleFleetPublicBoard(board)
+  // Soft cap: if somehow huge, refuse posting rather than heap the table
+  if (compact.length > 1800) {
+    console.warn('[battlefleet] board wire too large', compact.length)
+    return
+  }
   if (compact !== lastBoardPosted) {
     try {
       await tableSetBoard(slCap, uid, seat, compact)
@@ -90,7 +97,12 @@ async function flush(
 
   if (state.phase === 'gameEnd' && state.lastMessage) {
     try {
-      await tableEvent(slCap, uid, seat, `GAME_OVER|${state.lastMessage}`)
+      await tableEvent(
+        slCap,
+        uid,
+        seat,
+        `GAME_OVER|${state.lastMessage.replace(/\|/g, '/')}`,
+      )
     } catch {
       /* CEF */
     }
@@ -105,9 +117,10 @@ export function syncBattleFleetDisplay(
 ): void {
   pending = { state, slCap, uid, seat }
   if (timer) clearTimeout(timer)
+  // Debounce harder than card games — board grows every shot
   timer = setTimeout(() => {
     void pump()
-  }, 80)
+  }, 220)
 }
 
 async function pump(): Promise<void> {
@@ -126,6 +139,8 @@ async function pump(): Promise<void> {
 export function resetBattleFleetDisplaySync(): void {
   lastTurn = -2
   lastBoardPosted = ''
+  lastNames = ''
+  lastScores = ''
   pending = null
   if (timer) clearTimeout(timer)
   timer = null
