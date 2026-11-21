@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cellKey } from '../core/battlefleet/board'
 import type { BattleFleetPublicBoard } from '../core/battlefleet/publicBoard'
 import { BOARD_SIZE } from '../core/battlefleet/types'
@@ -16,7 +16,14 @@ type Props = {
   board: BattleFleetPublicBoard
 }
 
+type CellFx = { key: string; kind: 'hit' | 'miss' | 'sunk' }
+
 export function BattleFleetSpectator({ board }: Props) {
+  const [fx, setFx] = useState<CellFx | null>(null)
+  const [msgPulse, setMsgPulse] = useState(false)
+  const prevShot = useRef<string>('')
+  const prevTurn = useRef<string | null>(null)
+
   const markMap = useMemo(() => {
     const m = new Map<string, string>()
     for (const c of board.marks) m.set(cellKey(c.x, c.y), c.mark)
@@ -40,6 +47,28 @@ export function BattleFleetSpectator({ board }: Props) {
     return m
   }, [board.sunkShips, board.mode, board.players])
 
+  useEffect(() => {
+    const shot = board.recentShot
+    if (!shot) return
+    const id = `${shot.x},${shot.y},${shot.result},${board.marks.length}`
+    if (id === prevShot.current) return
+    prevShot.current = id
+    const kind: CellFx['kind'] =
+      shot.result === 'miss' ? 'miss' : shot.result === 'sunk' ? 'sunk' : 'hit'
+    setFx({ key: cellKey(shot.x, shot.y), kind })
+    const t = window.setTimeout(() => setFx(null), 560)
+    return () => window.clearTimeout(t)
+  }, [board.recentShot, board.marks.length])
+
+  useEffect(() => {
+    if (board.phase !== 'battle') return
+    if (prevTurn.current === board.turnPlayerId) return
+    prevTurn.current = board.turnPlayerId
+    setMsgPulse(true)
+    const t = window.setTimeout(() => setMsgPulse(false), 550)
+    return () => window.clearTimeout(t)
+  }, [board.turnPlayerId, board.phase])
+
   const gridModeClass =
     board.mode === 'teams'
       ? 'mode-teams'
@@ -47,11 +76,20 @@ export function BattleFleetSpectator({ board }: Props) {
         ? 'mode-ffa-2'
         : 'mode-ffa'
 
+  const rootClass = [
+    'bf-root',
+    board.phase === 'gameEnd' ? 'is-victory' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <div className="bf-root">
+    <div className={rootClass}>
       <div className="bf-header">
         <h2>Battle Fleet — Table</h2>
-        <div className="bf-msg">{board.lastMessage}</div>
+        <div className={`bf-msg${msgPulse ? ' bf-msg-pulse' : ''}`}>
+          {board.lastMessage}
+        </div>
       </div>
       <div className="bf-layout">
         <div className="bf-board-wrap">
@@ -89,6 +127,7 @@ export function BattleFleetSpectator({ board }: Props) {
                   mark === 'miss' ? 'miss' : '',
                   mark === 'hit' ? 'hit' : '',
                   mark === 'sunk' ? `sunk ${sunkOwner.get(k) || ''}` : '',
+                  fx && fx.key === k ? `bf-fx-${fx.kind}` : '',
                 ]
                   .filter(Boolean)
                   .join(' ')
@@ -110,10 +149,10 @@ export function BattleFleetSpectator({ board }: Props) {
             <div className="bf-status-row">
               <span className="bf-pill">{board.phase}</span>
               <span className="bf-pill">{board.mode === 'teams' ? 'Teams' : 'FFA'}</span>
+              {board.turnName ? (
+                <span className="bf-pill bf-pill-turn">{board.turnName}</span>
+              ) : null}
             </div>
-            {board.turnName ? (
-              <div className="bf-team-line">Turn · {board.turnName}</div>
-            ) : null}
           </section>
 
           {board.phase === 'gameEnd' && (
@@ -122,9 +161,10 @@ export function BattleFleetSpectator({ board }: Props) {
               <div className="bf-victory">
                 <strong>
                   {board.winnerTeamId
-                    ? `Team ${board.winnerTeamId} wins`
-                    : `${board.players.find((p) => p.id === board.winnerId)?.name ?? 'Winner'} wins`}
+                    ? `Team ${board.winnerTeamId} victorious`
+                    : `${board.players.find((p) => p.id === board.winnerId)?.name ?? 'Winner'} victorious`}
                 </strong>
+                <div className="bf-victory-sub">Engagement complete</div>
               </div>
             </section>
           )}
@@ -150,8 +190,9 @@ export function BattleFleetSpectator({ board }: Props) {
                     <span className={`bf-chip ${idClass}`} />
                     <strong>{p.name}</strong>
                     {p.teamId ? ` [${p.teamId}]` : ''}
+                    <span className="bf-score-num">{p.score}</span>
                     <span>
-                      {p.score} · {p.shipsSunk} sunk · {p.shipsLeft} left
+                      {p.shipsSunk} sunk · {p.shipsLeft} left
                     </span>
                     {p.eliminated ? ' (out)' : ''}
                   </li>

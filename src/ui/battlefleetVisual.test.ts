@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { bfIdentityClass, bfSeaActive, bfTerritoryClass } from './battlefleetVisual'
+import {
+  bfIdentityClass,
+  bfSeaActive,
+  bfTerritoryClass,
+  buildOwnShipSegMap,
+  buildPreviewSegMap,
+} from './battlefleetVisual'
 
 describe('battlefleetVisual', () => {
   it('maps seats and teams to identity classes', () => {
@@ -22,5 +28,32 @@ describe('battlefleetVisual', () => {
     expect(bfTerritoryClass('teams', 4, 5, 2)).toBe('bf-id-team-a')
     expect(bfTerritoryClass('teams', 4, 5, 12)).toBe('bf-id-team-b')
     expect(bfSeaActive('teams', 4, 0, 0)).toBe(true)
+  })
+
+  it('builds bow/mid/stern segments for a horizontal ship', () => {
+    const m = buildOwnShipSegMap({
+      confirmed: false,
+      ships: [
+        {
+          kind: 'destroyer',
+          cells: [
+            { x: 2, y: 3 },
+            { x: 3, y: 3 },
+          ],
+          hits: [],
+          sunk: false,
+        },
+      ],
+    })
+    expect(m.get('2,3')?.role).toBe('bow')
+    expect(m.get('3,3')?.role).toBe('stern')
+    expect(m.get('2,3')?.orient).toBe('H')
+  })
+
+  it('builds preview segments for vertical placement', () => {
+    const m = buildPreviewSegMap(1, 1, 'cruiser', 'V')
+    expect(m.size).toBe(3)
+    expect(m.get('1,1')?.role).toBe('bow')
+    expect(m.get('1,3')?.role).toBe('stern')
   })
 })

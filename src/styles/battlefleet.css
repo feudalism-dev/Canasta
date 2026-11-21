@@ -1,26 +1,24 @@
-/* Battle Fleet — naval command HUD / table MoAP */
+/* Battle Fleet — Pass 2 naval command aesthetic */
 
 .bf-root {
-  --bf-navy: #061525;
-  --bf-navy-2: #0a2438;
-  --bf-sea: #0b3d5c;
-  --bf-sea-2: #0e5278;
-  --bf-grid: rgba(180, 210, 230, 0.14);
-  --bf-brass: #c4a35a;
-  --bf-brass-dim: rgba(196, 163, 90, 0.35);
-  --bf-steel: #1a3548;
-  --bf-steel-2: #243f54;
-  --bf-ink: #e8f1f8;
-  --bf-ink-dim: rgba(232, 241, 248, 0.72);
-  --bf-miss: #9ec9e0;
-  --bf-hit: #e23d48;
-  --bf-sunk-core: #1a1a1a;
+  --bf-navy: #040e18;
+  --bf-navy-2: #0a1c2e;
+  --bf-sea: #0a3550;
+  --bf-sea-2: #0c4a6e;
+  --bf-grid: rgba(160, 195, 220, 0.16);
+  --bf-brass: #d4b56a;
+  --bf-brass-dim: rgba(212, 181, 106, 0.4);
+  --bf-steel: #152a3a;
+  --bf-steel-2: #1c3548;
+  --bf-ink: #eef4fa;
+  --bf-ink-dim: rgba(238, 244, 250, 0.74);
+  --bf-miss: #a8d4ea;
+  --bf-hit: #ef4450;
   --bf-sunk-rim: #d4b06a;
-  --bf-ship-preview: rgba(200, 210, 220, 0.55);
-  --bf-panel: #102a3c;
-  --bf-cell: clamp(12px, min(3.2vmin, 2.4vw), 28px);
+  --bf-ship-preview: rgba(220, 230, 240, 0.45);
+  /* ~540–580px board when viewport allows (20 cells) */
+  --bf-cell: clamp(14px, min(4.4vmin, 3.15vw), 29px);
 
-  /* Identity — FFA seats / team halves (colorblind-separable) */
   --bf-side-0: #2a9d8f;
   --bf-side-1: #e9c46a;
   --bf-side-2: #9b5de5;
@@ -31,15 +29,33 @@
   color: var(--bf-ink);
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.4rem;
   height: 100%;
   min-height: 0;
   background:
-    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(30, 80, 120, 0.35), transparent 55%),
-    linear-gradient(165deg, var(--bf-navy), var(--bf-navy-2) 55%, #0c1e2e);
-  padding: 0.4rem 0.5rem;
+    radial-gradient(ellipse 90% 70% at 50% 110%, rgba(20, 70, 100, 0.45), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 10% 0%, rgba(40, 90, 130, 0.25), transparent 50%),
+    repeating-linear-gradient(
+      125deg,
+      transparent,
+      transparent 18px,
+      rgba(255, 255, 255, 0.012) 18px,
+      rgba(255, 255, 255, 0.012) 19px
+    ),
+    linear-gradient(168deg, var(--bf-navy) 0%, var(--bf-navy-2) 48%, #071828 100%);
+  padding: 0.35rem 0.45rem;
   box-sizing: border-box;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Segoe UI', 'Trebuchet MS', system-ui, sans-serif;
+}
+
+.bf-root.is-my-turn .bf-header {
+  box-shadow: 0 1px 0 var(--bf-brass);
+}
+
+.bf-root.is-victory .bf-side {
+  box-shadow:
+    0 0 0 1px var(--bf-brass),
+    0 0 24px rgba(212, 181, 106, 0.18);
 }
 
 .bf-header {
@@ -50,30 +66,37 @@
   flex-wrap: wrap;
   flex-shrink: 0;
   border-bottom: 1px solid var(--bf-brass-dim);
-  padding-bottom: 0.35rem;
+  padding-bottom: 0.3rem;
+  background: linear-gradient(90deg, rgba(212, 181, 106, 0.06), transparent 40%);
 }
 
 .bf-header h2 {
   margin: 0;
-  font-size: 1.05rem;
-  letter-spacing: 0.12em;
+  font-size: 1.02rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  font-weight: 700;
+  font-weight: 750;
   color: var(--bf-brass);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
 
 .bf-msg {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--bf-ink-dim);
   min-height: 1.15em;
   max-width: 62%;
   text-align: right;
 }
 
+.bf-msg.bf-msg-pulse {
+  color: var(--bf-brass);
+  animation: bf-msg-flash 0.55s ease;
+}
+
 .bf-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
-  gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr) minmax(168px, 232px);
+  gap: 0.55rem;
   min-height: 0;
   flex: 1;
 }
@@ -87,19 +110,23 @@
   min-height: 0;
   min-width: 0;
   background:
-    linear-gradient(180deg, rgba(12, 60, 90, 0.5), rgba(8, 40, 65, 0.65)),
+    radial-gradient(ellipse at 30% 20%, rgba(60, 130, 170, 0.18), transparent 45%),
+    radial-gradient(ellipse at 70% 80%, rgba(20, 60, 90, 0.35), transparent 50%),
     repeating-linear-gradient(
       0deg,
       transparent,
-      transparent 11px,
-      rgba(255, 255, 255, 0.02) 11px,
-      rgba(255, 255, 255, 0.02) 12px
+      transparent 13px,
+      rgba(255, 255, 255, 0.018) 13px,
+      rgba(255, 255, 255, 0.018) 14px
     ),
-    linear-gradient(160deg, var(--bf-sea), var(--bf-sea-2));
-  border: 1px solid var(--bf-brass-dim);
-  border-radius: 4px;
-  padding: 0.35rem 0.45rem 0.45rem;
-  box-shadow: inset 0 0 40px rgba(0, 20, 40, 0.45);
+    linear-gradient(165deg, #0b4060 0%, #0a5278 45%, #083a58 100%);
+  border: 1px solid rgba(180, 160, 100, 0.45);
+  border-radius: 3px;
+  padding: 0.4rem 0.5rem 0.5rem;
+  box-shadow:
+    inset 0 0 48px rgba(0, 15, 30, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.35);
   overflow: hidden;
 }
 
@@ -114,34 +141,35 @@
 }
 
 .bf-corner {
-  width: calc(var(--bf-cell) * 0.85);
-  height: calc(var(--bf-cell) * 0.7);
+  width: calc(var(--bf-cell) * 0.9);
+  height: calc(var(--bf-cell) * 0.72);
 }
 
 .bf-col-labels,
 .bf-row-labels {
   display: grid;
   gap: 1px;
-  font-size: clamp(7px, calc(var(--bf-cell) * 0.42), 11px);
+  font-size: clamp(8px, calc(var(--bf-cell) * 0.4), 11px);
   color: var(--bf-brass);
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-weight: 650;
+  letter-spacing: 0.03em;
   user-select: none;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
 }
 
 .bf-col-labels {
   grid-template-columns: repeat(20, var(--bf-cell));
   text-align: center;
-  line-height: calc(var(--bf-cell) * 0.7);
-  height: calc(var(--bf-cell) * 0.7);
+  line-height: calc(var(--bf-cell) * 0.72);
+  height: calc(var(--bf-cell) * 0.72);
 }
 
 .bf-row-labels {
   grid-template-rows: repeat(20, var(--bf-cell));
   text-align: right;
-  padding-right: 3px;
+  padding-right: 4px;
   align-items: center;
-  width: calc(var(--bf-cell) * 0.85);
+  width: calc(var(--bf-cell) * 0.9);
 }
 
 .bf-row-labels span {
@@ -158,48 +186,43 @@
   grid-template-rows: repeat(20, var(--bf-cell));
   gap: 1px;
   width: max-content;
-  background: rgba(0, 30, 50, 0.5);
-  box-shadow: 0 0 0 1px rgba(196, 163, 90, 0.25);
+  background: rgba(0, 25, 45, 0.65);
+  box-shadow:
+    0 0 0 1px rgba(212, 181, 106, 0.35),
+    0 0 0 3px rgba(0, 0, 0, 0.25);
 }
 
-/* Mode-aware territory dividers */
 .bf-grid::after {
   content: '';
   pointer-events: none;
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 4;
   background:
     linear-gradient(
       to right,
-      transparent calc(50% - 0.5px),
-      rgba(196, 163, 90, 0.55) calc(50% - 0.5px),
-      rgba(196, 163, 90, 0.55) calc(50% + 0.5px),
-      transparent calc(50% + 0.5px)
+      transparent calc(50% - 0.6px),
+      rgba(212, 181, 106, 0.65) calc(50% - 0.6px),
+      rgba(212, 181, 106, 0.65) calc(50% + 0.6px),
+      transparent calc(50% + 0.6px)
     ),
     linear-gradient(
       to bottom,
-      transparent calc(50% - 0.5px),
-      rgba(196, 163, 90, 0.55) calc(50% - 0.5px),
-      rgba(196, 163, 90, 0.55) calc(50% + 0.5px),
-      transparent calc(50% + 0.5px)
+      transparent calc(50% - 0.6px),
+      rgba(212, 181, 106, 0.65) calc(50% - 0.6px),
+      rgba(212, 181, 106, 0.65) calc(50% + 0.6px),
+      transparent calc(50% + 0.6px)
     );
-  opacity: 0.85;
 }
 
 .bf-grid.mode-teams::after {
   background: linear-gradient(
     to bottom,
-    transparent calc(50% - 0.5px),
-    rgba(196, 163, 90, 0.7) calc(50% - 0.5px),
-    rgba(196, 163, 90, 0.7) calc(50% + 0.5px),
-    transparent calc(50% + 0.5px)
+    transparent calc(50% - 0.7px),
+    rgba(212, 181, 106, 0.8) calc(50% - 0.7px),
+    rgba(212, 181, 106, 0.8) calc(50% + 0.7px),
+    transparent calc(50% + 0.7px)
   );
-}
-
-.bf-grid.mode-ffa-2::after {
-  /* Diagonal quads only — cross still fine; keep full cross for clarity */
-  opacity: 0.7;
 }
 
 .bf-cell {
@@ -207,12 +230,21 @@
   width: var(--bf-cell);
   height: var(--bf-cell);
   border: 1px solid var(--bf-grid);
-  background: rgba(0, 45, 75, 0.4);
+  background: rgba(8, 52, 82, 0.55);
   padding: 0;
   margin: 0;
   cursor: default;
   box-sizing: border-box;
   z-index: 1;
+  overflow: hidden;
+}
+
+/* Ocean depth checker */
+.bf-cell.terr:nth-child(odd) {
+  background: rgba(10, 58, 90, 0.52);
+}
+.bf-cell.terr:nth-child(even) {
+  background: rgba(6, 48, 78, 0.58);
 }
 
 .bf-cell.targetable {
@@ -222,68 +254,173 @@
 .bf-cell.targetable:hover {
   outline: 1px solid #fff;
   outline-offset: -1px;
-  z-index: 3;
+  z-index: 5;
+  filter: brightness(1.12);
 }
 
 .bf-cell.inactive {
-  background: rgba(0, 0, 0, 0.45);
-  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.5) !important;
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4);
 }
 
-/* Territory wash (solid mixes for older MoAP CEF) */
-.bf-cell.terr.bf-id-seat-0:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview) {
-  background: rgba(42, 157, 143, 0.28);
+/* Territory wash */
+.bf-cell.terr.bf-id-seat-0:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview):not(.ship-ghost) {
+  background: rgba(42, 157, 143, 0.3);
 }
-.bf-cell.terr.bf-id-seat-1:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview) {
+.bf-cell.terr.bf-id-seat-1:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview):not(.ship-ghost) {
   background: rgba(233, 196, 106, 0.28);
 }
-.bf-cell.terr.bf-id-seat-2:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview) {
+.bf-cell.terr.bf-id-seat-2:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview):not(.ship-ghost) {
   background: rgba(155, 93, 229, 0.28);
 }
-.bf-cell.terr.bf-id-seat-3:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview) {
+.bf-cell.terr.bf-id-seat-3:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview):not(.ship-ghost) {
   background: rgba(244, 162, 97, 0.28);
 }
-.bf-cell.terr.bf-id-team-a:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview) {
-  background: rgba(42, 157, 143, 0.28);
+.bf-cell.terr.bf-id-team-a:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview):not(.ship-ghost) {
+  background: rgba(42, 157, 143, 0.3);
 }
-.bf-cell.terr.bf-id-team-b:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview) {
-  background: rgba(231, 111, 81, 0.28);
+.bf-cell.terr.bf-id-team-b:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview):not(.ship-ghost) {
+  background: rgba(231, 111, 81, 0.3);
 }
 
-/* Friendly fleet — identity fill */
-.bf-cell.own {
-  background: #1f7a6e;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+/* —— Ship hull silhouettes (own fleet / preview) —— */
+.bf-cell.own,
+.bf-cell.ship-ghost {
+  background: transparent !important;
 }
-.bf-cell.own.bf-id-seat-0 {
-  background: #1f7a6e;
+
+.bf-cell.ship-hull::before,
+.bf-cell.ship-ghost::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, #c5d0da 0%, #8a97a5 45%, #5c6874 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.35);
 }
-.bf-cell.own.bf-id-seat-1 {
-  background: #b8923a;
+
+.bf-cell.ship-h.ship-hull::before,
+.bf-cell.ship-h.ship-ghost::before {
+  top: 22%;
+  bottom: 22%;
+  left: 0;
+  right: 0;
 }
-.bf-cell.own.bf-id-seat-2 {
-  background: #6f3cb0;
+
+.bf-cell.ship-v.ship-hull::before,
+.bf-cell.ship-v.ship-ghost::before {
+  left: 22%;
+  right: 22%;
+  top: 0;
+  bottom: 0;
 }
-.bf-cell.own.bf-id-seat-3 {
-  background: #c47a3a;
+
+.bf-cell.ship-h.ship-bow::before {
+  left: 8%;
+  border-radius: 55% 4px 4px 55% / 50% 4px 4px 50%;
 }
-.bf-cell.own.bf-id-team-a {
-  background: #1f7a6e;
+.bf-cell.ship-h.ship-stern::before {
+  right: 10%;
+  border-radius: 4px 30% 30% 4px;
 }
-.bf-cell.own.bf-id-team-b {
-  background: #c45a3a;
+.bf-cell.ship-v.ship-bow::before {
+  top: 8%;
+  border-radius: 50% 50% 4px 4px / 55% 55% 4px 4px;
+}
+.bf-cell.ship-v.ship-stern::before {
+  bottom: 10%;
+  border-radius: 4px 4px 30% 30%;
+}
+
+/* Kind accents */
+.bf-cell.ship-carrier::after,
+.bf-cell.ship-battleship::after,
+.bf-cell.ship-cruiser::after,
+.bf-cell.ship-submarine::after,
+.bf-cell.ship-destroyer::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  background: rgba(30, 40, 50, 0.55);
+}
+
+.bf-cell.ship-carrier.ship-mid::after {
+  inset: 12% 28%;
+  border-radius: 1px;
+}
+.bf-cell.ship-battleship.ship-mid::after {
+  width: 28%;
+  height: 28%;
+  top: 18%;
+  left: 36%;
+  border-radius: 1px;
+}
+.bf-cell.ship-h.ship-submarine.ship-stern::after {
+  width: 34%;
+  height: 34%;
+  right: 12%;
+  top: 33%;
+  border-radius: 50%;
+  background: rgba(40, 50, 60, 0.7);
+}
+.bf-cell.ship-v.ship-submarine.ship-stern::after {
+  width: 34%;
+  height: 34%;
+  bottom: 12%;
+  left: 33%;
+  border-radius: 50%;
+  background: rgba(40, 50, 60, 0.7);
+}
+.bf-cell.ship-destroyer.ship-bow::after {
+  width: 22%;
+  height: 40%;
+  top: 12%;
+  left: 39%;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: rgba(40, 50, 60, 0.65);
+}
+
+.bf-cell.own.bf-id-seat-0.ship-hull::before {
+  background: linear-gradient(180deg, #5ec4b6, #1f7a6e 55%, #145a50);
+}
+.bf-cell.own.bf-id-seat-1.ship-hull::before {
+  background: linear-gradient(180deg, #f0d78a, #b8923a 55%, #8a6a28);
+}
+.bf-cell.own.bf-id-seat-2.ship-hull::before {
+  background: linear-gradient(180deg, #c49af0, #6f3cb0 55%, #4a2880);
+}
+.bf-cell.own.bf-id-seat-3.ship-hull::before {
+  background: linear-gradient(180deg, #f7b880, #c47a3a 55%, #8a5020);
+}
+.bf-cell.own.bf-id-team-a.ship-hull::before {
+  background: linear-gradient(180deg, #5ec4b6, #1f7a6e 55%, #145a50);
+}
+.bf-cell.own.bf-id-team-b.ship-hull::before {
+  background: linear-gradient(180deg, #f0a090, #c45a3a 55%, #8a3820);
+}
+
+.bf-cell.ship-ghost::before {
+  opacity: 0.55;
+  background: linear-gradient(180deg, #e8eef4, #a8b4c0 55%, #7a8692) !important;
+}
+
+.bf-cell.ship-wreck::before {
+  background: linear-gradient(180deg, #4a4540, #2a2620) !important;
+  opacity: 0.85;
 }
 
 .bf-cell.ship-preview {
   background: var(--bf-ship-preview) !important;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
 }
 
-/* Combat markers — color + shape */
+/* Combat markers */
 .bf-cell.miss,
 .bf-cell.hit,
 .bf-cell.sunk {
-  background: rgba(0, 40, 70, 0.55);
+  background: rgba(0, 35, 60, 0.6) !important;
 }
 
 .bf-cell.miss::after,
@@ -293,6 +430,7 @@
   position: absolute;
   inset: 18%;
   pointer-events: none;
+  z-index: 3;
 }
 
 .bf-cell.miss::after {
@@ -320,58 +458,145 @@
 }
 
 .bf-cell.sunk {
-  background: #2a2418;
+  background: #2a2418 !important;
   box-shadow: inset 0 0 0 1.5px var(--bf-sunk-rim);
 }
 
 .bf-cell.sunk::after {
   inset: 22%;
   background: linear-gradient(
-    135deg,
-    transparent 42%,
-    var(--bf-sunk-rim) 42%,
-    var(--bf-sunk-rim) 58%,
-    transparent 58%
-  ),
-  linear-gradient(
-    45deg,
-    transparent 42%,
-    var(--bf-sunk-rim) 42%,
-    var(--bf-sunk-rim) 58%,
-    transparent 58%
-  );
+      135deg,
+      transparent 42%,
+      var(--bf-sunk-rim) 42%,
+      var(--bf-sunk-rim) 58%,
+      transparent 58%
+    ),
+    linear-gradient(
+      45deg,
+      transparent 42%,
+      var(--bf-sunk-rim) 42%,
+      var(--bf-sunk-rim) 58%,
+      transparent 58%
+    );
 }
 
 .bf-cell.sunk.bf-id-seat-0 {
-  background: #1a3d38;
+  background: #1a3d38 !important;
   box-shadow: inset 0 0 0 1.5px var(--bf-side-0);
 }
 .bf-cell.sunk.bf-id-seat-1 {
-  background: #3d3520;
+  background: #3d3520 !important;
   box-shadow: inset 0 0 0 1.5px var(--bf-side-1);
 }
 .bf-cell.sunk.bf-id-seat-2 {
-  background: #2a1a3d;
+  background: #2a1a3d !important;
   box-shadow: inset 0 0 0 1.5px var(--bf-side-2);
 }
 .bf-cell.sunk.bf-id-seat-3 {
-  background: #3d2a1a;
+  background: #3d2a1a !important;
   box-shadow: inset 0 0 0 1.5px var(--bf-side-3);
 }
 .bf-cell.sunk.bf-id-team-a {
-  background: #1a3d38;
+  background: #1a3d38 !important;
   box-shadow: inset 0 0 0 1.5px var(--bf-team-a);
 }
 .bf-cell.sunk.bf-id-team-b {
-  background: #3d221a;
+  background: #3d221a !important;
   box-shadow: inset 0 0 0 1.5px var(--bf-team-b);
+}
+
+/* Combat FX overlays */
+.bf-cell.bf-fx-hit::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  z-index: 6;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 180, 60, 0.9) 0%, rgba(239, 68, 80, 0.55) 40%, transparent 70%);
+  animation: bf-explode 0.5s ease-out forwards;
+}
+
+.bf-cell.bf-fx-miss::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 2px solid rgba(168, 212, 234, 0.85);
+  animation: bf-ripple 0.55s ease-out forwards;
+}
+
+.bf-cell.bf-fx-sunk::before {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  z-index: 6;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(212, 176, 106, 0.75) 0%, rgba(239, 68, 80, 0.4) 35%, transparent 70%);
+  animation: bf-explode 0.65s ease-out forwards;
+}
+
+@keyframes bf-explode {
+  0% {
+    transform: scale(0.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+@keyframes bf-ripple {
+  0% {
+    transform: scale(0.3);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes bf-msg-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes bf-victory-in {
+  from {
+    transform: translateY(6px);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-cell.bf-fx-hit::before,
+  .bf-cell.bf-fx-miss::before,
+  .bf-cell.bf-fx-sunk::before,
+  .bf-msg.bf-msg-pulse,
+  .bf-victory {
+    animation: none !important;
+  }
 }
 
 /* Command panel */
 .bf-side {
-  background: linear-gradient(180deg, var(--bf-steel-2), var(--bf-steel));
-  border: 1px solid var(--bf-brass-dim);
-  border-radius: 4px;
+  background:
+    linear-gradient(180deg, rgba(212, 181, 106, 0.07), transparent 28%),
+    linear-gradient(180deg, var(--bf-steel-2), var(--bf-steel));
+  border: 1px solid rgba(180, 160, 100, 0.4);
+  border-radius: 3px;
   padding: 0.45rem 0.5rem;
   display: flex;
   flex-direction: column;
@@ -379,15 +604,15 @@
   font-size: 0.78rem;
   overflow: auto;
   min-height: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 .bf-section {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.32rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(196, 163, 90, 0.2);
+  border-bottom: 1px solid rgba(212, 181, 106, 0.22);
 }
 
 .bf-section:last-child {
@@ -397,27 +622,28 @@
 
 .bf-section-title {
   margin: 0;
-  font-size: 0.65rem;
-  letter-spacing: 0.14em;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--bf-brass);
-  font-weight: 700;
+  font-weight: 750;
 }
 
 .bf-side button {
   appearance: none;
-  border: 1px solid rgba(196, 163, 90, 0.35);
-  background: linear-gradient(180deg, #2a5570, #1a3d52);
+  border: 1px solid rgba(212, 181, 106, 0.38);
+  background: linear-gradient(180deg, #2f5d78, #1c4258);
   color: var(--bf-ink);
   border-radius: 3px;
-  padding: 0.35rem 0.45rem;
+  padding: 0.38rem 0.48rem;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
 }
 
 .bf-side button:hover:not(:disabled) {
   border-color: var(--bf-brass);
-  background: linear-gradient(180deg, #326682, #214a62);
+  background: linear-gradient(180deg, #3a7090, #255570);
 }
 
 .bf-side button:disabled {
@@ -426,21 +652,24 @@
 }
 
 .bf-side button.active {
-  background: linear-gradient(180deg, #3a7a9a, #2a5a78);
-  border-color: #8ecae6;
-  box-shadow: 0 0 0 1px rgba(142, 202, 230, 0.35);
+  background: linear-gradient(180deg, #3f849f, #2c5f7a);
+  border-color: #9ed0e8;
+  box-shadow: 0 0 0 1px rgba(158, 208, 232, 0.3);
 }
 
 .bf-side button.bf-primary {
-  background: linear-gradient(180deg, #c4a35a, #9a7a35);
+  background: linear-gradient(180deg, #d4b56a, #a48438);
   color: #1a1208;
-  border-color: #e0c878;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  border-color: #e8d090;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  padding: 0.5rem 0.55rem;
 }
 
 .bf-side button.bf-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #d4b56a, #aa8a45);
+  background: linear-gradient(180deg, #e0c478, #b49448);
 }
 
 .bf-ships {
@@ -458,7 +687,7 @@
 
 .bf-ship-icon {
   flex-shrink: 0;
-  opacity: 0.9;
+  opacity: 0.92;
 }
 
 .bf-ship-meta {
@@ -468,7 +697,7 @@
 
 .bf-ship-placed {
   color: #90be6d;
-  font-weight: 700;
+  font-weight: 750;
 }
 
 .bf-scores {
@@ -478,23 +707,31 @@
 
 .bf-scores li {
   list-style: none;
-  margin: 0.2rem 0;
+  margin: 0.18rem 0;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.25rem 0.4rem;
-  padding: 0.2rem 0.3rem;
+  gap: 0.2rem 0.4rem;
+  padding: 0.28rem 0.35rem;
   border-radius: 3px;
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid transparent;
 }
 
 .bf-scores li.is-turn {
-  outline: 1px solid var(--bf-brass);
-  background: rgba(196, 163, 90, 0.12);
+  border-color: var(--bf-brass);
+  background: rgba(212, 181, 106, 0.14);
 }
 
 .bf-scores li.is-out {
-  opacity: 0.55;
+  opacity: 0.5;
+}
+
+.bf-score-num {
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  color: var(--bf-brass);
+  margin-left: auto;
 }
 
 .bf-chip {
@@ -526,14 +763,14 @@
 }
 
 .bf-team-line {
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   color: var(--bf-ink-dim);
   line-height: 1.35;
 }
 
 .bf-hint {
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--bf-ink-dim);
   line-height: 1.3;
   opacity: 0.9;
@@ -548,35 +785,52 @@
 
 .bf-pill {
   display: inline-block;
-  padding: 0.12rem 0.4rem;
+  padding: 0.14rem 0.42rem;
   border-radius: 2px;
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(196, 163, 90, 0.3);
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(212, 181, 106, 0.32);
+}
+
+.bf-pill.bf-pill-turn {
+  border-color: var(--bf-brass);
+  color: var(--bf-brass);
+  background: rgba(212, 181, 106, 0.15);
 }
 
 .bf-results {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .bf-victory {
   text-align: center;
-  padding: 0.45rem 0.35rem;
+  padding: 0.65rem 0.4rem 0.55rem;
   border: 1px solid var(--bf-brass);
   border-radius: 3px;
-  background: linear-gradient(180deg, rgba(196, 163, 90, 0.22), rgba(0, 0, 0, 0.25));
+  background:
+    linear-gradient(180deg, rgba(212, 181, 106, 0.28), rgba(0, 0, 0, 0.3)),
+    radial-gradient(ellipse at 50% 0%, rgba(255, 230, 160, 0.15), transparent 60%);
+  animation: bf-victory-in 0.45s ease-out;
 }
 
 .bf-victory strong {
   display: block;
-  font-size: 0.95rem;
-  letter-spacing: 0.08em;
+  font-size: 1.05rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--bf-brass);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  line-height: 1.25;
+}
+
+.bf-victory .bf-victory-sub {
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--bf-ink-dim);
 }
 
 .bf-stats {
@@ -588,24 +842,29 @@
 .bf-stats th,
 .bf-stats td {
   text-align: left;
-  padding: 0.15rem 0.2rem;
+  padding: 0.18rem 0.2rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .bf-stats th {
   color: var(--bf-brass);
-  font-weight: 600;
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
+  font-weight: 650;
+  font-size: 0.6rem;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+.bf-stats td:nth-child(n + 2) {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
 }
 
 .bf-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem 0.55rem;
-  margin-top: 0.25rem;
-  font-size: 0.65rem;
+  margin-top: 0.3rem;
+  font-size: 0.64rem;
   color: var(--bf-ink-dim);
 }
 
@@ -628,7 +887,7 @@
   background: rgba(42, 157, 143, 0.35);
 }
 .bf-swatch.own {
-  background: #1f7a6e;
+  background: linear-gradient(180deg, #5ec4b6, #1f7a6e);
 }
 .bf-swatch.miss {
   background: rgba(0, 40, 70, 0.55);

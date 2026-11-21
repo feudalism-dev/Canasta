@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { battleFleetPrivateView } from '../core/battlefleet/publicBoard'
 import { cellKey } from '../core/battlefleet/board'
 import { shipCells, shipDef, survivingShipCount } from '../core/battlefleet/fleet'
@@ -15,9 +15,13 @@ import {
   bfIdentityClass,
   bfSeaActive,
   bfTerritoryClass,
+  buildOwnShipSegMap,
+  buildPreviewSegMap,
   colLabels,
   rowLabels,
+  shipSegClass,
   ShipKindIcon,
+  type ShipSegInfo,
 } from './battlefleetVisual'
 import '../styles/battlefleet.css'
 
@@ -28,6 +32,8 @@ type Props = {
   onNewMatch?: () => void
   error?: string | null
 }
+
+type CellFx = { key: string; kind: 'hit' | 'miss' | 'sunk' }
 
 function hitPct(hits: number, attacks: number): string {
   if (attacks <= 0) return '—'
@@ -51,6 +57,10 @@ export function BattleFleetBoard({
   const [selectedKind, setSelectedKind] = useState<ShipKind>('carrier')
   const [orientation, setOrientation] = useState<Orientation>('H')
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null)
+  const [fx, setFx] = useState<CellFx | null>(null)
+  const [msgPulse, setMsgPulse] = useState(false)
+  const prevShotCount = useRef(0)
+  const prevTurn = useRef<string | null>(null)
 
   const view = useMemo(
     () => battleFleetPrivateView(state, localPlayerId),
@@ -81,6 +91,8 @@ export function BattleFleetBoard({
     seat: me?.seat,
     teamId: me?.teamId,
   })
+
+  const ownSegs = useMemo(() => buildOwnShipSegMap(myFleet), [myFleet])
 
   const markMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -113,15 +125,24 @@ export function BattleFleetBoard({
     return new Set(view.ownHits.map((c) => cellKey(c.x, c.y)))
   }, [view.ownHits])
 
-  const preview = useMemo(() => {
-    if (!placing || fleetConfirmed || !hover || !terr) return new Set<string>()
+  const previewSegs = useMemo(() => {
+    const empty = new Map<string, ShipSegInfo>()
+    if (!placing || fleetConfirmed || !hover || !terr) return empty
     const cells = shipCells(
       hover.x,
       hover.y,
       shipDef(selectedKind).length,
       orientation,
     )
-    return new Set(cells.map((c) => cellKey(c.x, c.y)))
+    const inBounds = cells.every(
+      (c) =>
+        c.x >= terr.x0 &&
+        c.y >= terr.y0 &&
+        c.x < terr.x0 + terr.width &&
+        c.y < terr.y0 + terr.height,
+    )
+    if (!inBounds) return empty
+    return buildPreviewSegMap(hover.x, hover.y, selectedKind, orientation)
   }, [placing, fleetConfirmed, hover, selectedKind, orientation, terr])
 
   useEffect(() => {
@@ -133,6 +154,33 @@ export function BattleFleetBoard({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // Combat FX from latest shot
+  useEffect(() => {
+    const n = state.shots.length
+    if (n <= prevShotCount.current) {
+      prevShotCount.current = n
+      return
+    }
+    prevShotCount.current = n
+    const shot = state.shots[n - 1]
+    if (!shot) return
+    const kind: CellFx['kind'] =
+      shot.result === 'miss' ? 'miss' : shot.result === 'sunk' ? 'sunk' : 'hit'
+    setFx({ key: cellKey(shot.x, shot.y), kind })
+    const t = window.setTimeout(() => setFx(null), 560)
+    return () => window.clearTimeout(t)
+  }, [state.shots])
+
+  // Turn-change pulse
+  useEffect(() => {
+    if (state.phase !== 'battle') return
+    if (prevTurn.current === state.turnPlayerId) return
+    prevTurn.current = state.turnPlayerId
+    setMsgPulse(true)
+    const t = window.setTimeout(() => setMsgPulse(false), 550)
+    return () => window.clearTimeout(t)
+  }, [state.turnPlayerId, state.phase])
 
   const onCellClick = (x: number, y: number) => {
     if (placing) {
@@ -153,12 +201,9 @@ export function BattleFleetBoard({
   }
 
   const placedKinds = new Set(
-    (() => {
-      if (mode === 'teams') {
-        return myFleet?.ships.map((s) => s.kind) ?? []
-      }
-      return me?.fleet?.ships.map((s) => s.kind) ?? []
-    })(),
+    mode === 'teams'
+      ? (myFleet?.ships.map((s) => s.kind) ?? [])
+      : (me?.fleet?.ships.map((s) => s.kind) ?? []),
   )
 
   const teamStatus =
@@ -185,11 +230,21 @@ export function BattleFleetBoard({
         ? 'mode-ffa-2'
         : 'mode-ffa'
 
+  const rootClass = [
+    'bf-root',
+    myTurn ? 'is-my-turn' : '',
+    state.phase === 'gameEnd' ? 'is-victory' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <div className="bf-root" data-my-id={myIdAttr || undefined}>
+    <div className={rootClass} data-my-id={myIdAttr || undefined}>
       <div className="bf-header">
         <h2>Battle Fleet</h2>
-        <div className="bf-msg">{error ? error : view.public.lastMessage}</div>
+        <div className={`bf-msg${msgPulse ? ' bf-msg-pulse' : ''}`}>
+          {error ? error : view.public.lastMessage}
+        </div>
       </div>
       <div className="bf-layout">
         <div className="bf-board-wrap">
@@ -226,17 +281,30 @@ export function BattleFleetBoard({
                   state.players,
                 )
                 const isOwn = ownSet.has(k)
+                const seg = ownSegs.get(k)
+                const ghost = !isOwn ? previewSegs.get(k) : undefined
+                const showHull = Boolean(seg && (!mark || mark === 'hit' || ownHitSet.has(k)))
+                // Own living hull under hit mark still shows damaged ship; sunk uses wreck/public sunk
+                const hullOn =
+                  (showHull && mark !== 'sunk') ||
+                  (seg && mark === 'sunk') ||
+                  Boolean(ghost)
+
                 const cls = [
                   'bf-cell',
                   'terr',
                   terrClass,
                   !seaActive ? 'inactive' : '',
                   isOwn && !mark ? `own ${myIdentity}` : '',
-                  ownHitSet.has(k) && !mark ? 'hit' : '',
+                  isOwn && mark === 'hit' ? `own ${myIdentity}` : '',
+                  isOwn && ownHitSet.has(k) && !mark ? 'hit' : '',
                   mark === 'miss' ? 'miss' : '',
                   mark === 'hit' ? 'hit' : '',
                   mark === 'sunk' ? `sunk ${sunkOwner.get(k) || ''}` : '',
-                  preview.has(k) ? 'ship-preview' : '',
+                  hullOn && seg ? shipSegClass(seg, false) : '',
+                  hullOn && seg && isOwn ? `own ${myIdentity}` : '',
+                  ghost ? shipSegClass(ghost, true) : '',
+                  fx && fx.key === k ? `bf-fx-${fx.kind}` : '',
                   (placing && !fleetConfirmed && inTerr) ||
                   (myTurn && seaActive && !inTerr && !isOwn)
                     ? 'targetable'
@@ -273,6 +341,11 @@ export function BattleFleetBoard({
             <div className="bf-status-row">
               <span className="bf-pill">{state.phase}</span>
               <span className="bf-pill">{mode === 'teams' ? 'Teams' : 'FFA'}</span>
+              {state.phase === 'battle' && (
+                <span className={`bf-pill${myTurn ? ' bf-pill-turn' : ''}`}>
+                  {myTurn ? 'Your turn' : turnName || 'Waiting'}
+                </span>
+              )}
             </div>
             {mode === 'teams' && me?.teamId && (
               <div className="bf-team-line">
@@ -283,7 +356,9 @@ export function BattleFleetBoard({
             )}
             {state.phase === 'battle' && (
               <div className="bf-team-line">
-                {myTurn ? 'Your turn — click enemy waters.' : `Waiting${turnName ? ` · ${turnName}` : '…'}`}
+                {myTurn
+                  ? 'Select enemy waters to fire.'
+                  : `Standing by${turnName ? ` — ${turnName}` : '…'}`}
               </div>
             )}
             {placing && fleetConfirmed && (
@@ -365,10 +440,12 @@ export function BattleFleetBoard({
                 <div className="bf-victory">
                   <strong>
                     {state.winnerTeamId
-                      ? `Team ${state.winnerTeamId} wins`
-                      : `${state.players.find((p) => p.id === state.winnerId)?.name ?? 'Winner'} wins`}
+                      ? `Team ${state.winnerTeamId} victorious`
+                      : `${state.players.find((p) => p.id === state.winnerId)?.name ?? 'Winner'} victorious`}
                   </strong>
-                  <div className="bf-hint">Duration {formatDuration(state.startedAt)}</div>
+                  <div className="bf-victory-sub">
+                    Engagement complete · {formatDuration(state.startedAt)}
+                  </div>
                 </div>
                 <table className="bf-stats">
                   <thead>
@@ -411,7 +488,11 @@ export function BattleFleetBoard({
                 <ul className="bf-scores">
                   {state.players.map((p) => (
                     <li key={`d-${p.id}`}>
-                      {p.name}: {p.hits}H / {p.misses}M · {p.attacks} attacks
+                      {p.name}
+                      <span className="bf-score-num">
+                        {p.hits}H / {p.misses}M
+                      </span>
+                      <span className="bf-hint">{p.attacks} attacks</span>
                     </li>
                   ))}
                 </ul>
@@ -447,12 +528,13 @@ export function BattleFleetBoard({
                       <span className={`bf-chip ${idClass}`} />
                       <strong>{p.name}</strong>
                       {p.teamId ? ` [${p.teamId}]` : ''}
+                      <span className="bf-score-num">{p.score}</span>
                       <span>
-                        {p.score} pts · {p.shipsSunk} sunk · {p.shipsLeft} left
+                        {p.shipsSunk} sunk · {p.shipsLeft} left
                       </span>
                       {full ? (
                         <span className="bf-hint">
-                          {full.hits}H/{full.misses}M
+                          {hitPct(full.hits, full.attacks)} · {full.hits}H/{full.misses}M
                         </span>
                       ) : null}
                       {p.eliminated ? ' (out)' : ''}
