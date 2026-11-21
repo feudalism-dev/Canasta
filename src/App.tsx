@@ -1207,33 +1207,6 @@ function AppInner() {
     !rowshamboPeer?.state &&
     !battlefleetLocal
   ) {
-    if (family === 'battlefleet') {
-      return wrap(
-        <div style={{ padding: '1rem' }}>
-          <h2>Battle Fleet</h2>
-          <BattleFleetSetup
-            playerCount={battlefleetPlayerCount}
-            onPlayerCount={setBattlefleetPlayerCount}
-            mode={battlefleetMode}
-            onMode={(m) => {
-              setBattlefleetMode(m)
-              if (m === 'teams') setBattlefleetPlayerCount(4)
-            }}
-            difficulty={battlefleetDifficulty}
-            onDifficulty={setBattlefleetDifficulty}
-            busy={busy}
-            onStartSolo={() => void startLocal()}
-          />
-          <button
-            type="button"
-            style={{ marginTop: '0.75rem' }}
-            onClick={() => setFamily('canasta')}
-          >
-            Back to game picker
-          </button>
-        </div>,
-      )
-    }
     return wrap(
       <SlTableScreens
         boot={slBoot}
@@ -1353,6 +1326,15 @@ function AppInner() {
           setRowshamboPlayTo(n)
           rowshamboPeer?.setPlayTo(n)
         }}
+        battlefleetMode={battlefleetMode}
+        onBattlefleetMode={(m) => {
+          setBattlefleetMode(m)
+          if (m === 'teams') setBattlefleetPlayerCount(4)
+        }}
+        battlefleetPlayerCount={battlefleetPlayerCount}
+        onBattlefleetPlayerCount={setBattlefleetPlayerCount}
+        battlefleetDifficulty={battlefleetDifficulty}
+        onBattlefleetDifficulty={setBattlefleetDifficulty}
         onCreatedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()

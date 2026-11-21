@@ -23,14 +23,15 @@ export function BattleFleetSetup({
   disabled,
   busy,
 }: Props) {
-  const off = Boolean(disabled || busy)
+  const lockFields = Boolean(disabled)
+  const lockStart = Boolean(disabled || busy)
   return (
     <div className="bf-setup" style={{ display: 'grid', gap: '0.6rem', maxWidth: 360 }}>
       <label>
         Mode{' '}
         <select
           value={mode}
-          disabled={off}
+          disabled={lockFields}
           onChange={(e) => onMode(e.target.value as BattleFleetMode)}
         >
           <option value="ffa">Free-for-all</option>
@@ -42,7 +43,7 @@ export function BattleFleetSetup({
           Players (you + bots){' '}
           <select
             value={playerCount}
-            disabled={off}
+            disabled={lockFields}
             onChange={(e) => onPlayerCount(Number(e.target.value))}
           >
             <option value={2}>2</option>
@@ -55,7 +56,7 @@ export function BattleFleetSetup({
         Bot difficulty{' '}
         <select
           value={difficulty}
-          disabled={off}
+          disabled={lockFields}
           onChange={(e) => onDifficulty(e.target.value as BattleFleetDifficulty)}
         >
           <option value="easy">Easy</option>
@@ -63,11 +64,12 @@ export function BattleFleetSetup({
           <option value="hard">Hard</option>
         </select>
       </label>
-      <button type="button" disabled={off} onClick={onStartSolo}>
+      <button type="button" disabled={lockStart} onClick={onStartSolo}>
         Start solo vs bots
       </button>
       <p style={{ fontSize: '0.8rem', opacity: 0.75, margin: 0 }}>
-        Place five ships, then battle. Table MoAP shows public hits only.
+        Place five ships, then battle. Use <strong>All games</strong> above to return to the
+        picker. If controls stay locked, tap <strong>Free table</strong> first.
       </p>
     </div>
   )

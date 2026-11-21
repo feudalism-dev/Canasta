@@ -16,6 +16,8 @@ import type { PhaseItVariant } from '../core/phaseit/types'
 import type { YotsyVariant } from '../core/yotsy/types'
 import type { RowShamBoVariant } from '../core/rowshambo/types'
 import { rowShamBoTip, rowShamBoVariantOptions } from '../core/rowshambo/variants'
+import type { BattleFleetDifficulty, BattleFleetMode } from '../core/battlefleet/types'
+import { BattleFleetSetup } from './BattleFleetSetup'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
 import { BetaVariantNotice } from './BetaVariantNotice'
@@ -96,6 +98,12 @@ type Props = {
   onRowshamboPlayerCount: (n: number) => void
   rowshamboPlayTo: number
   onRowshamboPlayTo: (n: number) => void
+  battlefleetMode: BattleFleetMode
+  onBattlefleetMode: (m: BattleFleetMode) => void
+  battlefleetPlayerCount: number
+  onBattlefleetPlayerCount: (n: number) => void
+  battlefleetDifficulty: BattleFleetDifficulty
+  onBattlefleetDifficulty: (d: BattleFleetDifficulty) => void
   onFamily: (family: GameFamily) => void
   partnership: boolean
   onPartnership: (v: boolean) => void
@@ -162,6 +170,12 @@ export function SlTableScreens({
   onRowshamboPlayerCount,
   rowshamboPlayTo,
   onRowshamboPlayTo,
+  battlefleetMode,
+  onBattlefleetMode,
+  battlefleetPlayerCount,
+  onBattlefleetPlayerCount,
+  battlefleetDifficulty,
+  onBattlefleetDifficulty,
   onFamily,
   partnership,
   onPartnership,
@@ -232,6 +246,7 @@ export function SlTableScreens({
   const isPhaseitTable = family === 'phaseit'
   const isYotsyTable = family === 'yotsy'
   const isRowshamboTable = family === 'rowshambo'
+  const isBattlefleetTable = family === 'battlefleet'
   const isCanastaTable = family === 'canasta'
 
   const enterTable = async (name: string) => {
@@ -274,7 +289,9 @@ export function SlTableScreens({
           enterLock.current = false
         }
       } finally {
-        if (!cancelled) setBusy(false)
+        // Always clear — unmount during family switch used to leave busy stuck,
+        // which disabled the next family's setup controls.
+        setBusy(false)
       }
     })()
     return () => {
@@ -499,6 +516,8 @@ export function SlTableScreens({
           <p className="muted">This table is locked to the Yotsy family (creator SKU).</p>
         ) : isRowshamboTable ? (
           <p className="muted">This table is locked to the Row! Sham! Bo! family (creator SKU).</p>
+        ) : isBattlefleetTable ? (
+          <p className="muted">Battle Fleet — naval strategy. Use All games when idle to switch.</p>
         ) : null}
         <label>
           Name
@@ -523,6 +542,18 @@ export function SlTableScreens({
             disabled={!canEditRules}
             onChange={onRowshamboVariant}
             onPlayTo={onRowshamboPlayTo}
+          />
+        ) : isBattlefleetTable ? (
+          <BattleFleetSetup
+            playerCount={battlefleetPlayerCount}
+            onPlayerCount={onBattlefleetPlayerCount}
+            mode={battlefleetMode}
+            onMode={onBattlefleetMode}
+            difficulty={battlefleetDifficulty}
+            onDifficulty={onBattlefleetDifficulty}
+            disabled={!canEditRules || seatedBrowser}
+            busy={busy}
+            onStartSolo={() => void onStartSolo()}
           />
         ) : (
           <label>
@@ -863,6 +894,8 @@ export function SlTableScreens({
                       isYotsyTable ||
                       isRowshamboTable
                     ? 'Solo fills empty seats with bots. Multiplayer: Create with 2+ humans, pick seat count, Start fills the rest with bots.'
+                    : isBattlefleetTable
+                      ? 'Solo fills empty seats with bots. Use All games when idle to switch families.'
                     : isRummyTable
                       ? 'Solo and multiplayer use your player count — empty chairs are computers.'
                       : 'Multiplayer is always four hands. Seating picks teams — empty chairs are computers.'}
