@@ -57,6 +57,14 @@ describe('family lock', () => {
     expect(normalizeFamily('row_sham_bo')).toBe('rowshambo')
   })
 
+  it('recognizes battlefleet family', () => {
+    expect(normalizeFamily('battlefleet')).toBe('battlefleet')
+    expect(resolveTableFamily('battlefleet')).toBe('battlefleet')
+    expect(familyHintPresent('battlefleet')).toBe(true)
+    expect(normalizeFamily('battle-fleet')).toBe('battlefleet')
+    expect(normalizeFamily('bf')).toBe('battlefleet')
+  })
+
   it('detects whether a real family hint exists', () => {
     expect(familyHintPresent(undefined, '')).toBe(false)
     expect(familyHintPresent('rummy')).toBe(true)

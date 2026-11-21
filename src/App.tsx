@@ -15,6 +15,8 @@ import { SkippoBoard } from './ui/SkippoBoard'
 import { PhaseItBoard } from './ui/PhaseItBoard'
 import { YotsyBoard } from './ui/YotsyBoard'
 import { RowShamBoBoard } from './ui/RowShamBoBoard'
+import { BattleFleetBoard } from './ui/BattleFleetBoard'
+import { BattleFleetSetup } from './ui/BattleFleetSetup'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { ParkedHud } from './ui/ParkedHud'
 import { Scoreboard } from './ui/Scoreboard'
@@ -27,6 +29,7 @@ import type { SkippoVariant } from './core/skippo/types'
 import type { PhaseItVariant } from './core/phaseit/types'
 import type { YotsyVariant } from './core/yotsy/types'
 import type { RowShamBoVariant } from './core/rowshambo/types'
+import type { BattleFleetDifficulty, BattleFleetMode } from './core/battlefleet/types'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
 import { resumeSolo, startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
@@ -78,6 +81,7 @@ import { startSkippoSolo, type SkippoLocalSession } from './ui/skippoLocalSessio
 import { startPhaseItSolo, type PhaseItLocalSession } from './ui/phaseitLocalSession'
 import { startYotsySolo, type YotsyLocalSession } from './ui/yotsyLocalSession'
 import { startRowShamBoSolo, type RowShamBoLocalSession } from './ui/rowshamboLocalSession'
+import { startBattleFleetSolo, type BattleFleetLocalSession } from './ui/battlefleetLocalSession'
 import {
   clearMatchResume,
   loadMatchResume,
@@ -94,6 +98,10 @@ import { syncSkippoDisplay, resetSkippoDisplaySync } from './sl/skippoDisplaySyn
 import { syncPhaseItDisplay, resetPhaseItDisplaySync } from './sl/phaseitDisplaySync'
 import { syncYotsyDisplay, resetYotsyDisplaySync } from './sl/yotsyDisplaySync'
 import { syncRowShamBoDisplay, resetRowShamBoDisplaySync } from './sl/rowshamboDisplaySync'
+import {
+  syncBattleFleetDisplay,
+  resetBattleFleetDisplaySync,
+} from './sl/battlefleetDisplaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 import { playYourTurnBell } from './ui/sfx'
 
@@ -126,6 +134,7 @@ function AppInner() {
   const urlPlayPhaseIt = urlPlay === 'phaseit'
   const urlPlayYotsy = urlPlay === 'yotsy'
   const urlPlayRowshambo = urlPlay === 'rowshambo'
+  const urlPlayBattleFleet = urlPlay === 'battlefleet'
   const [screen, setScreen] = useState<Screen>(
     tableHud || seatedBrowser
       ? 'sl'
@@ -135,7 +144,8 @@ function AppInner() {
           urlPlaySkippo ||
           urlPlayPhaseIt ||
           urlPlayYotsy ||
-          urlPlayRowshambo
+          urlPlayRowshambo ||
+          urlPlayBattleFleet
         ? 'game'
         : 'menu',
   )
@@ -187,6 +197,13 @@ function AppInner() {
   const [rowshamboPlay, setRowshamboPlay] = useState(urlPlayRowshambo)
   const [rowshamboLocal, setRowshamboLocal] = useState<RowShamBoLocalSession | null>(null)
   const [rowshamboPeer, setRowshamboPeer] = useState<RowShamBoPeerSession | null>(null)
+  const [battlefleetMode, setBattlefleetMode] = useState<BattleFleetMode>('ffa')
+  const [battlefleetPlayerCount, setBattlefleetPlayerCount] = useState(2)
+  const [battlefleetDifficulty, setBattlefleetDifficulty] =
+    useState<BattleFleetDifficulty>('normal')
+  const [battlefleetPlay, setBattlefleetPlay] = useState(urlPlayBattleFleet)
+  const [battlefleetLocal, setBattlefleetLocal] = useState<BattleFleetLocalSession | null>(null)
+  const [battlefleetError, setBattlefleetError] = useState<string | null>(null)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
@@ -306,8 +323,17 @@ function AppInner() {
     const yotsyUi = family === 'yotsy' || yotsyPlay || Boolean(yotsyLocal) || Boolean(yotsyPeer)
     const rowshamboUi =
       family === 'rowshambo' || rowshamboPlay || Boolean(rowshamboLocal) || Boolean(rowshamboPeer)
+    const battlefleetUi =
+      family === 'battlefleet' || battlefleetPlay || Boolean(battlefleetLocal)
     const hideCanastaChrome =
-      rummyUi || trickUi || ichiUi || skippoUi || phaseitUi || yotsyUi || rowshamboUi
+      rummyUi ||
+      trickUi ||
+      ichiUi ||
+      skippoUi ||
+      phaseitUi ||
+      yotsyUi ||
+      rowshamboUi ||
+      battlefleetUi
     return (
       <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
         <AppChrome
@@ -516,6 +542,11 @@ function AppInner() {
   }, [rowshamboLocal])
 
   useEffect(() => {
+    if (!battlefleetLocal) return
+    return battlefleetLocal.onChange(() => setTick((t) => t + 1))
+  }, [battlefleetLocal])
+
+  useEffect(() => {
     if (!rowshamboPeer) return
     return rowshamboPeer.onChange(() => setTick((t) => t + 1))
   }, [rowshamboPeer])
@@ -614,6 +645,12 @@ function AppInner() {
     syncRowShamBoDisplay(rowshamboState, slBoot.slCap, slBoot.uid, slBoot.seat)
   }, [tick, rowshamboLocal, rowshamboPeer, slBoot, tableHud])
 
+  useEffect(() => {
+    const bfState = battlefleetLocal?.state
+    if (!bfState || !tableHud || !slBoot?.slCap) return
+    syncBattleFleetDisplay(bfState, slBoot.slCap, slBoot.uid, slBoot.seat)
+  }, [tick, battlefleetLocal, slBoot, tableHud])
+
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
     if (local) {
@@ -654,6 +691,60 @@ function AppInner() {
     yotsyPeer?.destroy()
     rowshamboLocal?.destroy()
     rowshamboPeer?.destroy()
+    battlefleetLocal?.destroy()
+    if (family === 'battlefleet') {
+      const n = battlefleetMode === 'teams' ? 4 : battlefleetPlayerCount
+      if (tableHud && slBoot?.slCap) {
+        try {
+          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, n)
+        } catch (e) {
+          push(e instanceof Error ? e.message : 'Could not claim table')
+        }
+      }
+      const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
+      const ctrl = startBattleFleetSolo(
+        name,
+        n,
+        battlefleetMode,
+        battlefleetDifficulty,
+        humanSeat,
+      )
+      resetBattleFleetDisplaySync()
+      setLocal(null)
+      setPeer(null)
+      setRummyPeer(null)
+      setRummyLocal(null)
+      setTrickPeer(null)
+      setTrickLocal(null)
+      setIchiPeer(null)
+      setIchiLocal(null)
+      setSkippoPeer(null)
+      setSkippoLocal(null)
+      setPhaseitPeer(null)
+      setPhaseitLocal(null)
+      setYotsyPeer(null)
+      setYotsyLocal(null)
+      setRowshamboPeer(null)
+      setRowshamboLocal(null)
+      setBattlefleetLocal(ctrl)
+      setBattlefleetError(null)
+      setRummyPlay(false)
+      setTrickPlay(false)
+      setIchiPlay(false)
+      setSkippoPlay(false)
+      setPhaseitPlay(false)
+      setYotsyPlay(false)
+      setRowshamboPlay(false)
+      setBattlefleetPlay(false)
+      slMatchKind.current = tableHud ? 'solo' : 'none'
+      setScreen('game')
+      push(
+        battlefleetMode === 'teams'
+          ? `Battle Fleet teams — you + 3 bots (${battlefleetDifficulty}).`
+          : `Battle Fleet solo — ${n} players (you + ${n - 1} bot${n > 2 ? 's' : ''}) · ${battlefleetDifficulty}.`,
+      )
+      return
+    }
     if (family === 'rowshambo') {
       if (tableHud && slBoot?.slCap) {
         try {
@@ -687,6 +778,7 @@ function AppInner() {
       setYotsyLocal(null)
       setRowshamboPeer(null)
       setRowshamboLocal(ctrl)
+      setBattlefleetLocal(null)
       setRummyPlay(false)
       setTrickPlay(false)
       setIchiPlay(false)
@@ -694,6 +786,7 @@ function AppInner() {
       setPhaseitPlay(false)
       setYotsyPlay(false)
       setRowshamboPlay(false)
+      setBattlefleetPlay(false)
       slMatchKind.current = tableHud ? 'solo' : 'none'
       setScreen('game')
       push(
@@ -984,6 +1077,7 @@ function AppInner() {
     yotsyPeer?.destroy()
     rowshamboLocal?.destroy()
     rowshamboPeer?.destroy()
+    battlefleetLocal?.destroy()
     setPeer(null)
     setLocal(null)
     setRummyPeer(null)
@@ -1000,6 +1094,8 @@ function AppInner() {
     setYotsyPeer(null)
     setRowshamboLocal(null)
     setRowshamboPeer(null)
+    setBattlefleetLocal(null)
+    setBattlefleetPlay(false)
     setRummyPlay(false)
     setTrickPlay(false)
     setIchiPlay(false)
@@ -1108,8 +1204,36 @@ function AppInner() {
     !yotsyLocal &&
     !yotsyPeer?.state &&
     !rowshamboLocal &&
-    !rowshamboPeer?.state
+    !rowshamboPeer?.state &&
+    !battlefleetLocal
   ) {
+    if (family === 'battlefleet') {
+      return wrap(
+        <div style={{ padding: '1rem' }}>
+          <h2>Battle Fleet</h2>
+          <BattleFleetSetup
+            playerCount={battlefleetPlayerCount}
+            onPlayerCount={setBattlefleetPlayerCount}
+            mode={battlefleetMode}
+            onMode={(m) => {
+              setBattlefleetMode(m)
+              if (m === 'teams') setBattlefleetPlayerCount(4)
+            }}
+            difficulty={battlefleetDifficulty}
+            onDifficulty={setBattlefleetDifficulty}
+            busy={busy}
+            onStartSolo={() => void startLocal()}
+          />
+          <button
+            type="button"
+            style={{ marginTop: '0.75rem' }}
+            onClick={() => setFamily('canasta')}
+          >
+            Back to game picker
+          </button>
+        </div>,
+      )
+    }
     return wrap(
       <SlTableScreens
         boot={slBoot}
@@ -1841,6 +1965,50 @@ function AppInner() {
           setCoachTips(on)
         }}
       />,
+    )
+  }
+
+  if (battlefleetLocal || (battlefleetPlay && screen === 'game')) {
+    if (battlefleetLocal) {
+      const localId = battlefleetLocal.state.players[battlefleetLocal.localIndex]?.id ?? 'p0'
+      return wrap(
+        <BattleFleetBoard
+          state={battlefleetLocal.state}
+          localPlayerId={localId}
+          error={battlefleetError}
+          onNewMatch={() => {
+            battlefleetLocal.newMatch()
+            setBattlefleetError(null)
+            setTick((t) => t + 1)
+          }}
+          onMove={(move) => {
+            const res = battlefleetLocal.submit(move)
+            if (!res.ok) setBattlefleetError(res.error)
+            else setBattlefleetError(null)
+            setTick((t) => t + 1)
+          }}
+        />,
+      )
+    }
+    return wrap(
+      <div style={{ padding: '1rem' }}>
+        <h2>Battle Fleet</h2>
+        <BattleFleetSetup
+          playerCount={battlefleetPlayerCount}
+          onPlayerCount={setBattlefleetPlayerCount}
+          mode={battlefleetMode}
+          onMode={(m) => {
+            setBattlefleetMode(m)
+            if (m === 'teams') setBattlefleetPlayerCount(4)
+          }}
+          difficulty={battlefleetDifficulty}
+          onDifficulty={setBattlefleetDifficulty}
+          onStartSolo={() => {
+            setFamily('battlefleet')
+            void startLocal()
+          }}
+        />
+      </div>,
     )
   }
 

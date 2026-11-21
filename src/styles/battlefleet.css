@@ -1,0 +1,160 @@
+.bf-root {
+  --bf-sea: #0b3d5c;
+  --bf-sea-2: #0e4f73;
+  --bf-grid: rgba(255, 255, 255, 0.12);
+  --bf-miss: #8ecae6;
+  --bf-hit: #e63946;
+  --bf-sunk: #ffb703;
+  --bf-ship: #adb5bd;
+  --bf-own: #90be6d;
+  --bf-ink: #e8f1f8;
+  --bf-panel: #102a3c;
+  color: var(--bf-ink);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.bf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.bf-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+}
+
+.bf-msg {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  min-height: 1.2em;
+}
+
+.bf-layout {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 0.75rem;
+  min-height: 0;
+  flex: 1;
+}
+
+.bf-board-wrap {
+  background: linear-gradient(160deg, var(--bf-sea), var(--bf-sea-2));
+  border-radius: 6px;
+  padding: 0.4rem;
+  overflow: auto;
+  min-height: 0;
+}
+
+.bf-grid {
+  display: grid;
+  gap: 1px;
+  width: max-content;
+  margin: 0 auto;
+}
+
+.bf-cell {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--bf-grid);
+  background: rgba(0, 40, 70, 0.35);
+  padding: 0;
+  cursor: default;
+}
+
+.bf-cell.targetable {
+  cursor: pointer;
+}
+
+.bf-cell.targetable:hover {
+  outline: 1px solid #fff;
+}
+
+.bf-cell.inactive {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.bf-cell.own {
+  background: var(--bf-own);
+}
+
+.bf-cell.miss {
+  background: var(--bf-miss);
+}
+
+.bf-cell.hit {
+  background: var(--bf-hit);
+}
+
+.bf-cell.sunk {
+  background: var(--bf-sunk);
+}
+
+.bf-cell.ship-preview {
+  background: var(--bf-ship);
+}
+
+.bf-side {
+  background: var(--bf-panel);
+  border-radius: 6px;
+  padding: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  overflow: auto;
+}
+
+.bf-side button {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #1a4560;
+  color: var(--bf-ink);
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.bf-side button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bf-side button.active {
+  background: #2a6f96;
+  border-color: #8ecae6;
+}
+
+.bf-ships {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.bf-scores li {
+  list-style: none;
+  margin: 0.15rem 0;
+}
+
+.bf-scores ul {
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 700px) {
+  .bf-layout {
+    grid-template-columns: 1fr;
+  }
+  .bf-cell {
+    width: 12px;
+    height: 12px;
+  }
+}

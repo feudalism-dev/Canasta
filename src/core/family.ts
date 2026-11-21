@@ -9,6 +9,7 @@ export type GameFamily =
   | 'phaseit'
   | 'yotsy'
   | 'rowshambo'
+  | 'battlefleet'
 
 /** All hub-selectable families (picker order). */
 export const GAME_FAMILIES: GameFamily[] = [
@@ -20,22 +21,38 @@ export const GAME_FAMILIES: GameFamily[] = [
   'phaseit',
   'yotsy',
   'rowshambo',
+  'battlefleet',
 ]
+
+const FAMILY_ALIASES: Record<string, GameFamily> = {
+  rummy: 'rummy',
+  trick: 'trick',
+  ichi: 'ichi',
+  skippo: 'skippo',
+  phaseit: 'phaseit',
+  phase_it: 'phaseit',
+  'phase-it': 'phaseit',
+  yotsy: 'yotsy',
+  yahtzee: 'yotsy',
+  rowshambo: 'rowshambo',
+  rsb: 'rowshambo',
+  'row-sham-bo': 'rowshambo',
+  row_sham_bo: 'rowshambo',
+  battlefleet: 'battlefleet',
+  'battle-fleet': 'battlefleet',
+  battle_fleet: 'battlefleet',
+  bf: 'battlefleet',
+}
+
+function lookupFamily(s: string): GameFamily | null {
+  return FAMILY_ALIASES[s] ?? (s === 'canasta' ? 'canasta' : null)
+}
 
 export function normalizeFamily(raw: unknown): GameFamily {
   const s = String(raw || '')
     .trim()
     .toLowerCase()
-  if (s === 'rummy') return 'rummy'
-  if (s === 'trick') return 'trick'
-  if (s === 'ichi') return 'ichi'
-  if (s === 'skippo') return 'skippo'
-  if (s === 'phaseit' || s === 'phase_it' || s === 'phase-it') return 'phaseit'
-  if (s === 'yotsy' || s === 'yahtzee') return 'yotsy'
-  if (s === 'rowshambo' || s === 'rsb' || s === 'row-sham-bo' || s === 'row_sham_bo') {
-    return 'rowshambo'
-  }
-  return 'canasta'
+  return lookupFamily(s) ?? 'canasta'
 }
 
 /** Prefer an explicit family hint from status or MoAP. Otherwise canasta. */
@@ -44,15 +61,8 @@ export function resolveTableFamily(...hints: unknown[]): GameFamily {
     const s = String(h || '')
       .trim()
       .toLowerCase()
-    if (s === 'rummy') return 'rummy'
-    if (s === 'trick') return 'trick'
-    if (s === 'ichi') return 'ichi'
-    if (s === 'skippo') return 'skippo'
-    if (s === 'phaseit' || s === 'phase_it' || s === 'phase-it') return 'phaseit'
-    if (s === 'yotsy' || s === 'yahtzee') return 'yotsy'
-    if (s === 'rowshambo' || s === 'rsb' || s === 'row-sham-bo' || s === 'row_sham_bo') {
-      return 'rowshambo'
-    }
+    const f = lookupFamily(s)
+    if (f) return f
   }
   return 'canasta'
 }
@@ -62,24 +72,7 @@ export function familyHintPresent(...hints: unknown[]): boolean {
     const s = String(h || '')
       .trim()
       .toLowerCase()
-    if (
-      s === 'rummy' ||
-      s === 'canasta' ||
-      s === 'trick' ||
-      s === 'ichi' ||
-      s === 'skippo' ||
-      s === 'phaseit' ||
-      s === 'phase_it' ||
-      s === 'phase-it' ||
-      s === 'yotsy' ||
-      s === 'yahtzee' ||
-      s === 'rowshambo' ||
-      s === 'rsb' ||
-      s === 'row-sham-bo' ||
-      s === 'row_sham_bo'
-    ) {
-      return true
-    }
+    if (lookupFamily(s) || s === 'canasta') return true
   }
   return false
 }
@@ -92,6 +85,7 @@ export function familyLabel(family: GameFamily): string {
   if (family === 'phaseit') return 'Phase It'
   if (family === 'yotsy') return 'Yotsy'
   if (family === 'rowshambo') return 'Row! Sham! Bo!'
+  if (family === 'battlefleet') return 'Battle Fleet'
   return 'Canasta'
 }
 
@@ -105,18 +99,9 @@ export function parseEntitlements(raw: unknown): Set<GameFamily> {
   for (const part of s.split(/[,\s]+/)) {
     const t = part.trim()
     if (!t) continue
-    if (
-      t === 'canasta' ||
-      t === 'rummy' ||
-      t === 'trick' ||
-      t === 'ichi' ||
-      t === 'skippo' ||
-      t === 'phaseit' ||
-      t === 'yotsy' ||
-      t === 'rowshambo'
-    ) {
-      out.add(t)
-    }
+    const f = lookupFamily(t)
+    if (f) out.add(f)
+    else if (t === 'canasta') out.add('canasta')
   }
   return out
 }
@@ -139,6 +124,8 @@ export function familyAdSrc(family: GameFamily): string {
       return `${base}assets/yotsy_ad.jpg`
     case 'rowshambo':
       return `${base}assets/rowshambo_ad.jpg`
+    case 'battlefleet':
+      return `${base}assets/canasta_ad.jpg`
     default:
       return `${base}assets/canasta_ad.jpg`
   }

@@ -70,6 +70,13 @@ import {
   isRowShamBoBoardPayload,
   type RowShamBoPublicBoard,
 } from '../core/rowshambo/publicBoard'
+import {
+  decodeBattleFleetPublicBoard,
+  idleBattleFleetPublicBoard,
+  isBattleFleetBoardPayload,
+  type BattleFleetPublicBoard,
+} from '../core/battlefleet/publicBoard'
+import { BattleFleetSpectator } from './BattleFleetSpectator'
 import { dieColor } from '../core/yotsy/dice'
 import { turnsNeeded } from '../core/yotsy/categories'
 import { colorLabel, kindLabel } from '../core/ichi/deck'
@@ -392,6 +399,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const [phaseitBoard, setPhaseitBoard] = useState<PhaseItPublicBoard>(idlePhaseItPublicBoard)
   const [yotsyBoard, setYotsyBoard] = useState<YotsyPublicBoard>(idleYotsyPublicBoard)
   const [rowshamboBoard, setRowshamboBoard] = useState<RowShamBoPublicBoard>(idleRowShamBoPublicBoard)
+  const [battlefleetBoard, setBattlefleetBoard] = useState<BattleFleetPublicBoard>(
+    idleBattleFleetPublicBoard,
+  )
   const [linkOk, setLinkOk] = useState(true)
   const [family, setFamily] = useState<GameFamily>(() => normalizeFamily(familyHint))
   const rootRef = useRef<HTMLDivElement>(null)
@@ -411,6 +421,22 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     const applyRaw = (raw: string | undefined) => {
       if (!raw || !raw.trim()) return false
       const text = raw.trim()
+      if (isBattleFleetBoardPayload(text)) {
+        const next = decodeBattleFleetPublicBoard(text)
+        setFamily('battlefleet')
+        setBattlefleetBoard(next)
+        if (next.live) {
+          setBoard(idlePublicBoard())
+          setRummyBoard(idleRummyPublicBoard())
+          setTrickBoard(idleTrickPublicBoard())
+          setIchiBoard(idleIchiPublicBoard())
+          setSkippoBoard(idleSkippoPublicBoard())
+          setPhaseitBoard(idlePhaseItPublicBoard())
+          setYotsyBoard(idleYotsyPublicBoard())
+          setRowshamboBoard(idleRowShamBoPublicBoard())
+        }
+        return true
+      }
       if (isRowShamBoBoardPayload(text)) {
         const next = decodeRowShamBoPublicBoard(text)
         setFamily('rowshambo')
@@ -423,6 +449,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setSkippoBoard(idleSkippoPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
           setYotsyBoard(idleYotsyPublicBoard())
+          setBattlefleetBoard(idleBattleFleetPublicBoard())
         }
         return true
       }
@@ -578,6 +605,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const isPhaseit = family === 'phaseit'
   const isYotsy = family === 'yotsy'
   const isRowshambo = family === 'rowshambo'
+  const isBattlefleet = family === 'battlefleet'
   const rummyLive = isRummy && rummyBoard.live
   const trickLive = isTrick && trickBoard.live
   const ichiLive = isIchi && ichiBoard.live
@@ -585,6 +613,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const phaseitLive = isPhaseit && phaseitBoard.live
   const yotsyLive = isYotsy && yotsyBoard.live
   const rowshamboLive = isRowshambo && rowshamboBoard.live
+  const battlefleetLive = isBattlefleet && battlefleetBoard.live
   const canastaLive =
     !isRummy &&
     !isTrick &&
@@ -593,9 +622,14 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     !isPhaseit &&
     !isYotsy &&
     !isRowshambo &&
+    !isBattlefleet &&
     board.live
   const config = spectatorConfig(board)
-  const variant = rowshamboLive
+  const variant = battlefleetLive
+    ? battlefleetBoard.mode === 'teams'
+      ? 'Teams'
+      : 'Free-for-all'
+    : rowshamboLive
     ? rowShamBoVariantLabel(rowshamboBoard.variant)
     : yotsyLive
     ? yotsyVariantLabel(yotsyBoard.variant)
@@ -610,7 +644,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         : isRummy
           ? rummyVariantLabel(rummyBoard.variant)
           : variantLabel(board.variant)
-  const roundLine = rowshamboLive
+  const roundLine = battlefleetLive
+    ? battlefleetBoard.phase
+    : rowshamboLive
     ? `G${rowshamboBoard.gameNumber} · R${rowshamboBoard.handNumber} · to ${rowshamboBoard.playTo}`
     : yotsyLive
     ? `T${yotsyBoard.round}`
@@ -657,6 +693,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     !phaseitLive &&
     !yotsyLive &&
     !rowshamboLive &&
+    !battlefleetLive &&
     board.frozen
   const sideways = Boolean(topCard && (isWild(topCard) || frozen))
   const live =
@@ -667,6 +704,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     phaseitLive ||
     yotsyLive ||
     rowshamboLive ||
+    battlefleetLive ||
     canastaLive
   const trickPalette = trickBoard.variant === 'rooster' ? 'rooster' : 'french'
   const ichiColorCss: Record<string, string> = {
@@ -677,8 +715,11 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   }
 
   return (
-    <div className={`spectator-root ${live ? 'is-live' : ''}${isRowshambo ? ' is-rsb' : ''}`} ref={rootRef}>
-      {!isRowshambo ? (
+    <div
+      className={`spectator-root ${live ? 'is-live' : ''}${isRowshambo ? ' is-rsb' : ''}${isBattlefleet ? ' is-bf' : ''}`}
+      ref={rootRef}
+    >
+      {!isRowshambo && !isBattlefleet ? (
         <>
           <div className="table-felt" />
           <div className="table-brass" />
@@ -866,6 +907,8 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         </>
       ) : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
+
+      {isBattlefleet ? <BattleFleetSpectator board={battlefleetBoard} /> : null}
 
       {isRowshambo ? <RowShamBoSpectator board={rowshamboBoard} /> : null}
 
