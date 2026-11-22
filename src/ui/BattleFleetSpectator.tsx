@@ -225,6 +225,10 @@ export function BattleFleetSpectator({ board }: Props) {
               <img className="bf-chrome-anchor" src={BF_CHROME.anchor} alt="" />
               Scoreboard
             </h3>
+            <p className="bf-score-legend">
+              Destroyed = enemy ships they sank · Afloat = ships still in their
+              fleet
+            </p>
             <ul className="bf-scores">
               {board.players.map((p) => {
                 const idClass = bfIdentityClass(board.mode, {
@@ -245,8 +249,8 @@ export function BattleFleetSpectator({ board }: Props) {
                     <strong>{p.name}</strong>
                     {p.teamId ? ` [${p.teamId}]` : ''}
                     <span className="bf-score-num">{p.score}</span>
-                    <span>
-                      {p.shipsSunk} sunk · {p.shipsLeft} left
+                    <span className="bf-score-line">
+                      Destroyed {p.shipsSunk} · Afloat {p.shipsLeft}
                     </span>
                     {p.eliminated ? ' (out)' : ''}
                   </li>

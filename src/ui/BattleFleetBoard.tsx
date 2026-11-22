@@ -38,6 +38,13 @@ type Props = {
 
 type CellFx = { key: string; kind: 'hit' | 'miss' | 'sunk'; x: number; y: number }
 
+type SunkBanner = {
+  key: string
+  title: string
+  detail: string
+  kind: ShipKind
+}
+
 function hitPct(hits: number, attacks: number): string {
   if (attacks <= 0) return '—'
   return `${Math.round((hits / attacks) * 100)}%`
@@ -61,6 +68,7 @@ export function BattleFleetBoard({
   const [orientation, setOrientation] = useState<Orientation>('H')
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null)
   const [fx, setFx] = useState<CellFx | null>(null)
+  const [sunkBanner, setSunkBanner] = useState<SunkBanner | null>(null)
   const [msgPulse, setMsgPulse] = useState(false)
   const prevShotCount = useRef(0)
   const prevTurn = useRef<string | null>(null)
@@ -197,9 +205,36 @@ export function BattleFleetBoard({
     const kind: CellFx['kind'] =
       shot.result === 'miss' ? 'miss' : shot.result === 'sunk' ? 'sunk' : 'hit'
     setFx({ key: cellKey(shot.x, shot.y), kind, x: shot.x, y: shot.y })
-    const t = window.setTimeout(() => setFx(null), 620)
-    return () => window.clearTimeout(t)
-  }, [state.shots])
+    const fxTimer = window.setTimeout(() => setFx(null), 620)
+
+    let bannerTimer: number | undefined
+    if (shot.result === 'sunk' && shot.sunkKind) {
+      const label = shipDef(shot.sunkKind).label
+      const mySide = sideIdForPlayer(state, localPlayerId)
+      if (shot.byPlayerId === localPlayerId) {
+        setSunkBanner({
+          key: `${n}-${shot.sunkKind}-you`,
+          title: `You sunk a ${label}`,
+          detail: 'Enemy vessel destroyed',
+          kind: shot.sunkKind,
+        })
+        bannerTimer = window.setTimeout(() => setSunkBanner(null), 2800)
+      } else if (mySide && shot.targetSideId === mySide) {
+        setSunkBanner({
+          key: `${n}-${shot.sunkKind}-lost`,
+          title: `Your ${label} was sunk`,
+          detail: 'Fleet reduced',
+          kind: shot.sunkKind,
+        })
+        bannerTimer = window.setTimeout(() => setSunkBanner(null), 2800)
+      }
+    }
+
+    return () => {
+      window.clearTimeout(fxTimer)
+      if (bannerTimer != null) window.clearTimeout(bannerTimer)
+    }
+  }, [state, localPlayerId])
 
   useEffect(() => {
     if (state.phase !== 'battle') return
@@ -273,6 +308,19 @@ export function BattleFleetBoard({
         ['--bf-mark-hit' as string]: `url(${BF_FX.smoke})`,
       }}
     >
+      {sunkBanner ? (
+        <div className="bf-sunk-banner" key={sunkBanner.key} role="status">
+          <img
+            className="bf-sunk-banner-ship"
+            src={BF_SHIP_SRC[sunkBanner.kind].sunk}
+            alt=""
+          />
+          <div className="bf-sunk-banner-text">
+            <strong>{sunkBanner.title}</strong>
+            <span>{sunkBanner.detail}</span>
+          </div>
+        </div>
+      ) : null}
       <div className="bf-header">
         <div className="bf-header-brand">
           <img className="bf-chrome-compass" src={BF_CHROME.compass} alt="" />
@@ -502,8 +550,8 @@ export function BattleFleetBoard({
                       <th>Player</th>
                       <th>Pts</th>
                       <th>Hit%</th>
-                      <th>Sunk</th>
-                      <th>Left</th>
+                      <th>Destroyed</th>
+                      <th>Afloat</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -549,6 +597,10 @@ export function BattleFleetBoard({
                 <img className="bf-chrome-anchor" src={BF_CHROME.anchor} alt="" />
                 Scoreboard
               </h3>
+              <p className="bf-score-legend">
+                Destroyed = enemy ships they sank · Afloat = ships still in their
+                fleet
+              </p>
               <ul className="bf-scores">
                 {view.public.players.map((p) => {
                   const full = state.players.find((x) => x.id === p.id)
@@ -556,22 +608,27 @@ export function BattleFleetBoard({
                     seat: p.seat,
                     teamId: p.teamId,
                   })
+                  const isMe = p.id === localPlayerId
                   return (
                     <li
                       key={p.id}
                       className={[
                         p.id === state.turnPlayerId ? 'is-turn' : '',
                         p.eliminated ? 'is-out' : '',
+                        isMe ? 'is-me' : '',
                       ]
                         .filter(Boolean)
                         .join(' ')}
                     >
                       <span className={`bf-chip ${idClass}`} />
-                      <strong>{p.name}</strong>
+                      <strong>
+                        {p.name}
+                        {isMe ? ' (you)' : ''}
+                      </strong>
                       {p.teamId ? ` [${p.teamId}]` : ''}
                       <span className="bf-score-num">{p.score}</span>
-                      <span>
-                        {p.shipsSunk} sunk · {p.shipsLeft} left
+                      <span className="bf-score-line">
+                        Destroyed {p.shipsSunk} · Afloat {p.shipsLeft}
                       </span>
                       {full ? (
                         <span className="bf-hint">
