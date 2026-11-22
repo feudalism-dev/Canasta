@@ -158,10 +158,17 @@ function AppInner() {
   const [variant, setVariant] = useState<Variant>('canasta')
   const [family, setFamily] = useState<GameFamily>(() => {
     try {
-      return resolveTableFamily(
-        new URL(window.location.href).searchParams.get('family'),
-        slBoot?.family,
-      )
+      const params = new URL(window.location.href).searchParams
+      const play = params.get('play')
+      if (play === 'battlefleet') return 'battlefleet'
+      if (play === 'rowshambo') return 'rowshambo'
+      if (play === 'yotsy') return 'yotsy'
+      if (play === 'phaseit') return 'phaseit'
+      if (play === 'skippo') return 'skippo'
+      if (play === 'ichi') return 'ichi'
+      if (play === 'rummy') return 'rummy'
+      if (play === 'hearts' || play === 'trick') return 'trick'
+      return resolveTableFamily(params.get('family'), slBoot?.family)
     } catch {
       return resolveTableFamily(slBoot?.family)
     }
@@ -702,7 +709,8 @@ function AppInner() {
     setTick((t) => t + 1)
   }
 
-  const startLocal = async () => {
+  const startLocal = async (familyOverride?: GameFamily) => {
+    const fam = familyOverride ?? family
     local?.destroy()
     peer?.destroy()
     rummyLocal?.destroy()
@@ -721,7 +729,7 @@ function AppInner() {
     rowshamboPeer?.destroy()
     battlefleetLocal?.destroy()
     battlefleetPeer?.destroy()
-    if (family === 'battlefleet') {
+    if (fam === 'battlefleet') {
       const n = battlefleetMode === 'teams' ? 4 : battlefleetPlayerCount
       if (tableHud && slBoot?.slCap) {
         try {
@@ -2130,7 +2138,8 @@ function AppInner() {
           onDifficulty={setBattlefleetDifficulty}
           onStartSolo={() => {
             setFamily('battlefleet')
-            void startLocal()
+            // Pass family explicitly — setState is async and startLocal reads `family`.
+            void startLocal('battlefleet')
           }}
         />
       </div>,

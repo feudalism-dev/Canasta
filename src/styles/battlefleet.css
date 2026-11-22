@@ -199,45 +199,46 @@
       rgba(255, 255, 255, 0.018) 14px
     ),
     linear-gradient(165deg, #0b4060 0%, #0a5278 45%, #083a58 100%);
-  border: 1px solid rgba(180, 160, 100, 0.45);
-  border-radius: 3px;
+  /* Frame via outer ring so chamfered corner brackets don't leave a gap over a border line */
+  border: none;
+  border-radius: 0;
   padding: 0.55rem 0.65rem 0.55rem;
   box-shadow:
     inset 0 0 48px rgba(0, 15, 30, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(180, 160, 100, 0.45),
     0 2px 8px rgba(0, 0, 0, 0.35);
-  overflow: hidden;
+  overflow: visible;
 }
 
+/* Single TL corner art; flips mirror it to the other three corners */
 .bf-corner-deco {
   position: absolute;
-  width: 2.1rem;
-  height: 2.1rem;
-  background: var(--bf-corner-url) no-repeat;
-  background-size: 200% 200%;
+  width: 2.5rem;
+  height: 2.5rem;
+  background: var(--bf-corner-url) 0 0 / 100% 100% no-repeat;
   pointer-events: none;
-  z-index: 5;
-  opacity: 0.9;
+  z-index: 6;
+  opacity: 0.96;
 }
 .bf-corner-deco.tl {
-  top: 2px;
-  left: 2px;
-  background-position: 0 0;
+  top: -2px;
+  left: -2px;
 }
 .bf-corner-deco.tr {
-  top: 2px;
-  right: 2px;
-  background-position: 100% 0;
+  top: -2px;
+  right: -2px;
+  transform: scaleX(-1);
 }
 .bf-corner-deco.bl {
-  bottom: 2px;
-  left: 2px;
-  background-position: 0 100%;
+  bottom: -2px;
+  left: -2px;
+  transform: scaleY(-1);
 }
 .bf-corner-deco.br {
-  bottom: 2px;
-  right: 2px;
-  background-position: 100% 100%;
+  bottom: -2px;
+  right: -2px;
+  transform: scale(-1);
 }
 
 .bf-board-frame {
