@@ -102,7 +102,10 @@ export function BattleFleetSpectator({ board }: Props) {
     .join(' ')
 
   return (
-    <div className={rootClass}>
+    <div
+      className={rootClass}
+      style={{ ['--bf-corner-url' as string]: `url(${BF_CHROME.corner})` }}
+    >
       <div className="bf-header">
         <div className="bf-header-brand">
           <img className="bf-chrome-compass" src={BF_CHROME.compass} alt="" />

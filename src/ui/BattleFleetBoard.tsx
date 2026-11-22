@@ -264,7 +264,11 @@ export function BattleFleetBoard({
     .join(' ')
 
   return (
-    <div className={rootClass} data-my-id={myIdAttr || undefined}>
+    <div
+      className={rootClass}
+      data-my-id={myIdAttr || undefined}
+      style={{ ['--bf-corner-url' as string]: `url(${BF_CHROME.corner})` }}
+    >
       <div className="bf-header">
         <div className="bf-header-brand">
           <img className="bf-chrome-compass" src={BF_CHROME.compass} alt="" />

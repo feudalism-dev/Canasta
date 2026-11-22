@@ -1,39 +1,45 @@
 import type { Cell, Orientation, ShipKind } from '../core/battlefleet/types'
 
+const BF_ASSET = `${import.meta.env.BASE_URL}assets/battlefleet`
+
+function shipSrc(name: string): string {
+  return `${BF_ASSET}/ships/${name}.png`
+}
+
 export const BF_SHIP_SRC: Record<ShipKind, { intact: string; sunk: string }> = {
   carrier: {
-    intact: '/assets/battlefleet/ships/carrier.png',
-    sunk: '/assets/battlefleet/ships/carrier-sunk.png',
+    intact: shipSrc('carrier'),
+    sunk: shipSrc('carrier-sunk'),
   },
   battleship: {
-    intact: '/assets/battlefleet/ships/battleship.png',
-    sunk: '/assets/battlefleet/ships/battleship-sunk.png',
+    intact: shipSrc('battleship'),
+    sunk: shipSrc('battleship-sunk'),
   },
   cruiser: {
-    intact: '/assets/battlefleet/ships/cruiser.png',
-    sunk: '/assets/battlefleet/ships/cruiser-sunk.png',
+    intact: shipSrc('cruiser'),
+    sunk: shipSrc('cruiser-sunk'),
   },
   submarine: {
-    intact: '/assets/battlefleet/ships/submarine.png',
-    sunk: '/assets/battlefleet/ships/submarine-sunk.png',
+    intact: shipSrc('submarine'),
+    sunk: shipSrc('submarine-sunk'),
   },
   destroyer: {
-    intact: '/assets/battlefleet/ships/destroyer.png',
-    sunk: '/assets/battlefleet/ships/destroyer-sunk.png',
+    intact: shipSrc('destroyer'),
+    sunk: shipSrc('destroyer-sunk'),
   },
 }
 
 export const BF_FX = {
-  explosion: '/assets/battlefleet/effects/explosion.png',
-  ripple: '/assets/battlefleet/effects/water-ripple.png',
+  explosion: `${BF_ASSET}/effects/explosion.png`,
+  ripple: `${BF_ASSET}/effects/water-ripple.png`,
 } as const
 
 export const BF_CHROME = {
-  compass: '/assets/battlefleet/chrome/compass.png',
-  radar: '/assets/battlefleet/chrome/radar.png',
-  anchor: '/assets/battlefleet/chrome/anchor.png',
-  corner: '/assets/battlefleet/chrome/metal-corner.png',
-  divider: '/assets/battlefleet/chrome/metal-divider.png',
+  compass: `${BF_ASSET}/chrome/compass.png`,
+  radar: `${BF_ASSET}/chrome/radar.png`,
+  anchor: `${BF_ASSET}/chrome/anchor.png`,
+  corner: `${BF_ASSET}/chrome/metal-corner.png`,
+  divider: `${BF_ASSET}/chrome/metal-divider.png`,
 } as const
 
 export type BfSpriteShip = {
