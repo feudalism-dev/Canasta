@@ -6,7 +6,8 @@ type Props = {
 
 /**
  * Absolute overlay of ship sprites aligned to the 20×20 grid footprint.
- * Art is bow-up; horizontal ships rotate −90° so bow faces the min-x cell.
+ * Art is bow-up; horizontal ships rotate −90° via an inner wrapper so
+ * overflow:hidden on the slot does not clip the pre-transform layout box.
  */
 export function BattleFleetShipLayer({ ships }: Props) {
   return (
@@ -39,7 +40,13 @@ export function BattleFleetShipLayer({ ships }: Props) {
               ['--bf-sh' as string]: sh,
             }}
           >
-            <img src={src} alt="" draggable={false} />
+            {orient === 'H' ? (
+              <div className="bf-ship-rot">
+                <img src={src} alt="" draggable={false} />
+              </div>
+            ) : (
+              <img src={src} alt="" draggable={false} />
+            )}
           </div>
         )
       })}

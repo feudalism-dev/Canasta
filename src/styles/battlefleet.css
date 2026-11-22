@@ -243,7 +243,7 @@
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .bf-ship-slot {
@@ -251,27 +251,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: visible;
+  /* Clip to footprint so stretch never bleeds into neighboring cells */
+  overflow: hidden;
   pointer-events: none;
 }
 
 .bf-ship-slot img {
-  object-fit: contain;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Stretch to the full cell footprint — never letterbox */
+  object-fit: fill;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
 }
 
-.bf-ship-slot.is-v img {
-  width: 86%;
-  height: 96%;
+/*
+ * Horizontal: rotate an inner vertical box. Sizing the <img> to swapped dims
+ * inside overflow:hidden was clipping the pre-transform layout to one cell.
+ */
+.bf-ship-slot.is-h .bf-ship-rot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--bf-sh);
+  height: var(--bf-sw);
+  transform: translate(-50%, -50%) rotate(-90deg);
 }
 
-/* Art is bow-up; size as vertical then rotate −90° into the H footprint */
-.bf-ship-slot.is-h img {
-  width: calc(var(--bf-sh) * 0.9);
-  height: calc(var(--bf-sw) * 0.94);
-  max-width: none;
-  max-height: none;
-  transform: rotate(-90deg);
+.bf-ship-slot.is-h .bf-ship-rot img {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
 }
 
 .bf-ship-slot.is-ghost {
