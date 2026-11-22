@@ -29,9 +29,16 @@ export const BF_SHIP_SRC: Record<ShipKind, { intact: string; sunk: string }> = {
   },
 }
 
+/** Transient combat FX + persistent cell markers from the naval asset sheet. */
 export const BF_FX = {
+  /** Brief hit flash */
   explosion: `${BF_ASSET}/effects/explosion.png`,
+  /** Brief miss splash */
+  splash: `${BF_ASSET}/effects/splash.png`,
+  /** Persistent miss marker (concentric ripples) */
   ripple: `${BF_ASSET}/effects/water-ripple.png`,
+  /** Persistent hit marker (smoke) */
+  smoke: `${BF_ASSET}/effects/smoke.png`,
 } as const
 
 export const BF_CHROME = {

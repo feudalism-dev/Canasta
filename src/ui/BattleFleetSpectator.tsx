@@ -104,7 +104,11 @@ export function BattleFleetSpectator({ board }: Props) {
   return (
     <div
       className={rootClass}
-      style={{ ['--bf-corner-url' as string]: `url(${BF_CHROME.corner})` }}
+      style={{
+        ['--bf-corner-url' as string]: `url(${BF_CHROME.corner})`,
+        ['--bf-mark-miss' as string]: `url(${BF_FX.ripple})`,
+        ['--bf-mark-hit' as string]: `url(${BF_FX.smoke})`,
+      }}
     >
       <div className="bf-header">
         <div className="bf-header-brand">
@@ -138,7 +142,7 @@ export function BattleFleetSpectator({ board }: Props) {
               {fx ? (
                 <img
                   className={`bf-fx-sprite bf-fx-${fx.kind}`}
-                  src={fx.kind === 'miss' ? BF_FX.ripple : BF_FX.explosion}
+                  src={fx.kind === 'miss' ? BF_FX.splash : BF_FX.explosion}
                   alt=""
                   style={{
                     left: `calc(${fx.x} * (var(--bf-cell) + 1px) + var(--bf-cell) / 2)`,
@@ -217,7 +221,10 @@ export function BattleFleetSpectator({ board }: Props) {
           )}
 
           <section className="bf-section">
-            <h3 className="bf-section-title">Scoreboard</h3>
+            <h3 className="bf-section-title">
+              <img className="bf-chrome-anchor" src={BF_CHROME.anchor} alt="" />
+              Scoreboard
+            </h3>
             <ul className="bf-scores">
               {board.players.map((p) => {
                 const idClass = bfIdentityClass(board.mode, {
