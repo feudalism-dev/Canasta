@@ -246,28 +246,40 @@
   overflow: hidden;
 }
 
+/* Outer box = exact grid footprint (parking space). Clip bleed only. */
 .bf-ship-slot {
   position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Clip to footprint so stretch never bleeds into neighboring cells */
   overflow: hidden;
   pointer-events: none;
 }
 
-.bf-ship-slot img {
+/*
+ * Visible art is inset so ocean shows around the hull.
+ * ~12% length ends, ~17% each beam side — proportions preserved via contain.
+ */
+.bf-ship-art {
+  width: 66%;
+  height: 76%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bf-ship-art img {
   display: block;
   width: 100%;
   height: 100%;
-  /* Stretch to the full cell footprint — never letterbox */
-  object-fit: fill;
+  object-fit: contain;
+  object-position: center;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
 }
 
 /*
- * Horizontal: rotate an inner vertical box. Sizing the <img> to swapped dims
- * inside overflow:hidden was clipping the pre-transform layout to one cell.
+ * Horizontal: rotate an inner vertical box sized to the swapped footprint.
+ * Margins live inside that box so they stay consistent after rotation.
  */
 .bf-ship-slot.is-h .bf-ship-rot {
   position: absolute;
@@ -275,13 +287,10 @@
   top: 50%;
   width: var(--bf-sh);
   height: var(--bf-sw);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transform: translate(-50%, -50%) rotate(-90deg);
-}
-
-.bf-ship-slot.is-h .bf-ship-rot img {
-  width: 100%;
-  height: 100%;
-  object-fit: fill;
 }
 
 .bf-ship-slot.is-ghost {

@@ -5,9 +5,9 @@ type Props = {
 }
 
 /**
- * Absolute overlay of ship sprites aligned to the 20×20 grid footprint.
- * Art is bow-up; horizontal ships rotate −90° via an inner wrapper so
- * overflow:hidden on the slot does not clip the pre-transform layout box.
+ * Footprint container spans exact occupied cells. Visible art is inset and
+ * proportionally contained (not stretched) so ocean remains around the hull.
+ * Horizontal ships rotate via an inner wrapper sized to the swapped footprint.
  */
 export function BattleFleetShipLayer({ ships }: Props) {
   return (
@@ -27,6 +27,11 @@ export function BattleFleetShipLayer({ ships }: Props) {
           .join(' ')
         const sw = `calc(${w} * var(--bf-cell) + ${w - 1} * 1px)`
         const sh = `calc(${h} * var(--bf-cell) + ${h - 1} * 1px)`
+        const art = (
+          <div className="bf-ship-art">
+            <img src={src} alt="" draggable={false} />
+          </div>
+        )
         return (
           <div
             key={ship.key}
@@ -40,13 +45,7 @@ export function BattleFleetShipLayer({ ships }: Props) {
               ['--bf-sh' as string]: sh,
             }}
           >
-            {orient === 'H' ? (
-              <div className="bf-ship-rot">
-                <img src={src} alt="" draggable={false} />
-              </div>
-            ) : (
-              <img src={src} alt="" draggable={false} />
-            )}
+            {orient === 'H' ? <div className="bf-ship-rot">{art}</div> : art}
           </div>
         )
       })}
