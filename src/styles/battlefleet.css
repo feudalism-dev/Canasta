@@ -504,6 +504,11 @@
   box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4);
 }
 
+.bf-cell.eliminated {
+  filter: grayscale(0.85) brightness(0.55);
+  pointer-events: none;
+}
+
 /* Territory wash */
 .bf-cell.terr.bf-id-seat-0:not(.inactive):not(.miss):not(.hit):not(.sunk):not(.own):not(.ship-preview):not(.ship-ghost) {
   background: rgba(42, 157, 143, 0.3);

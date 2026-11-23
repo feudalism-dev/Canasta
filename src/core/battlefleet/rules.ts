@@ -169,7 +169,8 @@ function markEliminations(state: BattleFleetState): void {
   if (state.config.mode === 'teams') {
     for (const team of state.teams ?? []) {
       if (team.eliminated) continue
-      if (survivingShipCount(team.fleet) === 0 && team.fleet.ships.length > 0) {
+      const ships = team.fleet.ships.length
+      if (ships > 0 && survivingShipCount(team.fleet) === 0) {
         team.eliminated = true
         for (const mid of team.memberIds) {
           const p = state.players.find((x) => x.id === mid)
@@ -183,7 +184,8 @@ function markEliminations(state: BattleFleetState): void {
   }
   for (const pl of state.players) {
     if (pl.eliminated || !pl.fleet) continue
-    if (survivingShipCount(pl.fleet) === 0 && pl.fleet.ships.length > 0) {
+    const ships = pl.fleet.ships.length
+    if (ships > 0 && survivingShipCount(pl.fleet) === 0) {
       pl.eliminated = true
       state.lastMessage = `${pl.name} has been eliminated!`
       state.log.push(state.lastMessage)
@@ -266,6 +268,17 @@ export function applyBattleFleetMove(
 
   if (move.type === 'fire') {
     if (next.phase !== 'battle') return { ok: false, error: 'Not in battle.' }
+    const attacker = next.players.find((p) => p.id === move.playerId)
+    if (!attacker) return { ok: false, error: 'Unknown attacker.' }
+    if (attacker.eliminated) {
+      return { ok: false, error: 'You are eliminated.' }
+    }
+    if (next.config.mode === 'teams' && attacker.teamId) {
+      const atkTeam = next.teams?.find((t) => t.id === attacker.teamId)
+      if (atkTeam?.eliminated) {
+        return { ok: false, error: 'Your team is eliminated.' }
+      }
+    }
     if (next.turnPlayerId !== move.playerId) {
       return { ok: false, error: 'Not your turn.' }
     }
@@ -282,7 +295,6 @@ export function applyBattleFleetMove(
     const hitRes = applyHit(fleet, move.x, move.y)
     setFleetForSide(next, tgt.sideId, hitRes.fleet)
 
-    const attacker = next.players.find((p) => p.id === move.playerId)!
     attacker.attacks += 1
 
     const shot: Shot = {

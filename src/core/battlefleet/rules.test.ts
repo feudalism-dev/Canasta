@@ -193,6 +193,74 @@ describe('battlefleet acceptance modes', () => {
     expect(s.players).toHaveLength(4)
   })
 
+  it('FFA mid-game elimination skips the out player and blocks their fire', () => {
+    let s = createBattleFleetMatch(
+      ['A', 'B', 'C'],
+      [false, true, true],
+      'ffa',
+      'easy',
+      99,
+    )
+    for (const id of ['p0', 'p1', 'p2']) {
+      let r = applyBattleFleetMove(s, { type: 'randomPlace', playerId: id })
+      if (!r.ok) throw new Error(r.error)
+      s = r.state
+      r = applyBattleFleetMove(s, { type: 'confirmFleet', playerId: id })
+      if (!r.ok) throw new Error(r.error)
+      s = r.state
+    }
+    expect(s.phase).toBe('battle')
+
+    const victimFleet = s.players[1]!.fleet!
+    for (const ship of victimFleet.ships) {
+      for (const c of ship.cells) {
+        s = { ...s, turnPlayerId: 'p0' }
+        const r = applyBattleFleetMove(s, {
+          type: 'fire',
+          playerId: 'p0',
+          x: c.x,
+          y: c.y,
+        })
+        if (!r.ok) throw new Error(r.error)
+        s = r.state
+      }
+    }
+    expect(s.players[1]!.eliminated).toBe(true)
+    expect(s.phase).toBe('battle')
+
+    for (let i = 0; i < 8; i++) {
+      if (s.phase !== 'battle' || !s.turnPlayerId) break
+      expect(s.turnPlayerId).not.toBe('p1')
+      const shooter = s.turnPlayerId
+      let fired = false
+      for (let y = 0; y < 20 && !fired; y++) {
+        for (let x = 0; x < 20 && !fired; x++) {
+          const r = applyBattleFleetMove(s, {
+            type: 'fire',
+            playerId: shooter,
+            x,
+            y,
+          })
+          if (r.ok) {
+            s = r.state
+            fired = true
+          }
+        }
+      }
+      if (!fired) break
+    }
+
+    const forced = { ...s, turnPlayerId: 'p1', phase: 'battle' as const }
+    const bad = applyBattleFleetMove(forced, {
+      type: 'fire',
+      playerId: 'p1',
+      x: 0,
+      y: 0,
+    })
+    expect(bad.ok).toBe(false)
+    if (!bad.ok) expect(bad.error).toMatch(/eliminated/i)
+  })
+
   it('team elimination awards win to opposing team', () => {
     let s = createBattleFleetMatch(
       ['A1', 'A2', 'B1', 'B2'],

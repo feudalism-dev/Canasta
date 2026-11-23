@@ -19,6 +19,10 @@ integer ENT_IDLE_SEC = 3600;
 string LSD_FAM = "cn.fam";
 string LSD_ENT = "cn.ent";
 string XP_PREFIX = "cn.ent.";
+/** Status JSONP embeds board only when small enough to leave Mono heap room. */
+integer BOARD_IN_STATUS_MAX = 900;
+integer BOARD_STORE_MAX = 1600;
+integer STATUS_MIN_FREE = 12000;
 
 string gCapUrl = "";
 integer gCapRetry = 0;
@@ -48,6 +52,10 @@ integer tableChannel()
 
 string jsonEscape(string s)
 {
+    // Cheap fast-path: compact board wires (F1~, C1~, …) almost never need escaping.
+    // Full parse/dump triples peak heap and is a common Stack-Heap Collision trigger.
+    if (llSubStringIndex(s, "\\") < 0 && llSubStringIndex(s, "\"") < 0 && llSubStringIndex(s, "\n") < 0)
+        return s;
     s = llDumpList2String(llParseStringKeepNulls(s, ["\\"], []), "\\\\");
     s = llDumpList2String(llParseStringKeepNulls(s, ["\""], []), "\\\"");
     return llDumpList2String(llParseStringKeepNulls(s, ["\n"], []), "\\n");
@@ -234,11 +242,17 @@ string expandStatus(string pipe)
     return j + "}";
 }
 
+// Keep status JSONP lean. Large boards are served via action=board only
+// (SpectatorTable already falls back). Embedding a late-game Battle Fleet
+// F1 wire + jsonEscape + nested with* copies was stacking the Mono heap.
 string withBoard(string status)
 {
+    if (gBoard == "") return status;
     integer n = llStringLength(status);
     if (n < 2) return status;
     if (llGetSubString(status, n - 1, n - 1) != "}") return status;
+    if (llStringLength(gBoard) > BOARD_IN_STATUS_MAX) return status;
+    if (llGetFreeMemory() < STATUS_MIN_FREE) return status;
     return llGetSubString(status, 0, n - 2) + ",\"board\":\"" + jsonEscape(gBoard) + "\"}";
 }
 
@@ -270,7 +284,12 @@ string withHub(string status)
 
 string statusOut(string status)
 {
-    return withHub(withHouse(withBoard(status)));
+    // Sequential — never nest withHub(withHouse(withBoard(...))) or all
+    // three expanded strings sit on the stack at once.
+    string s = withBoard(status);
+    s = withHouse(s);
+    s = withHub(s);
+    return s;
 }
 
 integer statusIsIdle()
@@ -447,11 +466,22 @@ integer takeBoardChunk(string payload)
     {
         if (idx != gBoardNext) return TRUE;
         if (tot != gBoardTot) return TRUE;
+        // Refuse growth that would blow Mono heap during assemble + statusOut.
+        if (llStringLength(gBoardAcc) + llStringLength(chunk) > BOARD_STORE_MAX)
+        {
+            clearBoard();
+            return TRUE;
+        }
         gBoardAcc += chunk;
         gBoardNext += 1;
     }
     if (gBoardNext >= gBoardTot)
     {
+        if (llStringLength(gBoardAcc) > BOARD_STORE_MAX)
+        {
+            clearBoard();
+            return TRUE;
+        }
         gBoard = gBoardAcc;
         gBoardAcc = "";
         gBoardNext = 0;
@@ -519,6 +549,12 @@ handleHttp(key id, string query)
     }
     if (action == "board")
     {
+        // Prefer lean response when heap is tight — empty board beats a crash.
+        if (llGetFreeMemory() < 6000)
+        {
+            sendJsonp(id, cb, "{\"ok\":true,\"board\":\"\"}");
+            return;
+        }
         sendJsonp(id, cb, "{\"ok\":true,\"board\":\"" + jsonEscape(gBoard) + "\"}");
         return;
     }

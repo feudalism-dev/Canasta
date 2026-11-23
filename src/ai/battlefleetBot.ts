@@ -167,7 +167,7 @@ export function fillBattleFleetBots(
     if (cur.phase === 'battle' && cur.turnPlayerId) {
       if (battleShots >= maxBattle) return cur
       const pl = cur.players.find((p) => p.id === cur.turnPlayerId)
-      if (!pl || !pl.isComputer) return cur
+      if (!pl || !pl.isComputer || pl.eliminated) return cur
       const move = chooseBattleFleetAttack(cur, pl.id, cur.config.difficulty)
       if (!move) return cur
       const r = applyBattleFleetMove(cur, move)

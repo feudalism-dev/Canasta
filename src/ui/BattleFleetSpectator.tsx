@@ -7,6 +7,7 @@ import {
   bfIdentityClass,
   bfSeaActive,
   bfTerritoryClass,
+  bfTerritoryOut,
   colLabels,
   rowLabels,
 } from './battlefleetVisual'
@@ -156,6 +157,13 @@ export function BattleFleetSpectator({ board }: Props) {
                 const k = cellKey(x, y)
                 const mark = markMap.get(k)
                 const seaActive = bfSeaActive(board.mode, board.playerCount, x, y)
+                const terrOut = bfTerritoryOut(
+                  board.mode,
+                  board.playerCount,
+                  x,
+                  y,
+                  board.players,
+                )
                 const terrClass = bfTerritoryClass(
                   board.mode,
                   board.playerCount,
@@ -167,7 +175,8 @@ export function BattleFleetSpectator({ board }: Props) {
                   'bf-cell',
                   'terr',
                   terrClass,
-                  !seaActive ? 'inactive' : '',
+                  !seaActive || terrOut ? 'inactive' : '',
+                  terrOut ? 'eliminated' : '',
                   mark === 'miss' ? 'miss' : '',
                   mark === 'hit' ? 'hit' : '',
                   mark === 'sunk' ? `sunk ${sunkOwner.get(k) || ''}` : '',

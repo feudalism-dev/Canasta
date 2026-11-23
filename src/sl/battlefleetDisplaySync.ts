@@ -81,8 +81,8 @@ async function flush(
 
   const board = battleFleetPublicBoardFromState(state)
   const compact = encodeBattleFleetPublicBoard(board)
-  // Soft cap: if somehow huge, refuse posting rather than heap the table
-  if (compact.length > 1800) {
+  // Soft cap: keep under Parlor_Http BOARD_STORE_MAX (1600) with headroom
+  if (compact.length > 1500) {
     console.warn('[battlefleet] board wire too large', compact.length)
     return
   }

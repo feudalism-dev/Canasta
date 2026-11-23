@@ -54,6 +54,27 @@ export function bfSeaActive(
   return ownerIndexAt(x, y, playerCount) >= 0
 }
 
+/** True when the territory owner/team has been eliminated (greyed-out sea). */
+export function bfTerritoryOut(
+  mode: BattleFleetMode,
+  playerCount: number,
+  x: number,
+  y: number,
+  players: { eliminated: boolean; teamId: 'A' | 'B' | null }[],
+  teams?: { id: 'A' | 'B'; eliminated: boolean }[] | null,
+): boolean {
+  if (mode === 'teams') {
+    const t = teamIdAt(x, y)
+    if (!t) return false
+    const team = teams?.find((z) => z.id === t)
+    if (team) return team.eliminated
+    return players.some((p) => p.teamId === t && p.eliminated)
+  }
+  const idx = ownerIndexAt(x, y, playerCount)
+  if (idx < 0) return false
+  return Boolean(players[idx]?.eliminated)
+}
+
 export function colLabels(): string[] {
   return Array.from({ length: BOARD_SIZE }, (_, i) => String.fromCharCode(65 + i))
 }

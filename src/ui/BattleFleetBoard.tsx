@@ -15,6 +15,7 @@ import {
   bfIdentityClass,
   bfSeaActive,
   bfTerritoryClass,
+  bfTerritoryOut,
   colLabels,
   rowLabels,
 } from './battlefleetVisual'
@@ -88,7 +89,12 @@ export function BattleFleetBoard({
           (p) => p.teamId === me.teamId && p.id !== localPlayerId,
         )
       : null
-  const myTurn = state.turnPlayerId === localPlayerId && state.phase === 'battle'
+  const mePlayer = state.players.find((p) => p.id === localPlayerId)
+  const iAmEliminated = Boolean(mePlayer?.eliminated)
+  const myTurn =
+    state.turnPlayerId === localPlayerId &&
+    state.phase === 'battle' &&
+    !iAmEliminated
   const placing = state.phase === 'placement'
   const mode = state.config.mode
   const myIdAttr =
@@ -374,6 +380,14 @@ export function BattleFleetBoard({
                   x < terr.x0 + terr.width &&
                   y < terr.y0 + terr.height
                 const seaActive = bfSeaActive(mode, state.config.playerCount, x, y)
+                const terrOut = bfTerritoryOut(
+                  mode,
+                  state.config.playerCount,
+                  x,
+                  y,
+                  state.players,
+                  state.teams,
+                )
                 const terrClass = bfTerritoryClass(
                   mode,
                   state.config.playerCount,
@@ -382,17 +396,19 @@ export function BattleFleetBoard({
                   state.players,
                 )
                 const isOwn = ownSet.has(k)
+                const canFire =
+                  myTurn && seaActive && !terrOut && !(terr && inTerr) && !isOwn
                 const cls = [
                   'bf-cell',
                   'terr',
                   terrClass,
-                  !seaActive ? 'inactive' : '',
+                  !seaActive || terrOut ? 'inactive' : '',
+                  terrOut ? 'eliminated' : '',
                   isOwn && !mark ? `own ${myIdentity}` : '',
                   mark === 'miss' ? 'miss' : '',
                   mark === 'hit' ? 'hit' : '',
                   mark === 'sunk' ? 'sunk' : '',
-                  (placing && !fleetConfirmed && inTerr) ||
-                  (myTurn && seaActive && !inTerr && !isOwn)
+                  (placing && !fleetConfirmed && inTerr) || canFire
                     ? 'targetable'
                     : '',
                 ]
@@ -411,7 +427,7 @@ export function BattleFleetBoard({
                     disabled={
                       placing
                         ? !inTerr || fleetConfirmed
-                        : !(myTurn && seaActive && !(terr && inTerr))
+                        : !canFire
                     }
                   />
                 )
@@ -432,7 +448,11 @@ export function BattleFleetBoard({
               <span className="bf-pill">{mode === 'teams' ? 'Teams' : 'FFA'}</span>
               {state.phase === 'battle' && (
                 <span className={`bf-pill${myTurn ? ' bf-pill-turn' : ''}`}>
-                  {myTurn ? 'Your turn' : turnName || 'Waiting'}
+                  {iAmEliminated
+                    ? 'Eliminated'
+                    : myTurn
+                      ? 'Your turn'
+                      : turnName || 'Waiting'}
                 </span>
               )}
             </div>

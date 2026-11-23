@@ -81,7 +81,7 @@ describe('battlefleet compact board wire', () => {
       }
     }
     const wire = encodeBattleFleetPublicBoard(battleFleetPublicBoardFromState(s))
-    expect(wire.length).toBeLessThan(1800)
+    expect(wire.length).toBeLessThan(1500)
   })
 
   it('sanitize hides living enemy ships but keeps own fleet', () => {
