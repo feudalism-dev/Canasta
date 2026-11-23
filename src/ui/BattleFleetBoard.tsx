@@ -308,27 +308,28 @@ export function BattleFleetBoard({
         ['--bf-mark-hit' as string]: `url(${BF_FX.smoke})`,
       }}
     >
-      {sunkBanner ? (
-        <div className="bf-sunk-banner" key={sunkBanner.key} role="status">
-          <img
-            className="bf-sunk-banner-ship"
-            src={BF_SHIP_SRC[sunkBanner.kind].sunk}
-            alt=""
-          />
-          <div className="bf-sunk-banner-text">
-            <strong>{sunkBanner.title}</strong>
-            <span>{sunkBanner.detail}</span>
-          </div>
-        </div>
-      ) : null}
       <div className="bf-header">
         <div className="bf-header-brand">
           <img className="bf-chrome-compass" src={BF_CHROME.compass} alt="" />
           <h2>Battle Fleet</h2>
         </div>
-        <div className={`bf-msg${msgPulse ? ' bf-msg-pulse' : ''}`}>
-          {error ? error : view.public.lastMessage}
-        </div>
+        {sunkBanner ? (
+          <div className="bf-sunk-banner" key={sunkBanner.key} role="status">
+            <img
+              className="bf-sunk-banner-ship"
+              src={BF_SHIP_SRC[sunkBanner.kind].sunk}
+              alt=""
+            />
+            <div className="bf-sunk-banner-text">
+              <strong>{sunkBanner.title}</strong>
+              <span>{sunkBanner.detail}</span>
+            </div>
+          </div>
+        ) : (
+          <div className={`bf-msg${msgPulse ? ' bf-msg-pulse' : ''}`}>
+            {error ? error : view.public.lastMessage}
+          </div>
+        )}
       </div>
       <div className="bf-layout">
         <div className="bf-board-wrap">
