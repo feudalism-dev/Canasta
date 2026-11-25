@@ -17,6 +17,8 @@ import { YotsyBoard } from './ui/YotsyBoard'
 import { RowShamBoBoard } from './ui/RowShamBoBoard'
 import { BattleFleetBoard } from './ui/BattleFleetBoard'
 import { BattleFleetSetup } from './ui/BattleFleetSetup'
+import { WarfrontBoard } from './ui/WarfrontBoard'
+import { WarfrontSetup } from './ui/WarfrontSetup'
 import { SlTableScreens } from './ui/SlTableScreens'
 import { ParkedHud } from './ui/ParkedHud'
 import { Scoreboard } from './ui/Scoreboard'
@@ -30,6 +32,7 @@ import type { PhaseItVariant } from './core/phaseit/types'
 import type { YotsyVariant } from './core/yotsy/types'
 import type { RowShamBoVariant } from './core/rowshambo/types'
 import type { BattleFleetDifficulty, BattleFleetMode } from './core/battlefleet/types'
+import type { WarfrontAlign, WarfrontDifficulty, WarfrontTheater } from './core/warfront/types'
 import { ToastManager, useToasts } from './ui/ToastManager'
 import { addCardToGroups, addRankToGroups } from './ui/meldSelect'
 import { resumeSolo, startSolo, soloSeatCount, type LocalControllers } from './ui/localSession'
@@ -79,6 +82,11 @@ import {
   joinBattleFleetPeerRoom,
   type BattleFleetPeerSession,
 } from './net/battlefleetPeerSession'
+import {
+  createWarfrontPeerHost,
+  joinWarfrontPeerRoom,
+  type WarfrontPeerSession,
+} from './net/warfrontPeerSession'
 import { startRummySolo, type RummyLocalSession } from './ui/rummyLocalSession'
 import { startTrickSolo, type TrickLocalSession } from './ui/trickLocalSession'
 import { startIchiSolo, type IchiLocalSession } from './ui/ichiLocalSession'
@@ -87,6 +95,7 @@ import { startPhaseItSolo, type PhaseItLocalSession } from './ui/phaseitLocalSes
 import { startYotsySolo, type YotsyLocalSession } from './ui/yotsyLocalSession'
 import { startRowShamBoSolo, type RowShamBoLocalSession } from './ui/rowshamboLocalSession'
 import { startBattleFleetSolo, type BattleFleetLocalSession } from './ui/battlefleetLocalSession'
+import { startWarfrontSolo, type WarfrontLocalSession } from './ui/warfrontLocalSession'
 import {
   clearMatchResume,
   loadMatchResume,
@@ -107,6 +116,10 @@ import {
   syncBattleFleetDisplay,
   resetBattleFleetDisplaySync,
 } from './sl/battlefleetDisplaySync'
+import {
+  syncWarfrontDisplay,
+  resetWarfrontDisplaySync,
+} from './sl/warfrontDisplaySync'
 import { tableClaimSolo, tableEndGame } from './sl/tableApi'
 import { playYourTurnBell } from './ui/sfx'
 
@@ -140,6 +153,7 @@ function AppInner() {
   const urlPlayYotsy = urlPlay === 'yotsy'
   const urlPlayRowshambo = urlPlay === 'rowshambo'
   const urlPlayBattleFleet = urlPlay === 'battlefleet'
+  const urlPlayWarfront = urlPlay === 'warfront'
   const [screen, setScreen] = useState<Screen>(
     tableHud || seatedBrowser
       ? 'sl'
@@ -150,7 +164,8 @@ function AppInner() {
           urlPlayPhaseIt ||
           urlPlayYotsy ||
           urlPlayRowshambo ||
-          urlPlayBattleFleet
+          urlPlayBattleFleet ||
+          urlPlayWarfront
         ? 'game'
         : 'menu',
   )
@@ -161,6 +176,7 @@ function AppInner() {
       const params = new URL(window.location.href).searchParams
       const play = params.get('play')
       if (play === 'battlefleet') return 'battlefleet'
+      if (play === 'warfront') return 'warfront'
       if (play === 'rowshambo') return 'rowshambo'
       if (play === 'yotsy') return 'yotsy'
       if (play === 'phaseit') return 'phaseit'
@@ -217,6 +233,15 @@ function AppInner() {
   const [battlefleetLocal, setBattlefleetLocal] = useState<BattleFleetLocalSession | null>(null)
   const [battlefleetPeer, setBattlefleetPeer] = useState<BattleFleetPeerSession | null>(null)
   const [battlefleetError, setBattlefleetError] = useState<string | null>(null)
+  const [warfrontTheater, setWarfrontTheater] = useState<WarfrontTheater>('land')
+  const [warfrontAlign, setWarfrontAlign] = useState<WarfrontAlign>('ffa')
+  const [warfrontPlayerCount, setWarfrontPlayerCount] = useState(2)
+  const [warfrontDifficulty, setWarfrontDifficulty] =
+    useState<WarfrontDifficulty>('normal')
+  const [warfrontPlay, setWarfrontPlay] = useState(urlPlayWarfront)
+  const [warfrontLocal, setWarfrontLocal] = useState<WarfrontLocalSession | null>(null)
+  const [warfrontPeer, setWarfrontPeer] = useState<WarfrontPeerSession | null>(null)
+  const [warfrontError, setWarfrontError] = useState<string | null>(null)
   const [partnership, setPartnership] = useState(true)
   const [difficulty, setDifficulty] = useState<AiDifficulty>('normal')
   const [house, setHouse] = useState<HouseRules>({ ...DEFAULT_HOUSE })
@@ -341,6 +366,11 @@ function AppInner() {
       battlefleetPlay ||
       Boolean(battlefleetLocal) ||
       Boolean(battlefleetPeer)
+    const warfrontUi =
+      family === 'warfront' ||
+      warfrontPlay ||
+      Boolean(warfrontLocal) ||
+      Boolean(warfrontPeer)
     const hideCanastaChrome =
       rummyUi ||
       trickUi ||
@@ -349,7 +379,8 @@ function AppInner() {
       phaseitUi ||
       yotsyUi ||
       rowshamboUi ||
-      battlefleetUi
+      battlefleetUi ||
+      warfrontUi
     return (
       <div className="app-frame" style={{ '--felt': '#0c1f18' } as CSSProperties}>
         <AppChrome
@@ -358,6 +389,8 @@ function AppInner() {
           parked={Boolean(slBoot?.parked)}
           roomCode={
             battlefleetPeer?.roomCode ||
+          warfrontPeer?.roomCode ||
+            warfrontPeer?.roomCode ||
             rowshamboPeer?.roomCode ||
             yotsyPeer?.roomCode ||
             phaseitPeer?.roomCode ||
@@ -441,7 +474,9 @@ function AppInner() {
         rowshamboLocal ||
         rowshamboPeer?.state ||
         battlefleetLocal ||
-        battlefleetPeer?.state) &&
+        battlefleetPeer?.state ||
+        warfrontLocal ||
+        warfrontPeer?.state) &&
       screen === 'sl'
     )
       setScreen('game')
@@ -464,6 +499,8 @@ function AppInner() {
     battlefleetLocal,
     battlefleetPeer?.state,
     screen,
+    warfrontLocal,
+    warfrontPeer?.state,
     tick,
   ])
 
@@ -568,6 +605,11 @@ function AppInner() {
   }, [battlefleetLocal])
 
   useEffect(() => {
+    if (!warfrontLocal) return
+    return warfrontLocal.onChange(() => setTick((t) => t + 1))
+  }, [warfrontLocal])
+
+  useEffect(() => {
     if (!rowshamboPeer) return
     return rowshamboPeer.onChange(() => setTick((t) => t + 1))
   }, [rowshamboPeer])
@@ -576,6 +618,11 @@ function AppInner() {
     if (!battlefleetPeer) return
     return battlefleetPeer.onChange(() => setTick((t) => t + 1))
   }, [battlefleetPeer])
+
+  useEffect(() => {
+    if (!warfrontPeer) return
+    return warfrontPeer.onChange(() => setTick((t) => t + 1))
+  }, [warfrontPeer])
 
   useEffect(() => {
     if (!rowshamboPeer || rowshamboPeer.isHost) return
@@ -590,6 +637,14 @@ function AppInner() {
     setBattlefleetPlayerCount(battlefleetPeer.playerCount)
     setBattlefleetDifficulty(battlefleetPeer.difficulty)
   }, [battlefleetPeer, tick])
+
+  useEffect(() => {
+    if (!warfrontPeer || warfrontPeer.isHost) return
+    setWarfrontTheater(warfrontPeer.theater)
+    setWarfrontAlign(warfrontPeer.align)
+    setWarfrontPlayerCount(warfrontPeer.playerCount)
+    setWarfrontDifficulty(warfrontPeer.difficulty)
+  }, [warfrontPeer, tick])
 
   useEffect(() => {
     if (!state?.lastMessage) return
@@ -686,6 +741,14 @@ function AppInner() {
     syncBattleFleetDisplay(bfState, slBoot.slCap, slBoot.uid, slBoot.seat)
   }, [tick, battlefleetLocal, battlefleetPeer, slBoot, tableHud])
 
+  useEffect(() => {
+    const wfState = warfrontLocal?.state ?? warfrontPeer?.state
+    if (!wfState || !tableHud || !slBoot?.slCap) return
+    const isEmitter = Boolean(warfrontLocal) || warfrontPeer?.isHost === true
+    if (!isEmitter) return
+    syncWarfrontDisplay(wfState, slBoot.slCap, slBoot.uid, slBoot.seat)
+  }, [tick, warfrontLocal, warfrontPeer, slBoot, tableHud])
+
   const submit = (move: Parameters<LocalControllers['submit']>[0]) => {
     lastMoveRef.current = { move, index: localIndex }
     if (local) {
@@ -727,8 +790,68 @@ function AppInner() {
     yotsyPeer?.destroy()
     rowshamboLocal?.destroy()
     rowshamboPeer?.destroy()
+    warfrontLocal?.destroy()
+    warfrontPeer?.destroy()
     battlefleetLocal?.destroy()
     battlefleetPeer?.destroy()
+    if (fam === 'warfront') {
+      const n = warfrontAlign === 'teams' ? 4 : warfrontPlayerCount
+      if (tableHud && slBoot?.slCap) {
+        try {
+          await tableClaimSolo(slBoot.slCap, slBoot.uid, slBoot.seat, n)
+        } catch (e) {
+          push(e instanceof Error ? e.message : 'Could not claim table')
+        }
+      }
+      const humanSeat = tableHud && slBoot && slBoot.seat >= 0 ? slBoot.seat : 0
+      const ctrl = startWarfrontSolo(
+        name,
+        n,
+        warfrontTheater,
+        warfrontAlign,
+        warfrontDifficulty,
+        humanSeat,
+      )
+      resetWarfrontDisplaySync()
+      setLocal(null)
+      setPeer(null)
+      setRummyPeer(null)
+      setRummyLocal(null)
+      setTrickPeer(null)
+      setTrickLocal(null)
+      setIchiPeer(null)
+      setIchiLocal(null)
+      setSkippoPeer(null)
+      setSkippoLocal(null)
+      setPhaseitPeer(null)
+      setPhaseitLocal(null)
+      setYotsyPeer(null)
+      setYotsyLocal(null)
+      setRowshamboPeer(null)
+      setRowshamboLocal(null)
+      setBattlefleetPeer(null)
+      setBattlefleetLocal(null)
+      setWarfrontPeer(null)
+      setWarfrontLocal(ctrl)
+      setWarfrontError(null)
+      setRummyPlay(false)
+      setTrickPlay(false)
+      setIchiPlay(false)
+      setSkippoPlay(false)
+      setPhaseitPlay(false)
+      setYotsyPlay(false)
+      setRowshamboPlay(false)
+      setBattlefleetPlay(false)
+      setWarfrontPlay(true)
+      slMatchKind.current = tableHud ? 'solo' : 'none'
+      setScreen('game')
+      push(
+        warfrontAlign === 'teams'
+          ? `Warfront teams — you + 3 bots (${warfrontDifficulty}).`
+          : `Warfront solo — ${n} players · ${warfrontTheater} · ${warfrontDifficulty}.`,
+      )
+      return
+    }
     if (fam === 'battlefleet') {
       const n = battlefleetMode === 'teams' ? 4 : battlefleetPlayerCount
       if (tableHud && slBoot?.slCap) {
@@ -764,6 +887,9 @@ function AppInner() {
       setRowshamboPeer(null)
       setRowshamboLocal(null)
       setBattlefleetPeer(null)
+      setWarfrontLocal(null)
+      setWarfrontPeer(null)
+      setWarfrontPlay(false)
       setBattlefleetLocal(ctrl)
       setBattlefleetError(null)
       setRummyPlay(false)
@@ -1115,6 +1241,8 @@ function AppInner() {
     yotsyPeer?.destroy()
     rowshamboLocal?.destroy()
     rowshamboPeer?.destroy()
+    warfrontLocal?.destroy()
+    warfrontPeer?.destroy()
     battlefleetLocal?.destroy()
     battlefleetPeer?.destroy()
     setPeer(null)
@@ -1136,6 +1264,9 @@ function AppInner() {
     setBattlefleetLocal(null)
     setBattlefleetPeer(null)
     setBattlefleetPlay(false)
+    setWarfrontLocal(null)
+    setWarfrontPeer(null)
+    setWarfrontPlay(false)
     setRummyPlay(false)
     setTrickPlay(false)
     setIchiPlay(false)
@@ -1246,7 +1377,9 @@ function AppInner() {
     !rowshamboLocal &&
     !rowshamboPeer?.state &&
     !battlefleetLocal &&
-    !battlefleetPeer?.state
+    !battlefleetPeer?.state &&
+    !warfrontLocal &&
+    !warfrontPeer?.state
   ) {
     return wrap(
       <SlTableScreens
@@ -1383,6 +1516,27 @@ function AppInner() {
           setBattlefleetDifficulty(d)
           battlefleetPeer?.setDifficulty(d)
         }}
+        warfrontTheater={warfrontTheater}
+        onWarfrontTheater={(t) => {
+          setWarfrontTheater(t)
+          warfrontPeer?.setTheater(t)
+        }}
+        warfrontAlign={warfrontAlign}
+        onWarfrontAlign={(a) => {
+          setWarfrontAlign(a)
+          if (a === 'teams') setWarfrontPlayerCount(4)
+          warfrontPeer?.setAlign(a)
+        }}
+        warfrontPlayerCount={warfrontPlayerCount}
+        onWarfrontPlayerCount={(n) => {
+          setWarfrontPlayerCount(n)
+          warfrontPeer?.setPlayerCount(n)
+        }}
+        warfrontDifficulty={warfrontDifficulty}
+        onWarfrontDifficulty={(d) => {
+          setWarfrontDifficulty(d)
+          warfrontPeer?.setDifficulty(d)
+        }}
         onCreatedMp={async (roomCode) => {
           peer?.destroy()
           local?.destroy()
@@ -1394,6 +1548,31 @@ function AppInner() {
           yotsyPeer?.destroy()
           rowshamboPeer?.destroy()
           battlefleetPeer?.destroy()
+          if (family === 'warfront') {
+            const session = await createWarfrontPeerHost(name, {
+              roomCode,
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+              theater: warfrontTheater,
+              align: warfrontAlign,
+              playerCount: warfrontAlign === 'teams' ? 4 : warfrontPlayerCount,
+              difficulty: warfrontDifficulty,
+            })
+            resetWarfrontDisplaySync()
+            setWarfrontPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setTrickPeer(null)
+            setIchiPeer(null)
+            setSkippoPeer(null)
+            setPhaseitPeer(null)
+            setYotsyPeer(null)
+            setRowshamboPeer(null)
+            setBattlefleetPeer(null)
+            setStatus(`Room ${roomCode} — Warfront lobby.`)
+            return
+          }
           if (family === 'battlefleet') {
             const session = await createBattleFleetPeerHost(name, {
               roomCode,
@@ -1614,6 +1793,25 @@ function AppInner() {
           yotsyPeer?.destroy()
           rowshamboPeer?.destroy()
           battlefleetPeer?.destroy()
+          if (family === 'warfront') {
+            const session = await joinWarfrontPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setWarfrontPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setTrickPeer(null)
+            setIchiPeer(null)
+            setSkippoPeer(null)
+            setPhaseitPeer(null)
+            setYotsyPeer(null)
+            setRowshamboPeer(null)
+            setBattlefleetPeer(null)
+            setStatus(`Joined Warfront room ${roomCode}.`)
+            return
+          }
           if (family === 'battlefleet') {
             const session = await joinBattleFleetPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -1792,7 +1990,9 @@ function AppInner() {
           const occupants = (tableStatus?.roster || [])
             .filter((r) => r.seat >= 0 && r.joined)
             .map((r) => ({ seat: r.seat, name: r.name, uid: r.uid, joined: true }))
-          if (family === 'battlefleet') {
+          if (family === 'warfront') {
+            warfrontPeer?.startMatch(occupants)
+          } else if (family === 'battlefleet') {
             battlefleetPeer?.startMatch(occupants)
           } else if (family === 'rowshambo') {
             rowshamboPeer?.startMatch(occupants)
@@ -1823,6 +2023,9 @@ function AppInner() {
           yotsyPeer?.destroy()
           rowshamboPeer?.destroy()
           battlefleetPeer?.destroy()
+          warfrontPeer?.destroy()
+          setWarfrontPeer(null)
+          setWarfrontLocal(null)
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
@@ -1844,6 +2047,9 @@ function AppInner() {
           yotsyPeer?.destroy()
           rowshamboPeer?.destroy()
           battlefleetPeer?.destroy()
+          warfrontPeer?.destroy()
+          setWarfrontPeer(null)
+          setWarfrontLocal(null)
           setPeer(null)
           setRummyPeer(null)
           setTrickPeer(null)
@@ -1877,6 +2083,25 @@ function AppInner() {
           yotsyPeer?.destroy()
           rowshamboPeer?.destroy()
           battlefleetPeer?.destroy()
+          if (family === 'warfront') {
+            const session = await joinWarfrontPeerRoom(roomCode, name, {
+              avatarUid: slBoot.uid,
+              seat: slBoot.seat,
+            })
+            setWarfrontPeer(session)
+            setPeer(null)
+            setLocal(null)
+            setRummyPeer(null)
+            setTrickPeer(null)
+            setIchiPeer(null)
+            setSkippoPeer(null)
+            setPhaseitPeer(null)
+            setYotsyPeer(null)
+            setRowshamboPeer(null)
+            setBattlefleetPeer(null)
+            setStatus(`Joined Warfront room ${roomCode}.`)
+            return
+          }
           if (family === 'battlefleet') {
             const session = await joinBattleFleetPeerRoom(roomCode, name, {
               avatarUid: slBoot.uid,
@@ -2055,6 +2280,7 @@ function AppInner() {
         }
         peerSeats={
           battlefleetPeer?.seats ||
+          warfrontPeer?.seats ||
           rowshamboPeer?.seats ||
           yotsyPeer?.seats ||
           phaseitPeer?.seats ||
@@ -2066,6 +2292,7 @@ function AppInner() {
         }
         isPeerHost={
           battlefleetPeer?.isHost ??
+          warfrontPeer?.isHost ??
           rowshamboPeer?.isHost ??
           yotsyPeer?.isHost ??
           phaseitPeer?.isHost ??
@@ -2077,6 +2304,7 @@ function AppInner() {
         }
         onPeerReadyToggle={(ready) => {
           battlefleetPeer?.setReady(ready)
+          warfrontPeer?.setReady(ready)
           rowshamboPeer?.setReady(ready)
           yotsyPeer?.setReady(ready)
           phaseitPeer?.setReady(ready)
@@ -2093,6 +2321,58 @@ function AppInner() {
           setCoachTips(on)
         }}
       />,
+    )
+  }
+
+  if (warfrontLocal || warfrontPeer?.state || (warfrontPlay && screen === 'game')) {
+    const wfCtrl = warfrontLocal || warfrontPeer
+    if (wfCtrl?.state) {
+      const localId = wfCtrl.state.players[wfCtrl.localIndex]?.id ?? 'p0'
+      return wrap(
+        <WarfrontBoard
+          state={wfCtrl.state}
+          localPlayerId={localId}
+          error={warfrontError}
+          onNewMatch={
+            warfrontLocal
+              ? () => {
+                  warfrontLocal.newMatch()
+                  setWarfrontError(null)
+                  setTick((t) => t + 1)
+                }
+              : undefined
+          }
+          onLeave={() => void leaveToMenu(true)}
+          onMove={(move) => {
+            const res = wfCtrl.submit(move)
+            if (!res.ok) setWarfrontError(res.error)
+            else setWarfrontError(null)
+            setTick((t) => t + 1)
+          }}
+        />,
+      )
+    }
+    return wrap(
+      <div style={{ padding: '1rem' }}>
+        <h2>Warfront</h2>
+        <WarfrontSetup
+          playerCount={warfrontPlayerCount}
+          onPlayerCount={setWarfrontPlayerCount}
+          theater={warfrontTheater}
+          onTheater={setWarfrontTheater}
+          align={warfrontAlign}
+          onAlign={(a) => {
+            setWarfrontAlign(a)
+            if (a === 'teams') setWarfrontPlayerCount(4)
+          }}
+          difficulty={warfrontDifficulty}
+          onDifficulty={setWarfrontDifficulty}
+          onStartSolo={() => {
+            setFamily('warfront')
+            void startLocal('warfront')
+          }}
+        />
+      </div>,
     )
   }
 

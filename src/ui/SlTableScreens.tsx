@@ -17,7 +17,9 @@ import type { YotsyVariant } from '../core/yotsy/types'
 import type { RowShamBoVariant } from '../core/rowshambo/types'
 import { rowShamBoTip, rowShamBoVariantOptions } from '../core/rowshambo/variants'
 import type { BattleFleetDifficulty, BattleFleetMode } from '../core/battlefleet/types'
+import type { WarfrontAlign, WarfrontDifficulty, WarfrontTheater } from '../core/warfront/types'
 import { BattleFleetSetup } from './BattleFleetSetup'
+import { WarfrontSetup } from './WarfrontSetup'
 import { chairsFromOccupants, matchupSentence, type Occupant } from '../core/tableSeating'
 import { HandAndFootHouseFields, HouseRulesPreview } from './HouseFields'
 import { BetaVariantNotice } from './BetaVariantNotice'
@@ -104,6 +106,14 @@ type Props = {
   onBattlefleetPlayerCount: (n: number) => void
   battlefleetDifficulty: BattleFleetDifficulty
   onBattlefleetDifficulty: (d: BattleFleetDifficulty) => void
+  warfrontTheater: WarfrontTheater
+  onWarfrontTheater: (t: WarfrontTheater) => void
+  warfrontAlign: WarfrontAlign
+  onWarfrontAlign: (a: WarfrontAlign) => void
+  warfrontPlayerCount: number
+  onWarfrontPlayerCount: (n: number) => void
+  warfrontDifficulty: WarfrontDifficulty
+  onWarfrontDifficulty: (d: WarfrontDifficulty) => void
   onFamily: (family: GameFamily) => void
   partnership: boolean
   onPartnership: (v: boolean) => void
@@ -176,6 +186,14 @@ export function SlTableScreens({
   onBattlefleetPlayerCount,
   battlefleetDifficulty,
   onBattlefleetDifficulty,
+  warfrontTheater,
+  onWarfrontTheater,
+  warfrontAlign,
+  onWarfrontAlign,
+  warfrontPlayerCount,
+  onWarfrontPlayerCount,
+  warfrontDifficulty,
+  onWarfrontDifficulty,
   onFamily,
   partnership,
   onPartnership,
@@ -247,6 +265,7 @@ export function SlTableScreens({
   const isYotsyTable = family === 'yotsy'
   const isRowshamboTable = family === 'rowshambo'
   const isBattlefleetTable = family === 'battlefleet'
+  const isWarfrontTable = family === 'warfront'
   const isCanastaTable = family === 'canasta'
 
   const enterTable = async (name: string) => {
@@ -475,7 +494,9 @@ export function SlTableScreens({
                           ? 'Row! Sham! Bo!'
                           : isBattlefleetTable
                             ? 'Battle Fleet'
-                            : 'Hand & Foot / Canasta'}
+                            : isWarfrontTable
+                              ? 'Warfront'
+                              : 'Hand & Foot / Canasta'}
         </h1>
         {isHub && mode === 'idle' ? (
           <button
@@ -522,6 +543,8 @@ export function SlTableScreens({
           <p className="muted">This table is locked to the Row! Sham! Bo! family (creator SKU).</p>
         ) : isBattlefleetTable ? (
           <p className="muted">Battle Fleet — naval strategy. Use All games when idle to switch.</p>
+        ) : isWarfrontTable ? (
+          <p className="muted">Warfront — theater command. Use All games when idle to switch.</p>
         ) : null}
         <label>
           Name
@@ -555,6 +578,20 @@ export function SlTableScreens({
             onMode={onBattlefleetMode}
             difficulty={battlefleetDifficulty}
             onDifficulty={onBattlefleetDifficulty}
+            disabled={!canEditRules || seatedBrowser}
+            busy={busy}
+            onStartSolo={() => void onStartSolo()}
+          />
+        ) : isWarfrontTable ? (
+          <WarfrontSetup
+            playerCount={warfrontPlayerCount}
+            onPlayerCount={onWarfrontPlayerCount}
+            theater={warfrontTheater}
+            onTheater={onWarfrontTheater}
+            align={warfrontAlign}
+            onAlign={onWarfrontAlign}
+            difficulty={warfrontDifficulty}
+            onDifficulty={onWarfrontDifficulty}
             disabled={!canEditRules || seatedBrowser}
             busy={busy}
             onStartSolo={() => void onStartSolo()}
@@ -900,6 +937,8 @@ export function SlTableScreens({
                     ? 'Solo fills empty seats with bots. Multiplayer: Create with 2+ humans, pick seat count, Start fills the rest with bots.'
                     : isBattlefleetTable
                       ? 'Solo fills empty seats with bots. Multiplayer: Create room, Ready up, host Starts — empty chairs become bots. Teams use opposite seats as partners.'
+                    : isWarfrontTable
+                      ? 'Solo fills empty seats with bots. Capture depots/ports for PP & VP. Multiplayer: Create room — empty chairs become bots. 2v2 uses opposite seats as partners.'
                     : isRummyTable
                       ? 'Solo and multiplayer use your player count — empty chairs are computers.'
                       : 'Multiplayer is always four hands. Seating picks teams — empty chairs are computers.'}

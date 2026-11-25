@@ -77,6 +77,13 @@ import {
   type BattleFleetPublicBoard,
 } from '../core/battlefleet/publicBoard'
 import { BattleFleetSpectator } from './BattleFleetSpectator'
+import {
+  decodeWarfrontPublicBoard,
+  idleWarfrontPublicBoard,
+  isWarfrontBoardPayload,
+  type WarfrontPublicBoard,
+} from '../core/warfront/publicBoard'
+import { WarfrontSpectator } from './WarfrontSpectator'
 import { dieColor } from '../core/yotsy/dice'
 import { turnsNeeded } from '../core/yotsy/categories'
 import { colorLabel, kindLabel } from '../core/ichi/deck'
@@ -402,6 +409,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const [battlefleetBoard, setBattlefleetBoard] = useState<BattleFleetPublicBoard>(
     idleBattleFleetPublicBoard,
   )
+  const [warfrontBoard, setWarfrontBoard] = useState<WarfrontPublicBoard>(idleWarfrontPublicBoard)
   const [linkOk, setLinkOk] = useState(true)
   const [family, setFamily] = useState<GameFamily>(() => normalizeFamily(familyHint))
   const rootRef = useRef<HTMLDivElement>(null)
@@ -421,6 +429,23 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     const applyRaw = (raw: string | undefined) => {
       if (!raw || !raw.trim()) return false
       const text = raw.trim()
+      if (isWarfrontBoardPayload(text)) {
+        const next = decodeWarfrontPublicBoard(text)
+        setFamily('warfront')
+        setWarfrontBoard(next)
+        if (next.live) {
+          setBoard(idlePublicBoard())
+          setRummyBoard(idleRummyPublicBoard())
+          setTrickBoard(idleTrickPublicBoard())
+          setIchiBoard(idleIchiPublicBoard())
+          setSkippoBoard(idleSkippoPublicBoard())
+          setPhaseitBoard(idlePhaseItPublicBoard())
+          setYotsyBoard(idleYotsyPublicBoard())
+          setRowshamboBoard(idleRowShamBoPublicBoard())
+          setBattlefleetBoard(idleBattleFleetPublicBoard())
+        }
+        return true
+      }
       if (isBattleFleetBoardPayload(text)) {
         const next = decodeBattleFleetPublicBoard(text)
         setFamily('battlefleet')
@@ -434,6 +459,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setPhaseitBoard(idlePhaseItPublicBoard())
           setYotsyBoard(idleYotsyPublicBoard())
           setRowshamboBoard(idleRowShamBoPublicBoard())
+          setWarfrontBoard(idleWarfrontPublicBoard())
         }
         return true
       }
@@ -449,7 +475,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
           setSkippoBoard(idleSkippoPublicBoard())
           setPhaseitBoard(idlePhaseItPublicBoard())
           setYotsyBoard(idleYotsyPublicBoard())
-          setBattlefleetBoard(idleBattleFleetPublicBoard())
+          setBattlefleetBoard(idleBattleFleetPublicBoard()); setWarfrontBoard(idleWarfrontPublicBoard())
         }
         return true
       }
@@ -606,6 +632,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const isYotsy = family === 'yotsy'
   const isRowshambo = family === 'rowshambo'
   const isBattlefleet = family === 'battlefleet'
+  const isWarfront = family === 'warfront'
   const rummyLive = isRummy && rummyBoard.live
   const trickLive = isTrick && trickBoard.live
   const ichiLive = isIchi && ichiBoard.live
@@ -614,6 +641,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
   const yotsyLive = isYotsy && yotsyBoard.live
   const rowshamboLive = isRowshambo && rowshamboBoard.live
   const battlefleetLive = isBattlefleet && battlefleetBoard.live
+  const warfrontLive = isWarfront && warfrontBoard.live
   const canastaLive =
     !isRummy &&
     !isTrick &&
@@ -623,9 +651,14 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     !isYotsy &&
     !isRowshambo &&
     !isBattlefleet &&
+    !isWarfront &&
     board.live
   const config = spectatorConfig(board)
-  const variant = battlefleetLive
+  const variant = warfrontLive
+    ? warfrontBoard.align === 'teams'
+      ? 'Warfront 2v2'
+      : 'Warfront FFA'
+    : battlefleetLive
     ? battlefleetBoard.mode === 'teams'
       ? 'Teams'
       : 'Free-for-all'
@@ -644,7 +677,9 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
         : isRummy
           ? rummyVariantLabel(rummyBoard.variant)
           : variantLabel(board.variant)
-  const roundLine = battlefleetLive
+  const roundLine = warfrontLive
+    ? warfrontBoard.phase
+    : battlefleetLive
     ? battlefleetBoard.phase
     : rowshamboLive
     ? `G${rowshamboBoard.gameNumber} · R${rowshamboBoard.handNumber} · to ${rowshamboBoard.playTo}`
@@ -694,6 +729,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     !yotsyLive &&
     !rowshamboLive &&
     !battlefleetLive &&
+    !warfrontLive &&
     board.frozen
   const sideways = Boolean(topCard && (isWild(topCard) || frozen))
   const live =
@@ -705,6 +741,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
     yotsyLive ||
     rowshamboLive ||
     battlefleetLive ||
+    warfrontLive ||
     canastaLive
   const trickPalette = trickBoard.variant === 'rooster' ? 'rooster' : 'french'
   const ichiColorCss: Record<string, string> = {
@@ -716,10 +753,10 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
 
   return (
     <div
-      className={`spectator-root ${live ? 'is-live' : ''}${isRowshambo ? ' is-rsb' : ''}${isBattlefleet ? ' is-bf' : ''}`}
+      className={`spectator-root ${live ? 'is-live' : ''}${isRowshambo ? ' is-rsb' : ''}${isBattlefleet ? ' is-bf' : ''}${isWarfront ? ' is-wf' : ''}`}
       ref={rootRef}
     >
-      {!isRowshambo && !isBattlefleet ? (
+      {!isRowshambo && !isBattlefleet && !isWarfront ? (
         <>
           <div className="table-felt" />
           <div className="table-brass" />
@@ -908,6 +945,7 @@ export function SpectatorTable({ slCap, familyHint = '' }: Props) {
       ) : null}
       {!slCap || !linkOk ? <p className="spec-msg">Waiting for the table link…</p> : null}
 
+      {isWarfront ? <WarfrontSpectator board={warfrontBoard} /> : null}
       {isBattlefleet ? <BattleFleetSpectator board={battlefleetBoard} /> : null}
 
       {isRowshambo ? <RowShamBoSpectator board={rowshamboBoard} /> : null}

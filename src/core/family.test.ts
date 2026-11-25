@@ -65,6 +65,15 @@ describe('family lock', () => {
     expect(normalizeFamily('bf')).toBe('battlefleet')
   })
 
+  it('recognizes warfront family', () => {
+    expect(normalizeFamily('warfront')).toBe('warfront')
+    expect(resolveTableFamily('warfront')).toBe('warfront')
+    expect(familyHintPresent('warfront')).toBe(true)
+    expect(normalizeFamily('war-front')).toBe('warfront')
+    expect(normalizeFamily('wf')).toBe('warfront')
+    expect(normalizeFamily('theater')).toBe('warfront')
+  })
+
   it('detects whether a real family hint exists', () => {
     expect(familyHintPresent(undefined, '')).toBe(false)
     expect(familyHintPresent('rummy')).toBe(true)

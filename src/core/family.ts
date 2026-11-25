@@ -10,6 +10,7 @@ export type GameFamily =
   | 'yotsy'
   | 'rowshambo'
   | 'battlefleet'
+  | 'warfront'
 
 /** All hub-selectable families (picker order). */
 export const GAME_FAMILIES: GameFamily[] = [
@@ -22,6 +23,7 @@ export const GAME_FAMILIES: GameFamily[] = [
   'yotsy',
   'rowshambo',
   'battlefleet',
+  'warfront',
 ]
 
 const FAMILY_ALIASES: Record<string, GameFamily> = {
@@ -42,6 +44,13 @@ const FAMILY_ALIASES: Record<string, GameFamily> = {
   'battle-fleet': 'battlefleet',
   battle_fleet: 'battlefleet',
   bf: 'battlefleet',
+  warfront: 'warfront',
+  'war-front': 'warfront',
+  war_front: 'warfront',
+  wf: 'warfront',
+  theater: 'warfront',
+  theatercommand: 'warfront',
+  'theater-command': 'warfront',
 }
 
 function lookupFamily(s: string): GameFamily | null {
@@ -86,6 +95,7 @@ export function familyLabel(family: GameFamily): string {
   if (family === 'yotsy') return 'Yotsy'
   if (family === 'rowshambo') return 'Row! Sham! Bo!'
   if (family === 'battlefleet') return 'Battle Fleet'
+  if (family === 'warfront') return 'Warfront'
   return 'Canasta'
 }
 
@@ -124,9 +134,11 @@ export function familyAdSrc(family: GameFamily): string {
       return `${base}assets/yotsy_ad.jpg`
     case 'rowshambo':
       return `${base}assets/rowshambo_ad.jpg`
-    case 'battlefleet':
+      case 'battlefleet':
       return `${base}assets/battlefleet_ad.png`
-    default:
+      case 'warfront':
+      return `${base}assets/warfront_ad.svg`
+      default:
       return `${base}assets/canasta_ad.jpg`
   }
 }
